@@ -8,7 +8,7 @@ roadmap (HOW/WHEN). Repointed the constitution's phased-delivery references to t
 (PATCH: reference/clarity fix, no principle or guidance semantics changed).
 
 History:
-  - 1.2.1 (2026-07-18): Split docs into spec + ROADMAP.md; repointed references accordingly.
+  - 1.2.1 (2026-07-18): Split docs into PRODUCT-SPEC.md + ROADMAP.md; repointed references accordingly.
   - 1.2.0 (2026-07-18): Roadmap alignment — phased delivery, SQLDelight, per-verse audio model.
   - 1.1.0 (2026-07-18): Added "Branching & Pull Requests" subsection — protected main/develop,
     PR-only flow, gitignored assistant config.
@@ -27,7 +27,7 @@ Templates & artifacts reviewed:
        no change needed.
   ✅ .specify/templates/checklist-template.md — generic; no change needed.
   ⚠ .specify/templates/commands/*.md — directory not present in repo; nothing to reconcile.
-  ✅ docs/PLAN-matn-product-spec-v1.md — Product Vision & Requirements (WHAT); source of the
+  ✅ docs/PRODUCT-SPEC.md — Product Vision & Requirements (WHAT); source of the
        feature requirements the principles enforce.
   ✅ docs/ROADMAP.md — phased delivery plan (HOW/WHEN); source for the Phased, Incremental
        Delivery subsection and phase dependency ordering.
@@ -40,8 +40,8 @@ Deferred TODOs: None.
 Matn is an offline-first Kotlin Multiplatform (Android + iOS) memorization companion for
 Islamic texts (المتون). This constitution defines the non-negotiable engineering principles
 that keep the codebase clean, testable, scalable, and free of duplication. Product requirements
-(the WHAT) live in `docs/PLAN-matn-product-spec-v1.md`; the phased delivery sequence (the
-HOW/WHEN) lives in `docs/ROADMAP.md`, which also schedules the later online/sync capabilities.
+(the WHAT) live in `docs/PRODUCT-SPEC.md`; the phased delivery sequence (the HOW/WHEN) lives in
+`docs/ROADMAP.md`, which also schedules the later online/sync capabilities.
 
 ## Core Principles
 
@@ -184,7 +184,7 @@ break the product's promise even if the app "works."
 ### Phased, Incremental Delivery
 
 Development follows the phased roadmap in `docs/ROADMAP.md` (feature detail for each phase is
-specified in `docs/PLAN-matn-product-spec-v1.md`).
+specified in `docs/PRODUCT-SPEC.md`).
 
 - Each phase is scoped to a single Spec Kit cycle (`/specify` → `/plan` → `/tasks` → `/implement`)
   and MUST produce an independently buildable and testable slice of the app — no phase may leave
