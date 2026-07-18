@@ -43,11 +43,14 @@ testable. Priority order from spec.md: US1 (P1, MVP) → US2 (P2) → US3 (P3) �
 **Purpose**: Add the new dependencies and asset/resource scaffolding used by every story.
 
 - [ ] T001 Add navigation dependency: in `gradle/libs.versions.toml` add version
-  `navigationCompose = "2.8.0-alpha13"` (a Compose-Multiplatform-compatible
-  `org.jetbrains.androidx.navigation` version; pick the one matching CMP 1.11.x) and library
+  `navigationCompose = "2.9.2"` — this is the `org.jetbrains.androidx.navigation` version
+  bundled with Compose Multiplatform 1.11.0 (verified against the CMP 1.11.0 release notes; it
+  also pairs with the repo's existing `androidx-lifecycle = "2.11.0-beta01"`). Add library
   `navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "navigationCompose" }`. Then in `shared/build.gradle.kts` under
   `commonMain.dependencies` add `implementation(libs.navigation.compose)`. Run
-  `./gradlew :shared:compileKotlinMetadata` (or a sync) to confirm it resolves.
+  `./gradlew :shared:compileKotlinMetadata` (or a Gradle sync) to confirm it resolves; if the
+  build ever moves off CMP 1.11.x, re-check the matching navigation version against that CMP
+  release's notes before changing this pin.
 - [ ] T002 [P] Add the bundled Arabic reading font: place `Amiri-Regular.ttf` and
   `Amiri-Bold.ttf` (SIL OFL, from the Amiri project) into
   `shared/src/commonMain/composeResources/font/`. Include the OFL license text alongside as
@@ -58,7 +61,9 @@ testable. Priority order from spec.md: US1 (P1, MVP) → US2 (P2) → US3 (P3) �
   matching **English** values. Include at least these keys: `app_title`, `library_empty`,
   `toc_header`, `back`, `verses_count` (e.g. "%d verses"/"%d بيت"), `font_size`, `font_small`,
   `font_medium`, `font_large`, `font_xlarge`, `cover_placeholder_desc`. Both files must contain
-  the same key set.
+  the same key set. **Plurals (finding A1)**: use a single simple form for `verses_count`
+  (e.g. "%d بيت" / "%d verses") in Phase 1 — Arabic dual/plural grammatical forms are
+  intentionally out of scope here and can be revisited in a later localization pass.
 
 **Checkpoint**: Project builds with navigation available, the Amiri font, and both string files.
 
@@ -87,12 +92,18 @@ stories depend on.
   a `protected fun setState(reduce: (S) -> S)`, and using `viewModelScope` for collection.
   No Compose/Context/platform types (Principle II).
 - [ ] T008 Create the theme in `presentation/theme/`: `Type.kt` builds the Amiri
-  `FontFamily` from the Compose font resources (`Font(Res.font.Amiri_Regular)` etc.) and a
-  `verseFontFamily`; `FontScale.kt` maps `ReadingFontSize` → verse `TextUnit`
-  (SMALL=18.sp, MEDIUM=22.sp, LARGE=26.sp, XLARGE=30.sp — tune for legibility, SC-007);
-  `MatnTheme.kt` wraps `MaterialTheme` (Material 3, light) and forces RTL via
+  `FontFamily` from the Compose font resources and a `verseFontFamily`; `FontScale.kt` maps
+  `ReadingFontSize` → verse `TextUnit` (SMALL=18.sp, MEDIUM=22.sp, LARGE=26.sp, XLARGE=30.sp —
+  these are the concrete defaults; keep them and confirm no clipping/overlap at SMALL and
+  XLARGE during T037/T043, SC-007); `MatnTheme.kt` wraps `MaterialTheme` (Material 3, light) and
+  forces RTL via
   `CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) { content() }`
   (FR-010).
+  - **Font resource id check (resolves finding A2)**: Compose codegen turns the T002 filenames
+    into `Res.font.*` identifiers by replacing non-alphanumerics with `_`. After adding the
+    fonts, build once and use the exact generated names (e.g. `Res.font.Amiri_Regular`,
+    `Res.font.Amiri_Bold`); if codegen produces different identifiers, match the generated names
+    rather than assuming these.
 - [ ] T009 [P] Create `presentation/common/DurationFormatter.kt`: pure function
   `fun formatDuration(ms: Long): String` → `m:ss` (and `h:mm:ss` when ≥ 1h). No platform APIs.
 - [ ] T010 [P] Create `presentation/common/CoverImage.kt`: a composable
@@ -139,11 +150,22 @@ all diacritics, RTL, no network. (For manual reachability before US2 exists, tem
   `showTableOfContents: Boolean = false`).
 - [ ] T016 [US1] Create `presentation/details/MatnDetailsViewModel.kt` extending
   `BaseViewModel<MatnDetailsUiState>`. Constructor takes `matnId`, `GetMatnDetailsUseCase`,
-  `ObserveVersesUseCase`. On init: call details use case → set `header` (derive
-  `verseCount = verses.size` and `totalDurationMs = verses.sumOf { it.durationMs }` from the
-  observed verse list) + `showTableOfContents`; collect verses into `verses` mapped to
-  `VerseRow` (pass `arabicText` verbatim). Map `AppError.NotFound`/`Storage` into `state.error`.
-  Leave `fontSize` at `MEDIUM` (US4 wires the real preference).
+  `ObserveVersesUseCase`. On init: call details use case → set `header` and
+  `showTableOfContents`; collect verses into `verses` mapped to `VerseRow` (pass `arabicText`
+  verbatim). Map `AppError.NotFound`/`Storage` into `state.error`. Leave `fontSize` at `MEDIUM`
+  (US4 wires the real preference).
+  - **Deliberate derivation split (resolves analysis finding I1)**: on the details screen the
+    full verse list is already streamed here, so derive the header totals **in this ViewModel**
+    from that list — `verseCount = verses.size`, `totalDurationMs = verses.sumOf { it.durationMs }`
+    — rather than issuing the SQL aggregate used for the library grid (T020/T021). This is the
+    sanctioned choice from research.md Decision 6 (avoid a second query for data already in
+    memory); it is *not* accidental drift from data-model §3.1. The library grid, which must not
+    load every verse, keeps using the SQL aggregate. Both paths sum the same
+    `Verse.durationMs`/count, so they agree.
+  - **Sequencing note (resolves finding S1)**: `showTableOfContents` is set from
+    `MatnDetails` here, but the TOC composable and the `chapters` list are populated in **US3**
+    (T028–T030). If US1 ships alone as the MVP, a structured matn simply renders no TOC panel
+    (nothing is shown until US3) — this is harmless and intended, not a bug.
 - [ ] T017 [US1] Create `presentation/details/MatnDetailsScreen.kt`: a `Column` with the header
   (via `CoverImage` + title/author/description + `verseCount`/`formatDuration(totalDurationMs)`)
   then a `LazyColumn` of verses **keyed by `verse.id`** (FR-011). Each row shows the display
@@ -319,7 +341,11 @@ legible, no clipping; reopen the app/matn → chosen size retained.
   app builds for Android and iOS.
 - [ ] T043 Run the full [quickstart.md](./quickstart.md) validation: Section A (`commonTest`
   matrix green) and Section B (manual RTL / Amiri / TOC / font-size / offline / locale
-  walkthrough on Android and iOS).
+  walkthrough on Android and iOS). **Zero-network is a deliberate manual gate (finding C1)**:
+  FR-018/SC-006 are asserted here by the airplane-mode walkthrough (Section B step 5), not by an
+  automated test — network access can't be meaningfully asserted headlessly, and by design the
+  app declares no networking APIs and bundles no image/network loader (see T010), so there is no
+  network surface to exercise. Treat this manual step as the binding check.
 
 ---
 

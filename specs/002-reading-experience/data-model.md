@@ -87,7 +87,12 @@ data class MatnSummary(
 - Backs each Home library card (cover/title/author/verseCount/duration, FR-002).
 - Produced by the data layer via aggregate queries (`SELECT COUNT(*)`, `SELECT SUM(duration_ms)`
   grouped by `matn_id`) joined onto `observeLibrary()`.
-- The details header reuses the same two derived totals (FR-005).
+- **The details header shows the same two totals but derives them differently by design** (see
+  research.md Decision 6): the library grid uses the SQL aggregate above because it must *not*
+  load every verse of every matn; the details screen already streams the full verse list, so its
+  ViewModel derives `verseCount`/`totalDurationMs` from that in-memory list rather than issuing a
+  second query. Both paths reduce over the same `verse.duration_ms`/row count, so the values are
+  identical — this is a deliberate performance split, not two competing sources of truth (FR-005).
 
 New `Content.sq` queries (additive): `countVersesByMatn`, `sumVerseDurationByMatn` (or a single
 grouped `selectLibrarySummaries`). Exposed through an extended `MatnRepository`

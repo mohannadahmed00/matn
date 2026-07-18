@@ -31,8 +31,10 @@ CMP Navigation. ViewModel/use-case/preference logic is proven device-free in `co
 **Primary Dependencies**: Compose Multiplatform 1.11.x (UI, Material 3, resources — already
 present), AndroidX Lifecycle ViewModel/runtime for Compose (already present), Koin 4.x (DI),
 kotlinx-coroutines/Flow (state), SQLDelight 2.x (reused for the font-size setting).
-**New**: `org.jetbrains.androidx.navigation:navigation-compose` (multi-screen navigation) and a
-bundled **Amiri** OFL font asset — each justified in [research.md](./research.md).
+**New**: `org.jetbrains.androidx.navigation:navigation-compose` **2.9.2** (the version bundled
+with Compose Multiplatform 1.11.0, verified against its release notes; pairs with the existing
+lifecycle `2.11.0-beta01`) for multi-screen navigation, and a bundled **Amiri** OFL font asset —
+each justified in [research.md](./research.md).
 
 **Storage**: Reuses the Phase 0 SQLDelight `ContentDatabase` for all content reads. Adds one
 additive `app_setting(key, value)` key/value table for the global font-size preference and

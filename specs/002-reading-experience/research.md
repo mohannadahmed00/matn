@@ -97,9 +97,10 @@ remain after this document.
 ## Decision 5 — Navigation: adopt Compose Multiplatform Navigation (`androidx.navigation`)
 
 - **Decision**: Use the official **Jetbrains Compose Multiplatform Navigation** library
-  (`org.jetbrains.androidx.navigation:navigation-compose`) with a `NavHost` and two routes:
-  `home` and `matn/{matnId}`. A single root composable hosts the graph; `matnId` is passed as a
-  route argument. Koin provides ViewModels per destination.
+  (`org.jetbrains.androidx.navigation:navigation-compose`, version **2.9.2** — the build bundled
+  with Compose Multiplatform 1.11.0, confirmed against the CMP 1.11.0 release notes) with a
+  `NavHost` and two routes: `home` and `matn/{matnId}`. A single root composable hosts the graph;
+  `matnId` is passed as a route argument. Koin provides ViewModels per destination.
 - **Rationale**: Phase 1 has two screens but the roadmap grows to ~8 phases and many screens
   (details, player, search, bookmarks, settings, progress); a real back stack, type-safe args,
   and saved-state survival are worth a justified dependency now rather than hand-rolling and
@@ -182,9 +183,9 @@ All Technical Context items are resolved; no open clarifications block Phase 1 d
 
 ## New dependencies (justified per constitution)
 
-- `org.jetbrains.androidx.navigation:navigation-compose` — first-party CMP navigation for a
-  growing multi-screen app (Decision 5). Simpler alternative (state-based nav) documented and
-  rejected for lack of back stack / args / saved state.
+- `org.jetbrains.androidx.navigation:navigation-compose` **2.9.2** (matches CMP 1.11.0) —
+  first-party CMP navigation for a growing multi-screen app (Decision 5). Simpler alternative
+  (state-based nav) documented and rejected for lack of back stack / args / saved state.
 - **Amiri font asset** (OFL) — bundled reading typeface (Decision 4); an asset, not a code
   dependency.
 
