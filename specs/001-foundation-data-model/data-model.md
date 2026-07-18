@@ -71,8 +71,19 @@ Verse 1 ──< AudioAsset    (1 per reciter; exactly 1 for the single default r
 | `id` | `String` (UUID) | Content-authored, stable identity. |
 | `verseId` | `String` (UUID) | The verse this asset belongs to (FK). |
 | `reciterId` | `String` (UUID) | Reciter; a single default reciter in v1 (FR-015). |
-| `fileRef` | `String` | Per-verse micro-file reference, e.g. `matn_01_verse_005.mp3` (FR-013). |
+| `fileRef` | `String` | **Matn-relative** audio path, resolved against the matn's own audio directory (FR-013). See v1 convention below. |
 | `durationMs` | `Long` | Asset duration in milliseconds. |
+
+> **v1 audio packaging & addressing.** In v1 audio is **bundled per matn**: each matn owns an
+> audio directory, and every verse maps to one micro-file named by that verse's **index within
+> its matn** — the matn-global `displayNumber`, zero-padded (`01.mp3`, `02.mp3`, … `NN.mp3`).
+> `fileRef` therefore stores only the matn-relative reference (e.g. `01.mp3`); it is **never** an
+> absolute path. The full resolvable location is composed at read time (playback in Phase 2,
+> selective download in Phase 7) as `<audioRoot>/<matn audio dir>/<fileRef>`, where the matn
+> audio dir is derived from matn identity. Storing a relative ref (not an absolute path) keeps
+> the v2 move from bundled files to streaming/sync a data-layer change only (Constitution I,
+> FR-016). Because files live in per-matn folders, `fileRef` uniqueness (V5) is scoped **within
+> the matn**, matching how the teacher's recordings are produced.
 
 ---
 

@@ -54,8 +54,24 @@ shape and the integrity rules the loader enforces atomically.
 | `verses[].displayNumber` | Yes | Matn-global, unique within matn (V2). Defines reading order (FR-003). |
 | `verses[].arabicText` | Yes | Stored byte-for-byte, no normalization (FR-007). |
 | `verses[].chapterId` | Structured only | Must reference a chapter in this same matn (V6). |
-| `verses[].audio` | Yes | Exactly one asset; `fileRef` unique across the matn (V4/V5). |
+| `verses[].audio` | Yes | Exactly one asset; `fileRef` matn-relative and unique **within the matn** (V4/V5). |
+| `verses[].audio.fileRef` | Yes | Matn-relative file name following the v1 convention (below); not an absolute path. |
 | `defaultReciterId` | Yes | The v1 reciter id applied to each verse's audio asset. |
+
+## v1 audio packaging & naming convention
+
+Audio is **bundled per matn** in v1. Each matn owns an audio directory; every verse maps to one
+micro-file named by that verse's **index within its matn** — the matn-global `displayNumber`,
+zero-padded to a fixed width — e.g. `01.mp3`, `02.mp3`, … `NN.mp3`.
+
+- `audio.fileRef` carries only the **matn-relative** reference (e.g. `"01.mp3"`), never an
+  absolute or device path. The full location is composed downstream (playback Phase 2, download
+  Phase 7) as `<audioRoot>/<matn audio dir>/<fileRef>`.
+- `fileRef` uniqueness (V5) is scoped **within the matn** (per-matn folders), not globally.
+- The numeric stem of `fileRef` is expected to equal the verse's `displayNumber`. This
+  index↔file coupling is the v1 authoring contract; enforcing it as a hard integrity rule is
+  deferred to the Phase 7 asset-packaging spec so early seed content can use descriptive names
+  during development without failing the loader.
 
 ## Integrity rules (atomic-reject — FR-019 / SC-008)
 
