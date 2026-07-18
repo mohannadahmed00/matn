@@ -46,3 +46,7 @@ hs_err_pid*
 *.hprof
 .env
 .env.*
+
+# AI assistant / tool config — kept local, not tracked
+.claude/
+.opencode/
