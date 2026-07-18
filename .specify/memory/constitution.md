@@ -1,15 +1,14 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.1.0 → 1.2.0
-Rationale: Aligned the constitution with the rewritten roadmap in
-docs/PLAN-matn-product-spec-v1.md — added a "Phased, Incremental Delivery" workflow
-subsection (per-phase spec-kit cycles, independently buildable/testable slices, phase
-dependency ordering), named SQLDelight as the persistence engine, and locked the
-per-verse micro-audio-file asset model in Technology & Architecture Constraints
-(MINOR: new guidance and specifiers, no principle removed or redefined).
+Version change: 1.2.0 → 1.2.1
+Rationale: Documentation now separates the product spec (WHAT) from a dedicated phased
+roadmap (HOW/WHEN). Repointed the constitution's phased-delivery references to the new
+`docs/ROADMAP.md` and clarified the intro's WHAT-vs-HOW split
+(PATCH: reference/clarity fix, no principle or guidance semantics changed).
 
 History:
+  - 1.2.1 (2026-07-18): Split docs into PRODUCT-SPEC.md + ROADMAP.md; repointed references accordingly.
   - 1.2.0 (2026-07-18): Roadmap alignment — phased delivery, SQLDelight, per-verse audio model.
   - 1.1.0 (2026-07-18): Added "Branching & Pull Requests" subsection — protected main/develop,
     PR-only flow, gitignored assistant config.
@@ -17,9 +16,7 @@ History:
     Technology & Architecture Constraints, Development Workflow & Quality Gates, Governance.
 
 Modified principles: None
-Added sections:
-  - Development Workflow & Quality Gates → "Phased, Incremental Delivery" (new subsection)
-  - Technology & Architecture Constraints → SQLDelight persistence + locked per-verse audio model
+Added sections: None (1.2.1 is a reference/clarity fix)
 Removed sections: None
 
 Templates & artifacts reviewed:
@@ -30,8 +27,10 @@ Templates & artifacts reviewed:
        no change needed.
   ✅ .specify/templates/checklist-template.md — generic; no change needed.
   ⚠ .specify/templates/commands/*.md — directory not present in repo; nothing to reconcile.
-  ✅ docs/PLAN-matn-product-spec-v1.md — rewritten as phased roadmap; principles now align
-       with the phase model and dependency ordering.
+  ✅ docs/PRODUCT-SPEC.md — Product Vision & Requirements (WHAT); source of the
+       feature requirements the principles enforce.
+  ✅ docs/ROADMAP.md — phased delivery plan (HOW/WHEN); source for the Phased, Incremental
+       Delivery subsection and phase dependency ordering.
 
 Deferred TODOs: None.
 -->
@@ -40,9 +39,9 @@ Deferred TODOs: None.
 
 Matn is an offline-first Kotlin Multiplatform (Android + iOS) memorization companion for
 Islamic texts (المتون). This constitution defines the non-negotiable engineering principles
-that keep the codebase clean, testable, scalable, and free of duplication as it is delivered
-through the phased roadmap in `docs/PLAN-matn-product-spec-v1.md` and grows toward the
-online/sync capabilities scheduled there.
+that keep the codebase clean, testable, scalable, and free of duplication. Product requirements
+(the WHAT) live in `docs/PRODUCT-SPEC.md`; the phased delivery sequence (the HOW/WHEN) lives in
+`docs/ROADMAP.md`, which also schedules the later online/sync capabilities.
 
 ## Core Principles
 
@@ -184,7 +183,8 @@ break the product's promise even if the app "works."
 
 ### Phased, Incremental Delivery
 
-Development follows the phased roadmap in `docs/PLAN-matn-product-spec-v1.md`.
+Development follows the phased roadmap in `docs/ROADMAP.md` (feature detail for each phase is
+specified in `docs/PRODUCT-SPEC.md`).
 
 - Each phase is scoped to a single Spec Kit cycle (`/specify` → `/plan` → `/tasks` → `/implement`)
   and MUST produce an independently buildable and testable slice of the app — no phase may leave
@@ -222,4 +222,4 @@ Development follows the phased roadmap in `docs/PLAN-matn-product-spec-v1.md`.
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
+**Version**: 1.2.1 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
