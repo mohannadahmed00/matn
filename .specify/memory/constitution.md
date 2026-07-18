@@ -1,15 +1,18 @@
 <!--
 Sync Impact Report
 ==================
-Version change: (template/unversioned) → 1.0.0
-Rationale: Initial ratification of the Matn constitution (MAJOR: first adoption).
+Version change: 1.0.0 → 1.1.0
+Rationale: Added a "Branching & Pull Requests" subsection to Development Workflow &
+Quality Gates — protected main/develop, PR-only flow, gitignored assistant config
+(MINOR: new guidance, no principle removed or redefined).
 
-Modified principles: N/A (initial adoption)
+History:
+  - 1.0.0 (2026-07-18): Initial ratification (MAJOR: first adoption) — 7 principles,
+    Technology & Architecture Constraints, Development Workflow & Quality Gates, Governance.
+
+Modified principles: None
 Added sections:
-  - Core Principles (7 principles)
-  - Technology & Architecture Constraints
-  - Development Workflow & Quality Gates
-  - Governance
+  - Development Workflow & Quality Gates → "Branching & Pull Requests" (new subsection)
 Removed sections: None
 
 Templates & artifacts reviewed:
@@ -167,6 +170,18 @@ break the product's promise even if the app "works."
   should be a base abstraction.
 - **CI expectation**: `commonTest` (and platform host tests where relevant) MUST pass before merge.
 
+### Branching & Pull Requests
+
+- `main` and `develop` are protected: they MUST NOT receive direct pushes. All changes reach them
+  only through pull requests.
+  - `main` holds released/stable state; `develop` is the integration branch.
+- All work happens on short-lived branches created from `develop`, named by intent
+  (`feature/…`, `fix/…`, `chore/…`, `docs/…`). Feature PRs target `develop`; `develop → main`
+  PRs cut a release.
+- Every PR MUST pass CI (Principle V) and a review verifying constitution compliance before merge.
+- Local-only tooling and editor/assistant config (e.g., `.claude/`, `.opencode/`) MUST stay
+  gitignored and out of the repository.
+
 ## Governance
 
 - This constitution supersedes ad-hoc conventions; where a practice conflicts with it, the
@@ -181,4 +196,4 @@ break the product's promise even if the app "works."
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
+**Version**: 1.1.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
