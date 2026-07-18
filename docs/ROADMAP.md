@@ -9,7 +9,7 @@ Development is broken into sequential **phases**, each scoped to a single [spec-
 The audio architecture is locked in as **one micro-audio file per verse**, matching how the teacher's recordings are produced, with gapless playback handled via ExoPlayer (Android) and AVQueuePlayer (iOS). Progress tracking is based on actual recall signals (explicit "mark as memorized" and/or spaced practice), not raw listen count.
 
 > Detailed feature requirements for everything sequenced below live in
-> [`PLAN-matn-product-spec-v1.md`](PLAN-matn-product-spec-v1.md) (the **WHAT**);
+> [`PRODUCT-SPEC.md`](PRODUCT-SPEC.md) (the **WHAT**);
 > this roadmap defines the **HOW / WHEN** of delivery.
 
 ---
