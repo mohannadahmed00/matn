@@ -1,0 +1,48 @@
+# Kotlin / Gradle
+*.iml
+.kotlin
+.gradle
+**/build/
+!src/**/build/
+local.properties
+.idea
+captures
+.externalNativeBuild
+.cxx
+.navigation
+
+# Android signing / secrets — IMPORTANT for public repos
+*.jks
+*.keystore
+key.properties
+google-services.json
+*.p12
+
+# iOS / Xcode
+xcuserdata
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/WorkspaceSettings.xcsettings
+Pods/
+DerivedData/
+*.hmap
+*.ipa
+GoogleService-Info.plist
+*.mobileprovision
+
+# Kotlin/JS & Wasm
+.kotlin-js-store/
+kotlin-js-store/
+
+# Misc
+.DS_Store
+node_modules/
+*.log
+.vscode/
+hs_err_pid*
+*.hprof
+.env
+.env.*
