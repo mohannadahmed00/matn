@@ -1,18 +1,22 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.1.0
-Rationale: Added a "Branching & Pull Requests" subsection to Development Workflow &
-Quality Gates — protected main/develop, PR-only flow, gitignored assistant config
-(MINOR: new guidance, no principle removed or redefined).
+Version change: 1.2.0 → 1.2.1
+Rationale: Documentation now separates the product spec (WHAT) from a dedicated phased
+roadmap (HOW/WHEN). Repointed the constitution's phased-delivery references to the new
+`docs/ROADMAP.md` and clarified the intro's WHAT-vs-HOW split
+(PATCH: reference/clarity fix, no principle or guidance semantics changed).
 
 History:
+  - 1.2.1 (2026-07-18): Split docs into PRODUCT-SPEC.md + ROADMAP.md; repointed references accordingly.
+  - 1.2.0 (2026-07-18): Roadmap alignment — phased delivery, SQLDelight, per-verse audio model.
+  - 1.1.0 (2026-07-18): Added "Branching & Pull Requests" subsection — protected main/develop,
+    PR-only flow, gitignored assistant config.
   - 1.0.0 (2026-07-18): Initial ratification (MAJOR: first adoption) — 7 principles,
     Technology & Architecture Constraints, Development Workflow & Quality Gates, Governance.
 
 Modified principles: None
-Added sections:
-  - Development Workflow & Quality Gates → "Branching & Pull Requests" (new subsection)
+Added sections: None (1.2.1 is a reference/clarity fix)
 Removed sections: None
 
 Templates & artifacts reviewed:
@@ -23,7 +27,10 @@ Templates & artifacts reviewed:
        no change needed.
   ✅ .specify/templates/checklist-template.md — generic; no change needed.
   ⚠ .specify/templates/commands/*.md — directory not present in repo; nothing to reconcile.
-  ✅ docs/PLAN-matn-product-spec-v1.md — source of product requirements; principles align.
+  ✅ docs/PRODUCT-SPEC.md — Product Vision & Requirements (WHAT); source of the
+       feature requirements the principles enforce.
+  ✅ docs/ROADMAP.md — phased delivery plan (HOW/WHEN); source for the Phased, Incremental
+       Delivery subsection and phase dependency ordering.
 
 Deferred TODOs: None.
 -->
@@ -32,8 +39,9 @@ Deferred TODOs: None.
 
 Matn is an offline-first Kotlin Multiplatform (Android + iOS) memorization companion for
 Islamic texts (المتون). This constitution defines the non-negotiable engineering principles
-that keep the codebase clean, testable, scalable, and free of duplication as it grows toward
-the v2 online/sync roadmap described in `docs/PLAN-matn-product-spec-v1.md`.
+that keep the codebase clean, testable, scalable, and free of duplication. Product requirements
+(the WHAT) live in `docs/PRODUCT-SPEC.md`; the phased delivery sequence (the HOW/WHEN) lives in
+`docs/ROADMAP.md`, which also schedules the later online/sync capabilities.
 
 ## Core Principles
 
@@ -152,7 +160,10 @@ break the product's promise even if the app "works."
   presentation logic), `androidApp`, and `iosApp`. Base package `com.giraffe.matn`.
 - **Language/UI**: Kotlin with coroutines/Flow for async and state; Compose Material 3 for UI.
 - **Persistence & audio** are accessed only through domain-defined interfaces; concrete engines
-  (local DB, ExoPlayer/AVQueuePlayer) live in the data/platform layers.
+  (SQLDelight local database, ExoPlayer/AVQueuePlayer) live in the data/platform layers.
+- **Audio asset model** is locked: exactly one micro-audio file per verse (matching how the
+  teacher's recordings are produced). Data models and playback MUST assume this per-verse file
+  boundary; a shared/continuous-file model is out of scope.
 - **Dependency injection** MUST be used to wire layers; no manual singletons or service locators
   reached across layer boundaries.
 - Adding a new third-party dependency requires justification against a simpler alternative in the
@@ -169,6 +180,21 @@ break the product's promise even if the app "works."
   `commonMain`, presence of tests for changed domain/data logic, and no duplicated logic that
   should be a base abstraction.
 - **CI expectation**: `commonTest` (and platform host tests where relevant) MUST pass before merge.
+
+### Phased, Incremental Delivery
+
+Development follows the phased roadmap in `docs/ROADMAP.md` (feature detail for each phase is
+specified in `docs/PRODUCT-SPEC.md`).
+
+- Each phase is scoped to a single Spec Kit cycle (`/specify` → `/plan` → `/tasks` → `/implement`)
+  and MUST produce an independently buildable and testable slice of the app — no phase may leave
+  the app in a non-building or untestable state.
+- Phase prerequisites MUST be respected: Phases 0 → 1 → 2 are strictly ordered hard prerequisites;
+  Phase 4 (Continue Learning / state persistence) requires Phases 1–3; Phases 3, 5, 6, 7, 8 may be
+  reordered relative to each other provided their own prerequisites hold.
+- Foundational invariants MUST be established in their owning phase and upheld thereafter:
+  UUID-based domain entities and the per-verse audio asset model in Phase 0; recall-based progress
+  (not raw listen count) in Phase 6.
 
 ### Branching & Pull Requests
 
@@ -196,4 +222,4 @@ break the product's promise even if the app "works."
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
+**Version**: 1.2.1 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
