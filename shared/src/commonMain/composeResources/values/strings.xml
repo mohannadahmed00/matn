@@ -14,4 +14,12 @@
     <string name="error_matn_not_found">تعذّر فتح هذا المتن</string>
     <string name="error_storage">حدث خطأ أثناء قراءة المحتوى</string>
     <string name="loading">جارٍ التحميل…</string>
+    <string name="player_play">تشغيل</string>
+    <string name="player_pause">إيقاف مؤقت</string>
+    <string name="player_previous">البيت السابق</string>
+    <string name="player_next">البيت التالي</string>
+    <string name="player_stop">إيقاف</string>
+    <string name="player_speed">سرعة التشغيل</string>
+    <string name="player_now_playing">البيت</string>
+    <string name="verse_play">تشغيل هذا البيت</string>
 </resources>

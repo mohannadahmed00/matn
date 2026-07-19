@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.presentation.common.CoverImage
+import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.formatDuration
 import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.toSp
@@ -57,6 +58,8 @@ import matn.shared.generated.resources.font_large
 import matn.shared.generated.resources.font_medium
 import matn.shared.generated.resources.font_small
 import matn.shared.generated.resources.font_xlarge
+import matn.shared.generated.resources.player_play
+import matn.shared.generated.resources.verse_play
 import matn.shared.generated.resources.verses_count
 import org.jetbrains.compose.resources.stringResource
 
@@ -220,10 +223,10 @@ private fun Frontispiece(
             FontSizeChooser(fontSize = fontSize, onFontSizeChanged = onFontSizeChanged)
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onGlobalPlayClicked) {
-                Text(
-                    text = "▶",
-                    style = MaterialTheme.typography.titleLarge,
+                PlayGlyph(
                     color = MaterialTheme.colorScheme.primary,
+                    size = 22.dp,
+                    contentDescription = stringResource(Res.string.player_play),
                 )
             }
         }
@@ -393,10 +396,10 @@ private fun VerseRowItem(
             )
         }
         IconButton(onClick = onPlayClicked) {
-            Text(
-                text = "▶",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+            PlayGlyph(
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                size = 18.dp,
+                contentDescription = stringResource(Res.string.verse_play),
             )
         }
     }
