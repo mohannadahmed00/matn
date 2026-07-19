@@ -1,16 +1,24 @@
 package com.giraffe.matn.presentation.details
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,11 +72,12 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel) {
 }
 
 /**
- * Stateless reading surface. Renders the header (cover + title/author/description + totals)
- * followed by the verse list in matn-global `displayNumber` order (FR-006), keyed by stable
- * verse id (FR-011/SC-003). Verse text uses the bundled Amiri `FontFamily`, sized from the
- * persisted font-size preference (FR-016), aligned start (RTL via [MatnTheme]), wrapping fully —
- * diacritics intact and never clipped/normalized (FR-008/SC-002). For a STRUCTURED matn the
+ * Stateless reading surface. A manuscript **frontispiece** header (cover, title, author, a gold
+ * rule, description, totals) is followed by the verse list in matn-global `displayNumber` order
+ * (FR-006), keyed by stable verse id (FR-011/SC-003). Each verse opens with the signature gold
+ * **rosette** carrying its number (echoing the آية rosette of Arabic manuscripts); the text is
+ * set in Amiri, sized from the persisted preference (FR-016), aligned start (RTL via [MatnTheme]),
+ * wrapping fully — diacritics intact and never clipped (FR-008/SC-002). For a STRUCTURED matn the
  * table of contents (US3) is the first list item; selecting a chapter scrolls to its first verse
  * (FR-014/SC-004). No network (FR-018/SC-006).
  */
@@ -81,9 +90,12 @@ fun MatnDetailsContent(
         when {
             state.isLoading -> CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.primary,
             )
             state.error != null -> Text(
                 text = errorMessage(state.error),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(24.dp),
@@ -111,15 +123,10 @@ private fun VerseList(state: MatnDetailsUiState, onFontSizeChanged: (ReadingFont
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = 16.dp,
-            bottom = 24.dp,
-        ),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
     ) {
         if (header != null) {
-            item(key = "header") { Header(header, state.fontSize, onFontSizeChanged) }
+            item(key = "header") { Frontispiece(header, state.fontSize, onFontSizeChanged) }
         }
         if (tocIndex >= 0) {
             item(key = "toc") {
@@ -138,13 +145,14 @@ private fun VerseList(state: MatnDetailsUiState, onFontSizeChanged: (ReadingFont
         }
         items(items = verses, key = { v -> v.id }) { row ->
             VerseRowItem(row = row, fontSize = fontSize, verseFont = verseFont)
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
 
+/** Manuscript-style title page: cover, title, author, a gold rule, description, and totals. */
 @Composable
-private fun Header(
+private fun Frontispiece(
     header: MatnHeader,
     fontSize: ReadingFontSize,
     onFontSizeChanged: (ReadingFontSize) -> Unit,
@@ -152,49 +160,69 @@ private fun Header(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp),
-        horizontalAlignment = Alignment.Start,
+            .padding(top = 8.dp, bottom = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            FontSizeChooser(fontSize = fontSize, onFontSizeChanged = onFontSizeChanged)
+            Spacer(modifier = Modifier.weight(1f))
+        }
         CoverImage(
             coverImageRef = header.coverImageRef,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
+                .width(120.dp)
+                .aspectRatio(0.75f),
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = header.title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-            FontSizeChooser(fontSize = fontSize, onFontSizeChanged = onFontSizeChanged)
-        }
+        Text(
+            text = header.title,
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 16.dp),
+        )
         Text(
             text = header.author,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
         )
+        GoldRule(modifier = Modifier.padding(vertical = 16.dp))
         if (header.description.isNotBlank()) {
             Text(
                 text = header.description,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 12.dp),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
             )
         }
         val totals = stringResource(Res.string.verses_count, header.verseCount) +
-            " · " + formatDuration(header.totalDurationMs)
+            "  ·  " + formatDuration(header.totalDurationMs)
         Text(
             text = totals,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp),
         )
+    }
+}
+
+/** A hairline rule broken by a small central gold rosette — a quiet manuscript ornament. */
+@Composable
+private fun GoldRule(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 10.dp)
+                .size(6.dp)
+                .background(MaterialTheme.colorScheme.secondary, CircleShape),
+        )
+        Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
     }
 }
 
@@ -207,8 +235,10 @@ private fun FontSizeChooser(
     Box {
         IconButton(onClick = { expanded = true }) {
             Text(
-                text = "A",
+                text = "أ",
+                fontFamily = verseFontFamily(),
                 style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -251,38 +281,55 @@ private fun VerseRowItem(
     fontSize: TextUnit,
     verseFont: FontFamily,
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.Start,
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        VerseRosette(number = row.displayNumber)
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = row.arabicText,
+                fontFamily = verseFont,
+                fontSize = fontSize,
+                lineHeight = (fontSize.value * 1.7f).sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = formatDuration(row.durationMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+    }
+}
+
+/** The signature: the verse number inside a gold-ringed rosette — the آية marker of the متن. */
+@Composable
+private fun VerseRosette(number: Int) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .border(1.5.dp, MaterialTheme.colorScheme.secondary, CircleShape),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "${row.displayNumber}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = row.arabicText,
-            fontFamily = verseFont,
-            fontSize = fontSize,
-            textAlign = TextAlign.Start,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 6.dp),
-        )
-        Text(
-            text = formatDuration(row.durationMs),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp),
+            text = number.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }
 
 // ---------------------------------------------------------------------------------------------
-// Previews — every view/component in this file has one (light Material 3, RTL via MatnTheme).
-// The verse previews use FontFamily.Default so they render without loading the Amiri resource.
+// Previews — every view/component in this file has one (manuscript light theme, RTL via MatnTheme).
+// Verse previews use FontFamily.Default so they render without loading the Amiri resource.
 // ---------------------------------------------------------------------------------------------
 
 private val previewHeader = MatnHeader(
@@ -354,8 +401,16 @@ private fun VerseRowItemPreview() {
 
 @Preview
 @Composable
-private fun HeaderPreview() {
+private fun VerseRosettePreview() {
     MatnTheme {
-        Header(header = previewHeader, fontSize = ReadingFontSize.MEDIUM, onFontSizeChanged = {})
+        Box(modifier = Modifier.padding(16.dp)) { VerseRosette(number = 7) }
+    }
+}
+
+@Preview
+@Composable
+private fun FrontispiecePreview() {
+    MatnTheme {
+        Frontispiece(header = previewHeader, fontSize = ReadingFontSize.MEDIUM, onFontSizeChanged = {})
     }
 }

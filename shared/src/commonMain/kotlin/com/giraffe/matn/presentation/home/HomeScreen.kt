@@ -101,10 +101,11 @@ private fun MatnCard(summary: MatnSummary, onClick: () -> Unit) {
         )
         Text(
             text = summary.matn.title,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = 10.dp),
         )
         Text(
             text = summary.matn.author,
@@ -112,7 +113,7 @@ private fun MatnCard(summary: MatnSummary, onClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 2.dp),
+            modifier = Modifier.padding(top = 3.dp),
         )
         val totals = stringResource(Res.string.verses_count, summary.verseCount) +
             " · " + formatDuration(summary.totalDurationMs)
