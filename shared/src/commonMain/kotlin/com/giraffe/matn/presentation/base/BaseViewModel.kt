@@ -4,12 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.core.Resource
-import kotlinx.coroutines.CoroutineScope
+import com.giraffe.matn.core.usecase.UseCase
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Shared base for every screen's ViewModel (Constitution Principle II + Principle III).
@@ -49,7 +49,7 @@ abstract class BaseViewModel<S>(initial: S) : ViewModel() {
      * is the subclass's responsibility (typically toggled before the call).
      * */
     protected fun <P, R> runUseCase(
-        useCase: com.giraffe.matn.core.usecase.UseCase<P, R>,
+        useCase: UseCase<P, R>,
         params: P,
         onSuccess: (R) -> Unit,
         onError: (AppError) -> Unit,

@@ -1,8 +1,6 @@
 package com.giraffe.matn.presentation.details
 
 import androidx.lifecycle.viewModelScope
-import com.giraffe.matn.core.AppError
-import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.Chapter
@@ -58,8 +56,8 @@ class MatnDetailsViewModel(
         runUseCase(
             useCase = setFontSize,
             params = size,
-            onSuccess = {/* the observed flow re-emits and updates state */},
-            onError = {/* font-size persistence is best-effort; leave current size */},
+            onSuccess = {/* the observed flow re-emits and updates state */ },
+            onError = {/* font-size persistence is best-effort; leave current size */ },
         )
     }
 

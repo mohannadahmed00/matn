@@ -61,6 +61,7 @@ fun HomeContent(state: HomeUiState, onOpenMatn: (String) -> Unit) {
             state.isLoading -> CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
             )
+
             state.isEmpty -> Text(
                 text = stringResource(Res.string.library_empty),
                 style = MaterialTheme.typography.titleMedium,
@@ -69,6 +70,7 @@ fun HomeContent(state: HomeUiState, onOpenMatn: (String) -> Unit) {
                     .align(Alignment.Center)
                     .padding(24.dp),
             )
+
             else -> LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize(),
@@ -116,7 +118,7 @@ private fun MatnCard(summary: MatnSummary, onClick: () -> Unit) {
             modifier = Modifier.padding(top = 3.dp),
         )
         val totals = stringResource(Res.string.verses_count, summary.verseCount) +
-            " · " + formatDuration(summary.totalDurationMs)
+                " · " + formatDuration(summary.totalDurationMs)
         Text(
             text = totals,
             style = MaterialTheme.typography.labelSmall,

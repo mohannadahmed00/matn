@@ -2,7 +2,6 @@ package com.giraffe.matn.presentation.details
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,7 +58,6 @@ import matn.shared.generated.resources.font_small
 import matn.shared.generated.resources.font_xlarge
 import matn.shared.generated.resources.verses_count
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 
 /**
  * Reading / details screen (US1/US3/US4) — **stateful** entry. Hoists the ViewModel's state and
@@ -92,6 +91,7 @@ fun MatnDetailsContent(
                 modifier = Modifier.align(Alignment.Center),
                 color = MaterialTheme.colorScheme.primary,
             )
+
             state.error != null -> Text(
                 text = errorMessage(state.error),
                 style = MaterialTheme.typography.bodyLarge,
@@ -101,13 +101,17 @@ fun MatnDetailsContent(
                     .padding(24.dp),
                 textAlign = TextAlign.Center,
             )
+
             else -> VerseList(state, onFontSizeChanged = onFontSizeChanged)
         }
     }
 }
 
 @Composable
-private fun VerseList(state: MatnDetailsUiState, onFontSizeChanged: (ReadingFontSize) -> Unit = {}) {
+private fun VerseList(
+    state: MatnDetailsUiState,
+    onFontSizeChanged: (ReadingFontSize) -> Unit = {}
+) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val header = state.header
@@ -134,7 +138,8 @@ private fun VerseList(state: MatnDetailsUiState, onFontSizeChanged: (ReadingFont
                     chapters = state.chapters,
                     onChapterSelected = { chapter ->
                         // FR-014/SC-004: scroll the chapter's first verse into view.
-                        val verseOffset = verses.indexOfFirst { it.displayNumber == chapter.firstVerseDisplayNumber }
+                        val verseOffset =
+                            verses.indexOfFirst { it.displayNumber == chapter.firstVerseDisplayNumber }
                         if (verseOffset >= 0) {
                             val target = firstVerseIndex + verseOffset
                             coroutineScope.launch { listState.animateScrollToItem(target) }
@@ -196,7 +201,7 @@ private fun Frontispiece(
             )
         }
         val totals = stringResource(Res.string.verses_count, header.verseCount) +
-            "  ·  " + formatDuration(header.totalDurationMs)
+                "  ·  " + formatDuration(header.totalDurationMs)
         Text(
             text = totals,
             style = MaterialTheme.typography.labelLarge,
@@ -215,14 +220,20 @@ private fun GoldRule(modifier: Modifier = Modifier) {
             .padding(horizontal = 32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+        Box(
+            modifier = Modifier.weight(1f).height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
         Box(
             modifier = Modifier
                 .padding(horizontal = 10.dp)
                 .size(6.dp)
                 .background(MaterialTheme.colorScheme.secondary, CircleShape),
         )
-        Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+        Box(
+            modifier = Modifier.weight(1f).height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
     }
 }
 
@@ -242,16 +253,28 @@ private fun FontSizeChooser(
             )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            FontSizeMenuItem(label = stringResource(Res.string.font_small), isSelected = fontSize == ReadingFontSize.SMALL) {
+            FontSizeMenuItem(
+                label = stringResource(Res.string.font_small),
+                isSelected = fontSize == ReadingFontSize.SMALL
+            ) {
                 onFontSizeChanged(ReadingFontSize.SMALL); expanded = false
             }
-            FontSizeMenuItem(label = stringResource(Res.string.font_medium), isSelected = fontSize == ReadingFontSize.MEDIUM) {
+            FontSizeMenuItem(
+                label = stringResource(Res.string.font_medium),
+                isSelected = fontSize == ReadingFontSize.MEDIUM
+            ) {
                 onFontSizeChanged(ReadingFontSize.MEDIUM); expanded = false
             }
-            FontSizeMenuItem(label = stringResource(Res.string.font_large), isSelected = fontSize == ReadingFontSize.LARGE) {
+            FontSizeMenuItem(
+                label = stringResource(Res.string.font_large),
+                isSelected = fontSize == ReadingFontSize.LARGE
+            ) {
                 onFontSizeChanged(ReadingFontSize.LARGE); expanded = false
             }
-            FontSizeMenuItem(label = stringResource(Res.string.font_xlarge), isSelected = fontSize == ReadingFontSize.XLARGE) {
+            FontSizeMenuItem(
+                label = stringResource(Res.string.font_xlarge),
+                isSelected = fontSize == ReadingFontSize.XLARGE
+            ) {
                 onFontSizeChanged(ReadingFontSize.XLARGE); expanded = false
             }
         }
@@ -411,6 +434,9 @@ private fun VerseRosettePreview() {
 @Composable
 private fun FrontispiecePreview() {
     MatnTheme {
-        Frontispiece(header = previewHeader, fontSize = ReadingFontSize.MEDIUM, onFontSizeChanged = {})
+        Frontispiece(
+            header = previewHeader,
+            fontSize = ReadingFontSize.MEDIUM,
+            onFontSizeChanged = {})
     }
 }
