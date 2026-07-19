@@ -5,9 +5,11 @@ import app.cash.sqldelight.coroutines.mapToList
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.mapper.toDomain
 import com.giraffe.matn.data.mapper.toDomainOrNull
+import com.giraffe.matn.data.mapper.toMatnSummary
 import com.giraffe.matn.db.ContentDatabase
 import com.giraffe.matn.domain.model.Chapter
 import com.giraffe.matn.domain.model.Matn
+import com.giraffe.matn.domain.model.MatnSummary
 import com.giraffe.matn.domain.repository.MatnRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +30,15 @@ class MatnRepositoryImpl(private val db: ContentDatabase) : MatnRepository {
             // Drop (rather than throw on) any row with an unrecognized structure_kind so a
             // single corrupt/legacy row can't tear down the whole library stream.
             .map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
+
+    override fun observeLibrarySummaries(): Flow<List<MatnSummary>> =
+        db.contentQueries
+            .selectLibrarySummaries()
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            // Same defensive drop as observeLibrary: a single corrupt structure_kind row is
+            // skipped rather than killing the library grid stream.
+            .map { rows -> rows.mapNotNull { it.toMatnSummary() } }
 
     override suspend fun getChapters(matnId: String): Resource<List<Chapter>> =
         storageCall({ "Failed to read chapters for $matnId" }) {

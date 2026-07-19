@@ -38,6 +38,14 @@ CREATE TABLE audio_asset (
     UNIQUE (verse_id, reciter_id)
 );
 
+-- Phase 1 (FR-017): additive key/value settings row, forward-compatible for later settings.
+-- Reading font size is stored under key 'reading_font_size' with the enum constant name;
+-- absent/unrecognized values resolve to the DEFAULT (MEDIUM) in the repository, never crash.
+CREATE TABLE app_setting (
+    key   TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE INDEX verse_by_matn_order ON verse(matn_id, display_number);
 CREATE INDEX verse_by_chapter    ON verse(chapter_id);
 CREATE INDEX audio_by_verse      ON audio_asset(verse_id);
@@ -47,6 +55,23 @@ SELECT * FROM matn WHERE id = ?;
 
 selectAllMatn:
 SELECT * FROM matn ORDER BY title;
+
+-- Phase 1 (FR-002): derived library summary projection. LEFT JOIN verse so a matn with zero
+-- verses still appears (count 0, sum 0). No schema change; purely a read-only aggregate.
+selectLibrarySummaries:
+SELECT
+    matn.id AS id,
+    matn.title AS title,
+    matn.author AS author,
+    matn.description AS description,
+    matn.cover_image_ref AS cover_image_ref,
+    matn.structure_kind AS structure_kind,
+    COUNT(verse.id) AS verse_count,
+    COALESCE(SUM(verse.duration_ms), 0) AS total_duration_ms
+FROM matn
+LEFT JOIN verse ON verse.matn_id = matn.id
+GROUP BY matn.id
+ORDER BY matn.title;
 
 selectChaptersByMatn:
 SELECT * FROM chapter WHERE matn_id = ? ORDER BY display_order;
@@ -59,6 +84,12 @@ SELECT * FROM verse WHERE chapter_id = ? ORDER BY display_number;
 
 selectVerseById:
 SELECT * FROM verse WHERE id = ?;
+
+selectSetting:
+SELECT value FROM app_setting WHERE key = ?;
+
+upsertSetting:
+INSERT INTO app_setting(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 
 selectAudioForVerse:
 SELECT * FROM audio_asset WHERE verse_id = ? AND reciter_id = ?;

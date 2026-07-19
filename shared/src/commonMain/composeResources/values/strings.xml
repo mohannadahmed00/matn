@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_title">المتون</string>
+    <string name="library_empty">لا توجد متون محمّلة بعد</string>
+    <string name="toc_header">الفهرس</string>
+    <string name="back">رجوع</string>
+    <string name="verses_count">%d بيت</string>
+    <string name="font_size">حجم الخط</string>
+    <string name="font_small">صغير</string>
+    <string name="font_medium">متوسط</string>
+    <string name="font_large">كبير</string>
+    <string name="font_xlarge">كبير جداً</string>
+    <string name="cover_placeholder_desc">غلاف افتراضي</string>
+    <string name="error_matn_not_found">تعذّر فتح هذا المتن</string>
+    <string name="error_storage">حدث خطأ أثناء قراءة المحتوى</string>
+    <string name="loading">جارٍ التحميل…</string>
+</resources>
