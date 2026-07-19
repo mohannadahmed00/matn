@@ -15,4 +15,15 @@ class AudioAssetRepositoryImpl(private val db: ContentDatabase) : AudioAssetRepo
         storageCall({ "Failed to read audio for verse $verseId" }) {
             db.contentQueries.selectAudioForVerse(verseId, reciterId).executeAsOneOrNull()?.toDomain()
         }
+
+    override suspend fun getAudioForMatn(
+        matnId: String,
+        reciterId: String,
+    ): Resource<List<AudioAsset>> =
+        storageCall({ "Failed to read audio for matn $matnId" }) {
+            db.contentQueries
+                .selectAudioForMatnOrdered(matnId, reciterId)
+                .executeAsList()
+                .map { it.toDomain() }
+        }
 }

@@ -14,4 +14,12 @@
     <string name="error_matn_not_found">Could not open this text</string>
     <string name="error_storage">An error occurred while reading content</string>
     <string name="loading">Loading…</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_previous">Previous verse</string>
+    <string name="player_next">Next verse</string>
+    <string name="player_stop">Stop</string>
+    <string name="player_speed">Playback speed</string>
+    <string name="player_now_playing">Verse</string>
+    <string name="verse_play">Play this verse</string>
 </resources>

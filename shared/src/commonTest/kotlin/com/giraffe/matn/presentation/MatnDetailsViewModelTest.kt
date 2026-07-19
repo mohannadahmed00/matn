@@ -10,8 +10,13 @@ import com.giraffe.matn.domain.model.MatnDetails
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.domain.model.Verse
+import com.giraffe.matn.playback.FakeAudioEngine
+import com.giraffe.matn.playback.FakeWakeLock
+import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.details.MatnDetailsViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
@@ -166,6 +171,7 @@ class MatnDetailsViewModelTest {
             observeVerses = FakeFlowUseCase { flow { } },
             getFontSize = FakeFlowUseCase { flowOf(ReadingFontSize.MEDIUM) },
             setFontSize = FakeUseCase { Resource.Success(Unit) },
+            playbackController = idlePlaybackController(),
         )
         assertEquals(AppError.NotFound, vm.state.value.error)
         assertEquals(false, vm.state.value.isLoading)
@@ -180,6 +186,7 @@ class MatnDetailsViewModelTest {
             observeVerses = FakeFlowUseCase { flow { } },
             getFontSize = FakeFlowUseCase { flowOf(ReadingFontSize.MEDIUM) },
             setFontSize = FakeUseCase { Resource.Success(Unit) },
+            playbackController = idlePlaybackController(),
         )
         assertTrue(vm.state.value.error is AppError.Storage)
     }
@@ -209,11 +216,62 @@ class MatnDetailsViewModelTest {
         assertEquals(ReadingFontSize.LARGE, persisted)
     }
 
+    @Test
+    fun `activeVerseId from PlaybackController flows into MatnDetailsUiState`() = runTest {
+        val track = com.giraffe.matn.domain.model.AudioTrack("v1", 1, "uri1", 5_000)
+        val queue = com.giraffe.matn.domain.model.PlaybackQueue(simpleMatn.id, listOf(track), 0)
+        val engine = FakeAudioEngine()
+        val buildQueue = object : com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase(
+            verseRepository = object : com.giraffe.matn.domain.repository.VerseRepository {
+                override fun observeVerses(matnId: String): Flow<List<Verse>> = flowOf(simpleVerses)
+                override suspend fun getVersesByChapter(chapterId: String): Resource<List<Verse>> =
+                    Resource.Success(emptyList())
+                override suspend fun getVerse(id: String): Resource<Verse?> = Resource.Success(null)
+            },
+            audioRepository = object : com.giraffe.matn.domain.repository.AudioAssetRepository {
+                override suspend fun getAudioForVerse(
+                    verseId: String,
+                    reciterId: String,
+                ): Resource<com.giraffe.matn.domain.model.AudioAsset?> = Resource.Success(null)
+                override suspend fun getAudioForMatn(
+                    matnId: String,
+                    reciterId: String,
+                ): Resource<List<com.giraffe.matn.domain.model.AudioAsset>> = Resource.Success(emptyList())
+            },
+            audioSourceResolver = object : com.giraffe.matn.domain.audio.AudioSourceResolver {
+                override suspend fun resolve(fileRef: String): String = "uri1"
+            },
+        ) {
+            override suspend fun invoke(
+                params: com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase.Params,
+            ): Resource<com.giraffe.matn.domain.model.PlaybackQueue> =
+                Resource.Success(queue.copy(startIndex = 0))
+        }
+        val controller = com.giraffe.matn.playback.PlaybackController(
+            engine = engine,
+            buildQueue = buildQueue,
+            wakeLock = FakeWakeLock(),
+            scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher()),
+        )
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            controller = controller,
+        )
+        controller.playFromStart(simpleMatn.id)
+        engine.emit(com.giraffe.matn.domain.audio.AudioEngineEvent.Ready)
+
+        assertEquals("v1", controller.state.value.activeVerseId)
+        assertEquals("v1", vm.state.value.activeVerseId)
+        assertTrue(vm.state.value.isPlaying)
+    }
+
     private fun newViewModel(
         matnDetails: MatnDetails,
         verses: List<Verse>,
         fontFlow: Flow<ReadingFontSize> = flowOf(ReadingFontSize.MEDIUM),
         setFont: UseCase<ReadingFontSize, Unit> = FakeUseCase { Resource.Success(Unit) },
+        controller: PlaybackController = idlePlaybackController(),
     ): MatnDetailsViewModel {
         val versesState = MutableStateFlow(verses)
         return MatnDetailsViewModel(
@@ -222,8 +280,40 @@ class MatnDetailsViewModelTest {
             observeVerses = FakeFlowUseCase<String, List<Verse>> { versesState },
             getFontSize = FakeFlowUseCase { fontFlow },
             setFontSize = setFont,
+            playbackController = controller,
         )
     }
+}
+
+/** Builds a real `PlaybackController` sitting idle (IDLE state) so the test only reads state. */
+private fun idlePlaybackController(): PlaybackController {
+    val buildQueue = object : com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase(
+        verseRepository = object : com.giraffe.matn.domain.repository.VerseRepository {
+            override fun observeVerses(matnId: String): Flow<List<Verse>> = flowOf(emptyList())
+            override suspend fun getVersesByChapter(chapterId: String): Resource<List<Verse>> =
+                Resource.Success(emptyList())
+            override suspend fun getVerse(id: String): Resource<Verse?> = Resource.Success(null)
+        },
+        audioRepository = object : com.giraffe.matn.domain.repository.AudioAssetRepository {
+            override suspend fun getAudioForVerse(
+                verseId: String,
+                reciterId: String,
+            ): Resource<com.giraffe.matn.domain.model.AudioAsset?> = Resource.Success(null)
+            override suspend fun getAudioForMatn(
+                matnId: String,
+                reciterId: String,
+            ): Resource<List<com.giraffe.matn.domain.model.AudioAsset>> = Resource.Success(emptyList())
+        },
+        audioSourceResolver = object : com.giraffe.matn.domain.audio.AudioSourceResolver {
+            override suspend fun resolve(fileRef: String): String = ""
+        },
+    ) {}
+    return PlaybackController(
+        engine = FakeAudioEngine(),
+        buildQueue = buildQueue,
+        wakeLock = FakeWakeLock(),
+        scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher()),
+    )
 }
 
 private class FakeUseCase<P, R>(private val block: suspend (P) -> Resource<R>) : UseCase<P, R> {

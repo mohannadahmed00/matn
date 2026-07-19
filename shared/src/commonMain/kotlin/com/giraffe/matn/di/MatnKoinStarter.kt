@@ -6,6 +6,8 @@ import com.giraffe.matn.data.seed.SeedAudio
 import com.giraffe.matn.data.seed.SeedChapter
 import com.giraffe.matn.data.seed.SeedMatn
 import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.domain.audio.AudioEngine
+import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.repository.MatnRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +57,12 @@ object MatnKoinHolder {
  * seeded"). Seeding is fire-and-forget on a background [SupervisorJob] scope so it never blocks
  * app startup; if it fails the empty-state screen is shown (FR-004/SC-008) rather than crashing.
  */
-fun initMatnKoin(driverFactory: DatabaseDriverFactory, seedIfEmpty: Boolean = true) {
+fun initMatnKoin(
+    driverFactory: DatabaseDriverFactory,
+    audioEngine: AudioEngine,
+    wakeLock: WakeLock,
+    seedIfEmpty: Boolean = true,
+) {
     // Guard the whole body: a second call (e.g. Android `onCreate` after a rotation) must not
     // re-start Koin nor re-launch the seed coroutine. Everything below runs exactly once.
     if (MatnKoinHolder.isInitialized()) return
@@ -64,6 +71,8 @@ fun initMatnKoin(driverFactory: DatabaseDriverFactory, seedIfEmpty: Boolean = tr
         modules(
             module {
                 single { driverFactory }
+                single<AudioEngine> { audioEngine }
+                single<WakeLock> { wakeLock }
             },
             contentModule(),
         )

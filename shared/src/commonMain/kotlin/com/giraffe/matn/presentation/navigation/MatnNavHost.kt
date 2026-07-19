@@ -13,10 +13,12 @@ import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
+import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.details.MatnDetailsScreen
 import com.giraffe.matn.presentation.details.MatnDetailsViewModel
 import com.giraffe.matn.presentation.home.HomeScreen
 import com.giraffe.matn.presentation.home.HomeViewModel
+import com.giraffe.matn.presentation.player.PlayerBarViewModel
 
 /**
  * App-wide navigation graph (CMP Navigation, Decision 5). Two routes in Phase 1:
@@ -52,9 +54,13 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                     observeVerses = koin.get<ObserveVersesUseCase>(),
                     getFontSize = koin.get<GetFontSizeUseCase>(),
                     setFontSize = koin.get<SetFontSizeUseCase>(),
+                    koin.get<PlaybackController>(),
                 )
             }
-            MatnDetailsScreen(viewModel)
+            val playerBar: PlayerBarViewModel = viewModel {
+                PlayerBarViewModel(koin.get<PlaybackController>())
+            }
+            MatnDetailsScreen(viewModel = viewModel, playerBar = playerBar)
         }
     }
 }

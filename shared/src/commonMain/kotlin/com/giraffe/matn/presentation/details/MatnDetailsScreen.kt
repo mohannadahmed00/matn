@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.presentation.common.CoverImage
+import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.formatDuration
 import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.toSp
@@ -56,6 +58,8 @@ import matn.shared.generated.resources.font_large
 import matn.shared.generated.resources.font_medium
 import matn.shared.generated.resources.font_small
 import matn.shared.generated.resources.font_xlarge
+import matn.shared.generated.resources.player_play
+import matn.shared.generated.resources.verse_play
 import matn.shared.generated.resources.verses_count
 import org.jetbrains.compose.resources.stringResource
 
@@ -65,9 +69,15 @@ import org.jetbrains.compose.resources.stringResource
  * [MatnDetailsUiState] (Principle II) and is previewable without a live ViewModel.
  */
 @Composable
-fun MatnDetailsScreen(viewModel: MatnDetailsViewModel) {
+fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    MatnDetailsContent(state = state, onFontSizeChanged = viewModel::onFontSizeChanged)
+    MatnDetailsContent(
+        state = state,
+        onFontSizeChanged = viewModel::onFontSizeChanged,
+        onVersePlayClicked = viewModel::onVersePlayClicked,
+        onGlobalPlayClicked = viewModel::onGlobalPlayClicked,
+        playerBar = playerBar,
+    )
 }
 
 /**
@@ -84,6 +94,9 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel) {
 fun MatnDetailsContent(
     state: MatnDetailsUiState,
     onFontSizeChanged: (ReadingFontSize) -> Unit = {},
+    onVersePlayClicked: (String) -> Unit = {},
+    onGlobalPlayClicked: () -> Unit = {},
+    playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         when {
@@ -102,7 +115,18 @@ fun MatnDetailsContent(
                 textAlign = TextAlign.Center,
             )
 
-            else -> VerseList(state, onFontSizeChanged = onFontSizeChanged)
+            else -> Column(modifier = Modifier.fillMaxSize()) {
+                VerseList(
+                    state = state,
+                    onFontSizeChanged = onFontSizeChanged,
+                    onVersePlayClicked = onVersePlayClicked,
+                    onGlobalPlayClicked = onGlobalPlayClicked,
+                    modifier = Modifier.weight(1f),
+                )
+                if (playerBar != null) {
+                    com.giraffe.matn.presentation.player.PlayerBar(viewModel = playerBar)
+                }
+            }
         }
     }
 }
@@ -110,7 +134,10 @@ fun MatnDetailsContent(
 @Composable
 private fun VerseList(
     state: MatnDetailsUiState,
-    onFontSizeChanged: (ReadingFontSize) -> Unit = {}
+    onFontSizeChanged: (ReadingFontSize) -> Unit = {},
+    onVersePlayClicked: (String) -> Unit = {},
+    onGlobalPlayClicked: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -124,13 +151,30 @@ private fun VerseList(
     val tocIndex = if (state.showTableOfContents && state.chapters.isNotEmpty()) 1 else -1
     val firstVerseIndex = if (tocIndex >= 0) tocIndex + 1 else 1
 
+    // FR-009/SC-003: auto-scroll the active verse into view when it changes.
+    LaunchedEffect(state.activeVerseId) {
+        val id = state.activeVerseId ?: return@LaunchedEffect
+        val verseOffset = verses.indexOfFirst { it.id == id }
+        if (verseOffset >= 0) {
+            val target = firstVerseIndex + verseOffset
+            listState.animateScrollToItem(target)
+        }
+    }
+
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
     ) {
         if (header != null) {
-            item(key = "header") { Frontispiece(header, state.fontSize, onFontSizeChanged) }
+            item(key = "header") {
+                Frontispiece(
+                    header = header,
+                    fontSize = state.fontSize,
+                    onFontSizeChanged = onFontSizeChanged,
+                    onGlobalPlayClicked = onGlobalPlayClicked,
+                )
+            }
         }
         if (tocIndex >= 0) {
             item(key = "toc") {
@@ -149,7 +193,13 @@ private fun VerseList(
             }
         }
         items(items = verses, key = { v -> v.id }) { row ->
-            VerseRowItem(row = row, fontSize = fontSize, verseFont = verseFont)
+            VerseRowItem(
+                row = row,
+                fontSize = fontSize,
+                verseFont = verseFont,
+                isActive = row.id == state.activeVerseId,
+                onPlayClicked = { onVersePlayClicked(row.id) },
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
@@ -161,6 +211,7 @@ private fun Frontispiece(
     header: MatnHeader,
     fontSize: ReadingFontSize,
     onFontSizeChanged: (ReadingFontSize) -> Unit,
+    onGlobalPlayClicked: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -171,6 +222,13 @@ private fun Frontispiece(
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FontSizeChooser(fontSize = fontSize, onFontSizeChanged = onFontSizeChanged)
             Spacer(modifier = Modifier.weight(1f))
+            IconButton(onClick = onGlobalPlayClicked) {
+                PlayGlyph(
+                    color = MaterialTheme.colorScheme.primary,
+                    size = 22.dp,
+                    contentDescription = stringResource(Res.string.player_play),
+                )
+            }
         }
         CoverImage(
             coverImageRef = header.coverImageRef,
@@ -303,14 +361,22 @@ private fun VerseRowItem(
     row: VerseRow,
     fontSize: TextUnit,
     verseFont: FontFamily,
+    isActive: Boolean = false,
+    onPlayClicked: () -> Unit = {},
 ) {
+    val rowBackground = if (isActive) {
+        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+    } else {
+        androidx.compose.ui.graphics.Color.Transparent
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(rowBackground)
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        VerseRosette(number = row.displayNumber)
+        VerseRosette(number = row.displayNumber, isActive = isActive)
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -329,16 +395,24 @@ private fun VerseRowItem(
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
+        IconButton(onClick = onPlayClicked) {
+            PlayGlyph(
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                size = 18.dp,
+                contentDescription = stringResource(Res.string.verse_play),
+            )
+        }
     }
 }
 
 /** The signature: the verse number inside a gold-ringed rosette — the آية marker of the متن. */
 @Composable
-private fun VerseRosette(number: Int) {
+private fun VerseRosette(number: Int, isActive: Boolean = false) {
+    val ring = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
     Box(
         modifier = Modifier
             .size(32.dp)
-            .border(1.5.dp, MaterialTheme.colorScheme.secondary, CircleShape),
+            .border(1.5.dp, ring, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -384,6 +458,22 @@ private fun MatnDetailsSimplePreview() {
                 isLoading = false,
                 header = previewHeader,
                 verses = previewVerses,
+            ),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun MatnDetailsActiveVersePreview() {
+    MatnTheme {
+        MatnDetailsContent(
+            state = MatnDetailsUiState(
+                isLoading = false,
+                header = previewHeader,
+                verses = previewVerses,
+                activeVerseId = "v2",
+                isPlaying = true,
             ),
         )
     }
