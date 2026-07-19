@@ -1,13 +1,16 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.2.0 → 1.2.1
-Rationale: Documentation now separates the product spec (WHAT) from a dedicated phased
-roadmap (HOW/WHEN). Repointed the constitution's phased-delivery references to the new
-`docs/ROADMAP.md` and clarified the intro's WHAT-vs-HOW split
-(PATCH: reference/clarity fix, no principle or guidance semantics changed).
+Version change: 1.2.1 → 1.3.0
+Rationale: Principle II (MVVM Presentation) is materially expanded with two additional
+NON-NEGOTIABLE rules — a mandatory stateless/stateful screen split and mandatory @Preview
+coverage for every state-rendering composable — prompted by a Phase 1 review where screens
+were coupled to their ViewModels and shipped with zero previews. Adding guidance to an
+existing principle (no principle removed or redefined) is a MINOR bump.
 
 History:
+  - 1.3.0 (2026-07-19): Principle II expanded — stateless/stateful screen split + @Preview
+    coverage as blocking review items.
   - 1.2.1 (2026-07-18): Split docs into PRODUCT-SPEC.md + ROADMAP.md; repointed references accordingly.
   - 1.2.0 (2026-07-18): Roadmap alignment — phased delivery, SQLDelight, per-verse audio model.
   - 1.1.0 (2026-07-18): Added "Branching & Pull Requests" subsection — protected main/develop,
@@ -15,8 +18,10 @@ History:
   - 1.0.0 (2026-07-18): Initial ratification (MAJOR: first adoption) — 7 principles,
     Technology & Architecture Constraints, Development Workflow & Quality Gates, Governance.
 
-Modified principles: None
-Added sections: None (1.2.1 is a reference/clarity fix)
+Modified principles:
+  - II. MVVM Presentation (NON-NEGOTIABLE) — added: stateless "content" + thin stateful holder
+    split; mandatory @Preview coverage for state-rendering composables.
+Added sections: None (guidance expanded within an existing principle)
 Removed sections: None
 
 Templates & artifacts reviewed:
@@ -24,13 +29,11 @@ Templates & artifacts reviewed:
        dynamically; no hard-coded principle text to update.
   ✅ .specify/templates/spec-template.md — no constitution-coupled sections; no change needed.
   ✅ .specify/templates/tasks-template.md — task categories compatible with principles;
-       no change needed.
+       the new UI rules surface as presentation-task expectations, no template edit required.
   ✅ .specify/templates/checklist-template.md — generic; no change needed.
   ⚠ .specify/templates/commands/*.md — directory not present in repo; nothing to reconcile.
-  ✅ docs/PRODUCT-SPEC.md — Product Vision & Requirements (WHAT); source of the
-       feature requirements the principles enforce.
-  ✅ docs/ROADMAP.md — phased delivery plan (HOW/WHEN); source for the Phased, Incremental
-       Delivery subsection and phase dependency ordering.
+  ✅ docs/PRODUCT-SPEC.md — Product Vision & Requirements (WHAT); unaffected by this amendment.
+  ✅ docs/ROADMAP.md — phased delivery plan (HOW/WHEN); unaffected by this amendment.
 
 Deferred TODOs: None.
 -->
@@ -72,9 +75,22 @@ All UI state MUST flow through the MVVM pattern with unidirectional data flow.
   intents/events; they MUST NOT contain business logic or call use cases/repositories directly.
 - ViewModels MUST NOT reference Compose, Android `Context`, `View`, or any platform UI type.
 - State mutation happens only inside the ViewModel; Composables are pure functions of state.
+- **Stateless/stateful split**: Every screen MUST be split into (a) a **stateless "content"
+  composable** that is a pure function of the screen's immutable UI-state `data class` plus
+  intent lambdas, holding all rendering logic, and (b) a **thin stateful holder** composable
+  that only collects the ViewModel's `StateFlow` and forwards intents. Rendering logic MUST NOT
+  live in the holder. This keeps the render layer inspectable and testable in isolation from DI
+  and the ViewModel.
+- **Preview coverage**: Every composable that renders UI state MUST have at least one `@Preview`
+  driven by hand-built sample state — no ViewModel, no DI, no database. Screen-level content
+  composables MUST preview their key states (e.g. loaded / empty / error). A new or changed
+  state-rendering composable without a preview is a **blocking review failure**.
 
 **Rationale**: A single observable state source keeps the reading/auto-scroll/playback screens
-predictable and testable without a device.
+predictable and testable without a device. Forcing a stateless content composable makes the UI a
+pure function of state that can be previewed and screenshot-tested for every state (including RTL,
+Arabic typography, and error/empty paths) without booting DI or a database — the fastest and most
+reliable UI-regression guard.
 
 ### III. DRY via Base Abstractions
 
@@ -222,4 +238,4 @@ specified in `docs/PRODUCT-SPEC.md`).
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.2.1 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-18
+**Version**: 1.3.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-19
