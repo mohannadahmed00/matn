@@ -7,6 +7,7 @@ import com.giraffe.matn.domain.model.Chapter
 import com.giraffe.matn.domain.model.MatnDetails
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.Verse
+import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.base.BaseViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -36,6 +37,7 @@ class MatnDetailsViewModel(
     private val observeVerses: FlowUseCase<String, List<Verse>>,
     private val getFontSize: FlowUseCase<Unit, ReadingFontSize>,
     private val setFontSize: UseCase<ReadingFontSize, Unit>,
+    private val playbackController: PlaybackController,
 ) : BaseViewModel<MatnDetailsUiState>(MatnDetailsUiState()) {
 
     // The two async inputs (details load + verse stream) are cached here and folded into UI
@@ -49,6 +51,7 @@ class MatnDetailsViewModel(
         loadDetails()
         observeVerseList()
         observeFontSize()
+        observePlayback()
     }
 
     /** User intent: persist a new font-size step (US4). */
@@ -59,6 +62,16 @@ class MatnDetailsViewModel(
             onSuccess = {/* the observed flow re-emits and updates state */ },
             onError = {/* font-size persistence is best-effort; leave current size */ },
         )
+    }
+
+    /** FR-001 (per-verse play): start playback from the tapped verse. */
+    fun onVersePlayClicked(verseId: String) {
+        playbackController.playFromVerse(matnId, verseId)
+    }
+
+    /** FR-001 (global play): start playback from the first verse. */
+    fun onGlobalPlayClicked() {
+        playbackController.playFromStart(matnId)
     }
 
     private fun loadDetails() {
@@ -88,6 +101,24 @@ class MatnDetailsViewModel(
     private fun observeFontSize() {
         getFontSize.invoke(Unit)
             .onEach { size -> setState { it.copy(fontSize = size) } }
+            .launchIn(viewModelScope)
+    }
+
+    /** Fold `PlaybackController.state` (active verse + playing flag) into the reading state. */
+    private fun observePlayback() {
+        playbackController.state
+            .onEach { ps ->
+                setState {
+                    it.copy(
+                        activeVerseId = if (ps.status == com.giraffe.matn.domain.model.PlaybackStatus.ENDED) {
+                            null
+                        } else {
+                            ps.activeVerseId
+                        },
+                        isPlaying = ps.isPlaying,
+                    )
+                }
+            }
             .launchIn(viewModelScope)
     }
 

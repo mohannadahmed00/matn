@@ -46,6 +46,9 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
             implementation(libs.sqldelight.android.driver)
+            implementation(libs.media3.exoplayer)
+            implementation(libs.media3.session)
+            implementation(libs.media3.common)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native.driver)

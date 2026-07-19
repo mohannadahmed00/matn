@@ -22,6 +22,8 @@ data class MatnDetailsUiState(
     val showTableOfContents: Boolean = false,
     val fontSize: ReadingFontSize = ReadingFontSize.MEDIUM,
     val error: AppError? = null,
+    val activeVerseId: String? = null,
+    val isPlaying: Boolean = false,
 )
 
 data class MatnHeader(

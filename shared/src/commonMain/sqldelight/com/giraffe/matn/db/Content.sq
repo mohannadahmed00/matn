@@ -94,6 +94,17 @@ INSERT INTO app_setting(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET v
 selectAudioForVerse:
 SELECT * FROM audio_asset WHERE verse_id = ? AND reciter_id = ?;
 
+-- Phase 2 (FR-005/FR-006): a matn's per-verse audio in matn-global reading order, for one reciter.
+-- INNER JOIN drops verses with no audio row for this reciter (a defensive case only — Phase 0 V4
+-- validation guarantees every verse has audio for validly-seeded content). Order is authoritative
+-- verse.display_number, not storage order.
+selectAudioForMatnOrdered:
+SELECT audio_asset.*
+FROM audio_asset
+JOIN verse ON verse.id = audio_asset.verse_id
+WHERE verse.matn_id = ? AND audio_asset.reciter_id = ?
+ORDER BY verse.display_number;
+
 selectVerseIdsByMatn:
 SELECT id FROM verse WHERE matn_id = ?;
 
