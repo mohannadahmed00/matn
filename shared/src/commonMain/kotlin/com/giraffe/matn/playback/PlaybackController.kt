@@ -445,11 +445,23 @@ class PlaybackController(
             }
             is PlanStep.Advance -> {
                 val nextCursor = step.cursor
-                val windowIndexOfNextEntry = window.indexOfFirst { it.cursor == nextCursor }
-                window = buildWindow(nextCursor)
-                engine.seekToTrack(windowIndexOfNextEntry.coerceAtLeast(0))
+                // Same two-path choice as moveToVerse (T028): only `seekToTrack` into an index that
+                // still exists in the CURRENT window, then let refillWindow() do the trim/drop/rebuild
+                // dance so `window` and the engine's real playlist stay 1:1. Reassigning `window` to a
+                // fresh 0-indexed buildWindow(...) here while telling the engine to `seekToTrack` an
+                // index from the OLD window (as this used to) breaks that invariant — the next error
+                // or transition then resolves against the wrong verse entirely.
+                val existingIndex = window.indexOfFirst { it.cursor == nextCursor }
+                if (existingIndex >= 0) {
+                    engine.seekToTrack(existingIndex)
+                    applyCursor(nextCursor)
+                    refillWindow()
+                } else {
+                    window = buildWindow(nextCursor)
+                    engine.setQueue(window.map { it.track }, 0)
+                    applyCursor(nextCursor)
+                }
                 engine.play()
-                applyCursor(nextCursor)
                 _state.value = _state.value.copy(
                     notice = PlaybackNotice.SkippedMissingVerse(failedVerseId ?: ""),
                 )

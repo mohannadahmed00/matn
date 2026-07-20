@@ -78,7 +78,19 @@ class Media3AudioEngine(context: Context) : AudioEngine {
     private val listener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             pushInfo()
-            _events.tryEmit(AudioEngineEvent.TrackTransition(player.currentMediaItemIndex))
+            // Only a natural gapless advance (AUTO — the previous item played to its end) is a
+            // controller-relevant transition. SEEK and PLAYLIST_CHANGED fire on every
+            // `seekToTrack`/`setQueue`/`replaceUpcoming` call the controller itself makes —
+            // including the one inside `onTrackError`'s recovery — and the controller already
+            // applies the correct cursor at each of those call sites via `applyCursor(...)`.
+            // Forwarding those as `TrackTransition` re-enters the reducer with a `window` that the
+            // triggering call may have already reassigned (e.g. mid `onTrackError` recovery),
+            // resolving the wrong verse and desyncing the controller's window from the engine's
+            // real playlist — this is what caused the FR-028 skip-on-error path to stall or blame
+            // the wrong verse for a decode failure.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                _events.tryEmit(AudioEngineEvent.TrackTransition(player.currentMediaItemIndex))
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {

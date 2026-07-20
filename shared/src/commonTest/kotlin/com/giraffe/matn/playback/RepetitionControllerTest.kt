@@ -394,6 +394,34 @@ class RepetitionControllerTest {
         assertTrue(ctrl.state.value.notice is PlaybackNotice.NoPlayableAudio)
     }
 
+    /**
+     * Regression test for a real-engine-only bug found via on-device testing (not reproducible
+     * against [FakeAudioEngine], which — unlike Media3 — never synchronously re-emits a
+     * `TrackTransition` as a side effect of `seekToTrack`). The recovery branch used to reassign
+     * `window` to a fresh 0-indexed `buildWindow(nextCursor)` while telling the engine to
+     * `seekToTrack` an index from the OLD window, silently breaking the "engine index == window
+     * index" invariant the whole sliding-window design depends on. This asserts the fast recovery
+     * path now goes through the same trim/drop/rebuild dance as `moveToVerse`'s existing-in-window
+     * branch (T028) — no second `setQueue`, and `dropConsumed()` runs exactly once.
+     */
+    @Test
+    fun `TrackError recovery via an already-windowed verse drops consumed instead of rebuilding`() = runTest {
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        val queueBefore = engine.lastQueue
+        val dropsBefore = engine.dropConsumedCount
+
+        // v1 (window index 0) fails; v2 is already materialized at window index 1 from session
+        // start, so recovery must take the fast seekToTrack path, not a full rebuild.
+        engine.emit(AudioEngineEvent.TrackError(0))
+
+        assertEquals(1, engine.seekedToTrack)
+        assertEquals(queueBefore, engine.lastQueue) // no second setQueue call — fast path, not rebuild
+        assertEquals(dropsBefore + 1, engine.dropConsumedCount) // refillWindow() ran after the seek
+        assertEquals("v2", ctrl.state.value.activeVerseId)
+    }
+
     @Test
     fun `C16 settings are scoped per matn`() = runTest {
         val store = InMemoryRepetitionSettingsStore()
