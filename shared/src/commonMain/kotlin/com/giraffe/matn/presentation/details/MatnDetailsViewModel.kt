@@ -74,6 +74,11 @@ class MatnDetailsViewModel(
         playbackController.playFromStart(matnId)
     }
 
+    /** FR-011 (US2): mark the A/B loop boundaries, or clear the range. Forwarding only. */
+    fun onSetLoopStart(verseId: String) = playbackController.setLoopStart(verseId)
+    fun onSetLoopEnd(verseId: String) = playbackController.setLoopEnd(verseId)
+    fun onClearLoop() = playbackController.clearLoop()
+
     private fun loadDetails() {
         setState { it.copy(isLoading = true, error = null) }
         runUseCase(
@@ -116,6 +121,8 @@ class MatnDetailsViewModel(
                             ps.activeVerseId
                         },
                         isPlaying = ps.isPlaying,
+                        loopRangeVerseIds = ps.loopRangeVerseIds,
+                        loopRange = ps.settings.loopRange,
                     )
                 }
             }

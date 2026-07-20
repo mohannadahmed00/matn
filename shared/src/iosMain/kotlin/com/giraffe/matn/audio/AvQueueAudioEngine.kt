@@ -98,6 +98,22 @@ class AvQueueAudioEngine : AudioEngine {
         // macOS step: player.rate = multiplier; AVPlayerItem.audioTimePitchAlgorithm = .timeDomain
     }
 
+    override fun replaceUpcoming(tracks: List<AudioTrack>) {
+        // A played AVPlayerItem cannot be re-enqueued, so each repetition needs its own fresh
+        // instance built from the track's URI — the sliding window already does this naturally.
+        // macOS step: remove every queued AVPlayerItem after player.currentItem, then
+        // insert(freshItem, after: <last queued item>) for each of [tracks] in order.
+        items = tracks.mapNotNull { track ->
+            NSURL.URLWithString(track.uri)?.let { AVPlayerItem(it) }
+        }
+        registerItemObservers()
+    }
+
+    override fun dropConsumed() {
+        // macOS step: no-op on AVQueuePlayer itself — items already played are removed from the
+        // queue automatically as they finish. Nothing explicitly retained needs dropping here.
+    }
+
     override fun release() {
         // macOS step: player.pause(); removeAllItems(); remove observers; AVAudioSession.setActive(false)
         clearItemObservers()

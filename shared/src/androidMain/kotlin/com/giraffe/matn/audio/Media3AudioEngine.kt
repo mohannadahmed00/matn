@@ -182,6 +182,17 @@ class Media3AudioEngine(context: Context) : AudioEngine {
         player.playbackParameters = PlaybackParameters(multiplier, 1.0f)
     }
 
+    override fun replaceUpcoming(tracks: List<AudioTrack>) {
+        if (player.mediaItemCount == 0) return
+        val from = player.currentMediaItemIndex + 1
+        player.replaceMediaItems(from, player.mediaItemCount, tracks.map { MediaItem.fromUri(it.uri) })
+    }
+
+    override fun dropConsumed() {
+        val current = player.currentMediaItemIndex
+        if (current > 0) player.removeMediaItems(0, current)
+    }
+
     override fun release() {
         positionHandler.removeCallbacks(positionTicker)
         player.removeListener(listener)

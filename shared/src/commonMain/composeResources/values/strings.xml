@@ -22,4 +22,10 @@
     <string name="player_speed">سرعة التشغيل</string>
     <string name="player_now_playing">البيت</string>
     <string name="verse_play">تشغيل هذا البيت</string>
+    <string name="loop_set_start">تحديد بداية التكرار (A)</string>
+    <string name="loop_set_end">تحديد نهاية التكرار (B)</string>
+    <string name="loop_clear">إلغاء نطاق التكرار</string>
+    <string name="mode_normal">عادي</string>
+    <string name="mode_memorization">حفظ</string>
+    <string name="mode_ab_loop">تكرار مقطع</string>
 </resources>

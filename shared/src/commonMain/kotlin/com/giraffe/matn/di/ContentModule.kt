@@ -4,6 +4,7 @@ import com.giraffe.matn.data.audio.AudioSourceResolverImpl
 import com.giraffe.matn.data.db.DatabaseDriverFactory
 import com.giraffe.matn.data.db.buildDatabase
 import com.giraffe.matn.data.repository.AudioAssetRepositoryImpl
+import com.giraffe.matn.data.repository.InMemoryRepetitionSettingsStore
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.repository.ReadingPreferencesRepositoryImpl
 import com.giraffe.matn.data.repository.VerseRepositoryImpl
@@ -15,6 +16,7 @@ import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.repository.AudioAssetRepository
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.domain.repository.ReadingPreferencesRepository
+import com.giraffe.matn.domain.repository.RepetitionSettingsStore
 import com.giraffe.matn.domain.repository.VerseRepository
 import com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
@@ -50,6 +52,7 @@ fun contentModule() = module {
     factory { SetFontSizeUseCase(get()) }
     single<AudioSourceResolver> { AudioSourceResolverImpl() }
     factory { BuildPlaybackQueueUseCase(get(), get(), get()) }
-    single { PlaybackController(get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
+    single<RepetitionSettingsStore> { InMemoryRepetitionSettingsStore() }
+    single { PlaybackController(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     factory { PlayerBarViewModel(get()) }
 }

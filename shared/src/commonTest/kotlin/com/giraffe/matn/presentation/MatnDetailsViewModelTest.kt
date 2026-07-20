@@ -16,6 +16,7 @@ import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.details.MatnDetailsViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -251,7 +252,13 @@ class MatnDetailsViewModelTest {
             engine = engine,
             buildQueue = buildQueue,
             wakeLock = FakeWakeLock(),
-            scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher()),
+            // playFromStart() below launches startInfoPolling()'s infinite delay-loop. Parent under
+            // backgroundScope's Job (exempt from runTest's idle-drain) but dispatch on our own
+            // UnconfinedTestDispatcher, so engine.emit(...) below is still processed synchronously
+            // (see PlaybackControllerTest.newController for the full explanation).
+            scope = CoroutineScope(
+                SupervisorJob(backgroundScope.coroutineContext[Job]) + UnconfinedTestDispatcher(),
+            ),
         )
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),

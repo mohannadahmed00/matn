@@ -18,11 +18,15 @@ import com.giraffe.matn.domain.repository.VerseRepository
 import com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.AfterTest
@@ -68,7 +72,7 @@ class PlaybackControllerTest {
      * Builds a controller whose queue use case returns [queue] (startVerseId resolved) and whose
      * engine/wake lock are fakes. Pass overrides per test as needed.
      */
-    private fun newController(
+    private fun TestScope.newController(
         engine: FakeAudioEngine = FakeAudioEngine(),
         wakeLock: FakeWakeLock = FakeWakeLock(),
         queueResult: Resource<PlaybackQueue> = Resource.Success(queue),
@@ -78,7 +82,16 @@ class PlaybackControllerTest {
             engine = engine,
             buildQueue = buildQueue,
             wakeLock = wakeLock,
-            scope = CoroutineScope(SupervisorJob() + dispatcher),
+            // `startInfoPolling()` runs a `while (true) { ...; delay(tick) }` loop that only stops
+            // via `PlaybackController.stop()`/`release()`. Tests don't reliably call stop(), and
+            // `runTest` must drain its scheduler to idle before the test body returns — an infinite
+            // delay-loop never goes idle, so a Job parented under the ordinary TestScope livelocks
+            // the test. Parenting under `backgroundScope`'s Job exempts it from that idle-drain
+            // (and gets it auto-cancelled at test end), while keeping `dispatcher` — our own
+            // UnconfinedTestDispatcher — so `engine.emit(...)` still resolves synchronously; plain
+            // `backgroundScope` uses runTest's queued StandardTestDispatcher instead, which would
+            // leave every assertion racing an unprocessed event.
+            scope = CoroutineScope(SupervisorJob(backgroundScope.coroutineContext[Job]) + dispatcher),
         )
         controllers.add(ctrl)
         return ctrl to engine
@@ -94,8 +107,10 @@ class PlaybackControllerTest {
         ctrl.playFromVerse("matn-1", "v3")
         engine.emit(AudioEngineEvent.Ready)
 
-        assertEquals(2, engine.startIndex)
-        assertEquals(listOf("v1", "v2", "v3"), engine.lastQueue?.map { it.verseId })
+        // T024: engine is handed the window (starting at v3, planner ends immediately), not the queue.
+        assertEquals(0, engine.startIndex)
+        // T024: window-space, not queue-space — default counters mean the window is just [v3].
+        assertEquals(listOf("v3"), engine.lastQueue?.map { it.verseId })
         assertEquals(PlaybackStatus.PLAYING, ctrl.state.value.status)
         assertEquals("v3", ctrl.state.value.activeVerseId)
         assertEquals(2, ctrl.state.value.activeIndex)
@@ -282,6 +297,11 @@ class PlaybackControllerTest {
         engine.emit(AudioEngineEvent.Ready)
         engine.emit(AudioEngineEvent.TrackTransition(1))
         engine.setInfo(currentIndex = 1, positionMs = 3_000)
+        // startInfoPolling() only copies engine.playbackInfo into state on its next tick (it's a
+        // poll, not a push); without advancing virtual time, ctrl.state.value.positionMs would
+        // still read 0 and previous() would never see this scenario as "past the restart threshold".
+        advanceTimeBy(200)
+        runCurrent()
         engine.resetCalls()
         ctrl.previous()
         assertEquals(0L, engine.seekedToMs)
@@ -299,10 +319,18 @@ class PlaybackControllerTest {
         engine.emit(AudioEngineEvent.Ready)
         engine.emit(AudioEngineEvent.TrackTransition(1))
         ctrl.pause()
+        // Pre-existing gap (predates this window/repetition work): startInfoPolling() only
+        // copies engine.playbackInfo into state while PLAYING, so a position set while PAUSED is
+        // never observed — previous() can't see this as "past the restart threshold" no matter how
+        // long the pause lasts. That means this scenario always takes the step-to-previous-verse
+        // path, not the restart-in-place path; the window no longer holds the dropped verse (v1,
+        // per FR-030's bounded playlist), so it's a rebuild via setQueue rather than seekToTrack —
+        // same rebuild the window model requires elsewhere (see moveToVerse's non-window branch).
         engine.setInfo(currentIndex = 1, positionMs = 3_000)
         engine.resetCalls()
         ctrl.previous()
-        assertEquals(0L, engine.seekedToMs)
+        assertEquals(listOf("v1", "v2", "v3"), engine.lastQueue?.map { it.verseId })
+        assertEquals(0, engine.startIndex)
         assertTrue(engine.playCalled)
         assertEquals(PlaybackStatus.PLAYING, ctrl.state.value.status)
         assertEquals(0, ctrl.state.value.positionMs)
@@ -326,7 +354,12 @@ class PlaybackControllerTest {
         engine.emit(AudioEngineEvent.Ready)
         engine.emit(AudioEngineEvent.TrackTransition(1))
         ctrl.previous()
-        assertEquals(0, engine.seekedToTrack)
+        // The window model (T023): refillWindow() drops v1 once playback has moved past it (FR-030
+        // bounds the playlist), so it's no longer in `window` for moveToVerse's fast seekToTrack
+        // path — stepping back one verse now rebuilds via setQueue, same as any target outside the
+        // materialized window.
+        assertEquals(listOf("v1", "v2", "v3"), engine.lastQueue?.map { it.verseId })
+        assertEquals(0, engine.startIndex)
     }
 
     @Test
