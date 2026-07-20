@@ -22,4 +22,10 @@
     <string name="player_speed">Playback speed</string>
     <string name="player_now_playing">Verse</string>
     <string name="verse_play">Play this verse</string>
+    <string name="loop_set_start">Set loop start (A)</string>
+    <string name="loop_set_end">Set loop end (B)</string>
+    <string name="loop_clear">Clear loop range</string>
+    <string name="mode_normal">Normal</string>
+    <string name="mode_memorization">Memorization</string>
+    <string name="mode_ab_loop">A–B Loop</string>
 </resources>

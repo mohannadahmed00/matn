@@ -2,6 +2,7 @@ package com.giraffe.matn.presentation.details
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -58,6 +59,9 @@ import matn.shared.generated.resources.font_large
 import matn.shared.generated.resources.font_medium
 import matn.shared.generated.resources.font_small
 import matn.shared.generated.resources.font_xlarge
+import matn.shared.generated.resources.loop_clear
+import matn.shared.generated.resources.loop_set_end
+import matn.shared.generated.resources.loop_set_start
 import matn.shared.generated.resources.player_play
 import matn.shared.generated.resources.verse_play
 import matn.shared.generated.resources.verses_count
@@ -76,6 +80,9 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.ma
         onFontSizeChanged = viewModel::onFontSizeChanged,
         onVersePlayClicked = viewModel::onVersePlayClicked,
         onGlobalPlayClicked = viewModel::onGlobalPlayClicked,
+        onSetLoopStart = viewModel::onSetLoopStart,
+        onSetLoopEnd = viewModel::onSetLoopEnd,
+        onClearLoop = viewModel::onClearLoop,
         playerBar = playerBar,
     )
 }
@@ -96,6 +103,9 @@ fun MatnDetailsContent(
     onFontSizeChanged: (ReadingFontSize) -> Unit = {},
     onVersePlayClicked: (String) -> Unit = {},
     onGlobalPlayClicked: () -> Unit = {},
+    onSetLoopStart: (String) -> Unit = {},
+    onSetLoopEnd: (String) -> Unit = {},
+    onClearLoop: () -> Unit = {},
     playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -121,9 +131,13 @@ fun MatnDetailsContent(
                     onFontSizeChanged = onFontSizeChanged,
                     onVersePlayClicked = onVersePlayClicked,
                     onGlobalPlayClicked = onGlobalPlayClicked,
+                    onSetLoopStart = onSetLoopStart,
+                    onSetLoopEnd = onSetLoopEnd,
+                    onClearLoop = onClearLoop,
                     modifier = Modifier.weight(1f),
                 )
                 if (playerBar != null) {
+                    com.giraffe.matn.presentation.player.DrillPanel(viewModel = playerBar)
                     com.giraffe.matn.presentation.player.PlayerBar(viewModel = playerBar)
                 }
             }
@@ -137,6 +151,9 @@ private fun VerseList(
     onFontSizeChanged: (ReadingFontSize) -> Unit = {},
     onVersePlayClicked: (String) -> Unit = {},
     onGlobalPlayClicked: () -> Unit = {},
+    onSetLoopStart: (String) -> Unit = {},
+    onSetLoopEnd: (String) -> Unit = {},
+    onClearLoop: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -198,7 +215,14 @@ private fun VerseList(
                 fontSize = fontSize,
                 verseFont = verseFont,
                 isActive = row.id == state.activeVerseId,
+                inLoopRange = row.id in state.loopRangeVerseIds,
+                isLoopStart = row.id == state.loopRange?.startVerseId,
+                isLoopEnd = row.id == state.loopRange?.endVerseId,
+                hasLoopRange = state.loopRange != null,
                 onPlayClicked = { onVersePlayClicked(row.id) },
+                onSetLoopStart = { onSetLoopStart(row.id) },
+                onSetLoopEnd = { onSetLoopEnd(row.id) },
+                onClearLoop = onClearLoop,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
@@ -356,71 +380,128 @@ private fun errorMessage(error: AppError?): String = when (error) {
     else -> stringResource(Res.string.error_storage)
 }
 
+/**
+ * One verse row. A long-press opens the A–B loop menu (US2): in-range rows carry a gold-tinted
+ * background, and the A/B boundary rows additionally show a small "A"/"B" marker on the rosette.
+ */
 @Composable
 private fun VerseRowItem(
     row: VerseRow,
     fontSize: TextUnit,
     verseFont: FontFamily,
     isActive: Boolean = false,
+    inLoopRange: Boolean = false,
+    isLoopStart: Boolean = false,
+    isLoopEnd: Boolean = false,
+    hasLoopRange: Boolean = false,
     onPlayClicked: () -> Unit = {},
+    onSetLoopStart: () -> Unit = {},
+    onSetLoopEnd: () -> Unit = {},
+    onClearLoop: () -> Unit = {},
 ) {
-    val rowBackground = if (isActive) {
-        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-    } else {
-        androidx.compose.ui.graphics.Color.Transparent
+    val scheme = MaterialTheme.colorScheme
+    val rowBackground = when {
+        isActive -> scheme.secondaryContainer.copy(alpha = 0.4f)
+        inLoopRange -> scheme.secondary.copy(alpha = 0.10f)
+        else -> androidx.compose.ui.graphics.Color.Transparent
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(rowBackground)
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        VerseRosette(number = row.displayNumber, isActive = isActive)
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = row.arabicText,
-                fontFamily = verseFont,
-                fontSize = fontSize,
-                lineHeight = (fontSize.value * 1.7f).sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth(),
+    var menuExpanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(rowBackground)
+                .combinedClickable(onClick = onPlayClicked, onLongClick = { menuExpanded = true })
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            VerseRosette(
+                number = row.displayNumber,
+                isActive = isActive,
+                boundaryMark = when {
+                    isLoopStart -> "A"
+                    isLoopEnd -> "B"
+                    else -> null
+                },
             )
-            Text(
-                text = formatDuration(row.durationMs),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = row.arabicText,
+                    fontFamily = verseFont,
+                    fontSize = fontSize,
+                    lineHeight = (fontSize.value * 1.7f).sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = formatDuration(row.durationMs),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            IconButton(onClick = onPlayClicked) {
+                PlayGlyph(
+                    color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    size = 18.dp,
+                    contentDescription = stringResource(Res.string.verse_play),
+                )
+            }
         }
-        IconButton(onClick = onPlayClicked) {
-            PlayGlyph(
-                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                size = 18.dp,
-                contentDescription = stringResource(Res.string.verse_play),
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.loop_set_start)) },
+                onClick = { onSetLoopStart(); menuExpanded = false },
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.loop_set_end)) },
+                onClick = { onSetLoopEnd(); menuExpanded = false },
+            )
+            if (hasLoopRange) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.loop_clear)) },
+                    onClick = { onClearLoop(); menuExpanded = false },
+                )
+            }
         }
     }
 }
 
 /** The signature: the verse number inside a gold-ringed rosette — the آية marker of the متن. */
 @Composable
-private fun VerseRosette(number: Int, isActive: Boolean = false) {
+private fun VerseRosette(number: Int, isActive: Boolean = false, boundaryMark: String? = null) {
     val ring = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-    Box(
-        modifier = Modifier
-            .size(32.dp)
-            .border(1.5.dp, ring, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = number.toString(),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.primary,
-        )
+    Box {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .border(1.5.dp, ring, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = number.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        if (boundaryMark != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(16.dp)
+                    .background(MaterialTheme.colorScheme.secondary, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = boundaryMark,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondary,
+                )
+            }
+        }
     }
 }
 
@@ -509,6 +590,59 @@ private fun MatnDetailsErrorPreview() {
 private fun VerseRowItemPreview() {
     MatnTheme {
         VerseRowItem(row = previewVerses.first(), fontSize = 22.sp, verseFont = FontFamily.Default)
+    }
+}
+
+@Preview
+@Composable
+private fun VerseRowItemInLoopRangePreview() {
+    MatnTheme {
+        VerseRowItem(
+            row = previewVerses[1],
+            fontSize = 22.sp,
+            verseFont = FontFamily.Default,
+            inLoopRange = true,
+            isLoopStart = true,
+            hasLoopRange = true,
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun VerseRosetteBoundaryMarkPreview() {
+    MatnTheme {
+        Box(modifier = Modifier.padding(16.dp)) { VerseRosette(number = 5, boundaryMark = "A") }
+    }
+}
+
+@Preview
+@Composable
+private fun MatnDetailsNoLoopRangePreview() {
+    MatnTheme {
+        MatnDetailsContent(
+            state = MatnDetailsUiState(
+                isLoading = false,
+                header = previewHeader,
+                verses = previewVerses,
+            ),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun MatnDetailsWithLoopRangePreview() {
+    MatnTheme {
+        MatnDetailsContent(
+            state = MatnDetailsUiState(
+                isLoading = false,
+                header = previewHeader,
+                verses = previewVerses,
+                loopRangeVerseIds = setOf("v2", "v3"),
+                loopRange = com.giraffe.matn.domain.model.LoopRange("v2", "v3"),
+            ),
+        )
     }
 }
 

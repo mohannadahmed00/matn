@@ -1,6 +1,7 @@
 package com.giraffe.matn.presentation.details
 
 import com.giraffe.matn.core.AppError
+import com.giraffe.matn.domain.model.LoopRange
 import com.giraffe.matn.domain.model.ReadingFontSize
 
 /**
@@ -24,6 +25,8 @@ data class MatnDetailsUiState(
     val error: AppError? = null,
     val activeVerseId: String? = null,
     val isPlaying: Boolean = false,
+    val loopRangeVerseIds: Set<String> = emptySet(),
+    val loopRange: LoopRange? = null,
 )
 
 data class MatnHeader(

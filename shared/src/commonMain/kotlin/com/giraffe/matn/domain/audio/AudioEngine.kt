@@ -32,6 +32,20 @@ interface AudioEngine {
     fun seekToTrack(index: Int)
     fun setSpeed(multiplier: Float)
     fun release()
+
+    /**
+     * Replace every item AFTER the currently playing one with [tracks].
+     * MUST NOT interrupt, re-prepare, or re-buffer the currently playing item.
+     * Called on every window refill and on every live counter/range change.
+     */
+    fun replaceUpcoming(tracks: List<AudioTrack>)
+
+    /**
+     * Drop every item BEFORE the currently playing one, keeping the playlist bounded.
+     * MUST NOT interrupt the currently playing item. The engine re-bases its own index;
+     * the controller re-bases `window` in lockstep.
+     */
+    fun dropConsumed()
 }
 
 /** A point-in-time snapshot of the native player, surfaced to the controller. */

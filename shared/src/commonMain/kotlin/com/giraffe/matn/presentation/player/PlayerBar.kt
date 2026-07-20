@@ -33,8 +33,10 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.giraffe.matn.domain.model.PlaybackMode
 import com.giraffe.matn.domain.model.PlaybackSpeed
 import com.giraffe.matn.domain.model.PlaybackStatus
+import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.presentation.common.PauseGlyph
 import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.SkipNextGlyph
@@ -43,6 +45,9 @@ import com.giraffe.matn.presentation.common.StopGlyph
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.loading
+import matn.shared.generated.resources.mode_ab_loop
+import matn.shared.generated.resources.mode_memorization
+import matn.shared.generated.resources.mode_normal
 import matn.shared.generated.resources.player_next
 import matn.shared.generated.resources.player_now_playing
 import matn.shared.generated.resources.player_pause
@@ -106,6 +111,11 @@ fun PlayerBarContent(
                     .padding(start = 16.dp, end = 8.dp, top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // The mode chip reads the derived `PlaybackMode` only — it is never stored or
+                // inferred locally, so it can never contradict the configuration (FR-008).
+                if (!state.isLoading && state.mode != PlaybackMode.NORMAL) {
+                    ModeChip(mode = state.mode)
+                }
                 Text(
                     text = when {
                         // Concatenate word + number rather than a `%d` format arg: Compose-resources
@@ -119,6 +129,22 @@ fun PlayerBarContent(
                     style = MaterialTheme.typography.titleMedium,
                     color = scheme.onSurface,
                 )
+                if (!state.isLoading && state.activeVerseDisplayNumber != null) {
+                    Text(
+                        text = repetitionLabel(state.repetition, state.verseRepeatTarget),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = scheme.secondary,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                    if (state.matnRepeatTarget != RepeatCount.ONE) {
+                        Text(
+                            text = passLabel(state.pass, state.matnRepeatTarget),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = scheme.secondary,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (state.isLoading) {
@@ -222,6 +248,30 @@ private fun TransportDisc(
     }
 }
 
+/** The derived mode chip (Normal / Memorization / A–B Loop) — FR-008: reads `state.mode` only. */
+@Composable
+private fun ModeChip(mode: PlaybackMode) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        color = scheme.primaryContainer,
+        shape = RoundedCornerShape(50),
+        modifier = Modifier.padding(end = 8.dp),
+    ) {
+        Text(
+            text = stringResource(
+                when (mode) {
+                    PlaybackMode.NORMAL -> Res.string.mode_normal
+                    PlaybackMode.MEMORIZATION -> Res.string.mode_memorization
+                    PlaybackMode.A_B_LOOP -> Res.string.mode_ab_loop
+                },
+            ),
+            style = MaterialTheme.typography.labelMedium,
+            color = scheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+        )
+    }
+}
+
 /** Speed as a small gold cartouche (pill) — GoldSoft field, GoldDeep numerals. */
 @Composable
 private fun SpeedPill(speed: PlaybackSpeed, onClick: () -> Unit) {
@@ -272,6 +322,24 @@ private fun GoldScrub(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit
 private fun transportInk(enabled: Boolean) =
     if (enabled) MaterialTheme.colorScheme.onSurface
     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+
+/** "3 / 7", or "3 / ∞" when the target is unlimited (data-model.md §6.1). */
+private fun repetitionLabel(current: Int, target: RepeatCount): String {
+    val targetLabel = when (target) {
+        is RepeatCount.Finite -> target.value.toString()
+        RepeatCount.Unlimited -> "∞"
+    }
+    return "$current / $targetLabel"
+}
+
+/** "pass 2 / 3", or "pass 2 / ∞" when the target is unlimited. */
+private fun passLabel(current: Int, target: RepeatCount): String {
+    val targetLabel = when (target) {
+        is RepeatCount.Finite -> target.value.toString()
+        RepeatCount.Unlimited -> "∞"
+    }
+    return "pass $current / $targetLabel"
+}
 
 private fun speedLabel(speed: PlaybackSpeed): String = when (speed) {
     PlaybackSpeed.X0_5 -> "0.5×"
@@ -341,5 +409,53 @@ private fun PlayerBarLoadingPreview() {
 private fun PlayerBarEndedHiddenPreview() {
     MatnTheme {
         PlayerBarContent(state = PlayerBarUiState(visible = false))
+    }
+}
+
+@Preview
+@Composable
+private fun PlayerBarRepetitionPreview() {
+    MatnTheme {
+        PlayerBarContent(
+            state = PlayerBarUiState(
+                visible = true,
+                status = PlaybackStatus.PLAYING,
+                matnId = "m1",
+                activeVerseDisplayNumber = 2,
+                positionMs = 2400,
+                durationMs = 8000,
+                speed = PlaybackSpeed.X1,
+                canNext = true,
+                canPrevious = true,
+                repetition = 2,
+                verseRepeatTarget = RepeatCount.of(5),
+                mode = PlaybackMode.MEMORIZATION,
+            ),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun PlayerBarMultiPassPreview() {
+    MatnTheme {
+        PlayerBarContent(
+            state = PlayerBarUiState(
+                visible = true,
+                status = PlaybackStatus.PLAYING,
+                matnId = "m1",
+                activeVerseDisplayNumber = 2,
+                positionMs = 2400,
+                durationMs = 8000,
+                speed = PlaybackSpeed.X1,
+                canNext = true,
+                canPrevious = true,
+                repetition = 1,
+                verseRepeatTarget = RepeatCount.ONE,
+                pass = 2,
+                matnRepeatTarget = RepeatCount.of(3),
+                mode = PlaybackMode.A_B_LOOP,
+            ),
+        )
     }
 }

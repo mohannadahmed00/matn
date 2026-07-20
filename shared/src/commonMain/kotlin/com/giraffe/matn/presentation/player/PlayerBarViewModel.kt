@@ -2,6 +2,7 @@ package com.giraffe.matn.presentation.player
 
 import com.giraffe.matn.domain.model.PlaybackState
 import com.giraffe.matn.domain.model.PlaybackStatus
+import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.base.BaseViewModel
 
@@ -34,6 +35,10 @@ class PlayerBarViewModel(
 
     fun consumeNotice() = controller.consumeNotice()
 
+    /** Forwarders for the repetition drill (US1/US3); no logic beyond forwarding (Principle II). */
+    fun onVerseRepeatSelected(count: RepeatCount) = controller.setVerseRepeat(count)
+    fun onMatnRepeatSelected(count: RepeatCount) = controller.setMatnRepeat(count)
+
     private fun PlaybackState.toUiState(): PlayerBarUiState {
         return PlayerBarUiState(
             visible = hasSession,
@@ -47,6 +52,12 @@ class PlayerBarViewModel(
             // Conservative: always allow next/previous; controller enforces boundaries (FR-012).
             canNext = hasSession && status != PlaybackStatus.ENDED,
             canPrevious = hasSession,
+            mode = mode,
+            repetition = repetitionProgress?.repetition ?: 1,
+            verseRepeatTarget = settings.verseRepeat,
+            pass = repetitionProgress?.pass ?: 1,
+            matnRepeatTarget = settings.matnRepeat,
+            settings = settings,
         )
     }
 }

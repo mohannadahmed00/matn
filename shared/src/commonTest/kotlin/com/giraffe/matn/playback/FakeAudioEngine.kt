@@ -42,6 +42,13 @@ class FakeAudioEngine(initialInfo: EnginePlaybackInfo = EnginePlaybackInfo(
     var released: Boolean = false
         private set
 
+    /** Simulated playlist so window behavior (replaceUpcoming/dropConsumed) is assertable. */
+    var playlist: List<AudioTrack> = emptyList()
+    var currentIndex: Int = 0
+    val upcomingReplacements = mutableListOf<List<AudioTrack>>()
+    var dropConsumedCount: Int = 0
+        private set
+
     private val _playbackInfo = MutableStateFlow(initialInfo)
     override val playbackInfo: StateFlow<EnginePlaybackInfo> = _playbackInfo.asStateFlow()
 
@@ -51,6 +58,8 @@ class FakeAudioEngine(initialInfo: EnginePlaybackInfo = EnginePlaybackInfo(
     override fun setQueue(tracks: List<AudioTrack>, startIndex: Int) {
         lastQueue = tracks
         this.startIndex = startIndex
+        playlist = tracks
+        currentIndex = startIndex
         _playbackInfo.value = _playbackInfo.value.copy(currentIndex = startIndex)
     }
 
@@ -61,6 +70,19 @@ class FakeAudioEngine(initialInfo: EnginePlaybackInfo = EnginePlaybackInfo(
     override fun seekToTrack(index: Int) { seekedToTrack = index }
     override fun setSpeed(multiplier: Float) { speed = multiplier }
     override fun release() { released = true }
+
+    override fun replaceUpcoming(tracks: List<AudioTrack>) {
+        upcomingReplacements.add(tracks)
+        playlist = playlist.take(currentIndex + 1) + tracks
+    }
+
+    override fun dropConsumed() {
+        if (currentIndex > 0) {
+            playlist = playlist.drop(currentIndex)
+            currentIndex = 0
+        }
+        dropConsumedCount++
+    }
 
     /** Push a scripted event into the controller's collector. */
     suspend fun emit(event: AudioEngineEvent) { _events.emit(event) }
