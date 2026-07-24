@@ -57,4 +57,9 @@
     <string name="notes_tab_notes_header">Notes</string>
     <string name="notes_tab_bookmarks_empty">No bookmarks yet</string>
     <string name="notes_tab_notes_empty">No notes yet</string>
+    <string name="note_editor_hint">Write your note here</string>
+    <string name="note_editor_save">Save</string>
+    <string name="note_editor_delete">Delete note</string>
+    <string name="has_note_indicator">Has a note</string>
+    <string name="toggle_note">Add note</string>
 </resources>

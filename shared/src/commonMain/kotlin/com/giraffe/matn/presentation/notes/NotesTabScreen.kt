@@ -18,6 +18,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.Bookmark
 import com.giraffe.matn.domain.model.BookmarkEntry
+import com.giraffe.matn.domain.model.Note
+import com.giraffe.matn.domain.model.NoteEntry
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
@@ -38,18 +40,18 @@ fun NotesTabScreen(viewModel: NotesTabViewModel, onNavigateToVerse: (matnId: Str
     LaunchedEffect(viewModel) {
         viewModel.navigation.collect { (matnId, verseId) -> onNavigateToVerse(matnId, verseId) }
     }
-    NotesTabContent(state = state, onBookmarkClick = viewModel::onBookmarkClick)
+    NotesTabContent(state = state, onBookmarkClick = viewModel::onBookmarkClick, onNoteClick = viewModel::onNoteClick)
 }
 
 /**
  * Stateless — two stacked sections (research.md D6; T004 design notes confirm stacked sections,
- * not tabs), each with its own purposeful empty state (SC-007). The notes section always shows
- * its empty state in this task — real notes arrive in T047.
+ * not tabs), each with its own purposeful empty state (SC-007).
  */
 @Composable
 fun NotesTabContent(
     state: NotesTabUiState,
     onBookmarkClick: (BookmarkEntry) -> Unit = {},
+    onNoteClick: (NoteEntry) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -77,8 +79,15 @@ fun NotesTabContent(
         item(key = "notes-header") {
             SectionHeader(stringResource(Res.string.notes_tab_notes_header))
         }
-        item(key = "notes-empty") {
-            EmptySection(stringResource(Res.string.notes_tab_notes_empty))
+        if (state.notes.isEmpty()) {
+            item(key = "notes-empty") {
+                EmptySection(stringResource(Res.string.notes_tab_notes_empty))
+            }
+        } else {
+            items(items = state.notes, key = { "note:${it.note.id}" }) { entry ->
+                NoteRow(entry = entry, onClick = { onNoteClick(entry) })
+                HorizontalDivider(color = scheme.outlineVariant)
+            }
         }
     }
 }
@@ -125,6 +134,23 @@ private fun NotesTabBookmarksPopulatedPreview() {
                 bookmarks = listOf(
                     BookmarkEntry(
                         Bookmark("b1", "v1", 1000),
+                        AnnotatedVerseRef("m1", "الأجرومية", "v1", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ"),
+                    ),
+                ),
+            ),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun NotesTabNotesPopulatedPreview() {
+    MatnTheme {
+        NotesTabContent(
+            state = NotesTabUiState(
+                notes = listOf(
+                    NoteEntry(
+                        Note("n1", "v1", "هذه ملاحظة شخصية طويلة جداً كُتبت لاختبار الاقتطاع بعد سطرين من النص الظاهر في قائمة الملاحظات", 1000),
                         AnnotatedVerseRef("m1", "الأجرومية", "v1", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ"),
                     ),
                 ),

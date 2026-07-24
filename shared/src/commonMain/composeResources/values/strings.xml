@@ -57,4 +57,9 @@
     <string name="notes_tab_notes_header">الملاحظات</string>
     <string name="notes_tab_bookmarks_empty">لا توجد إشارات مرجعية بعد</string>
     <string name="notes_tab_notes_empty">لا توجد ملاحظات بعد</string>
+    <string name="note_editor_hint">اكتب ملاحظتك هنا</string>
+    <string name="note_editor_save">حفظ</string>
+    <string name="note_editor_delete">حذف الملاحظة</string>
+    <string name="has_note_indicator">توجد ملاحظة</string>
+    <string name="toggle_note">إضافة ملاحظة</string>
 </resources>

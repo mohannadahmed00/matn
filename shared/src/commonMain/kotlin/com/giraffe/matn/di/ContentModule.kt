@@ -4,9 +4,12 @@ import com.giraffe.matn.data.audio.AudioSourceResolverImpl
 import com.giraffe.matn.data.db.DatabaseDriverFactory
 import com.giraffe.matn.data.db.buildDatabase
 import com.giraffe.matn.data.repository.AudioAssetRepositoryImpl
+import com.giraffe.matn.data.repository.BookmarkRepositoryImpl
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
+import com.giraffe.matn.data.repository.NoteRepositoryImpl
 import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
 import com.giraffe.matn.data.repository.ReadingPreferencesRepositoryImpl
+import com.giraffe.matn.data.repository.SearchRepositoryImpl
 import com.giraffe.matn.data.repository.SessionStateRepositoryImpl
 import com.giraffe.matn.data.repository.VerseRepositoryImpl
 import com.giraffe.matn.data.seed.ContentSeedLoader
@@ -15,23 +18,38 @@ import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.AudioSourceResolver
 import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.repository.AudioAssetRepository
+import com.giraffe.matn.domain.repository.BookmarkRepository
 import com.giraffe.matn.domain.repository.MatnRepository
+import com.giraffe.matn.domain.repository.NoteRepository
 import com.giraffe.matn.domain.repository.ReadingPreferencesRepository
 import com.giraffe.matn.domain.repository.RepetitionSettingsStore
+import com.giraffe.matn.domain.repository.SearchRepository
 import com.giraffe.matn.domain.repository.SessionStateRepository
 import com.giraffe.matn.domain.repository.VerseRepository
 import com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase
+import com.giraffe.matn.domain.usecase.DeleteNoteUseCase
 import com.giraffe.matn.domain.usecase.DismissContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
+import com.giraffe.matn.domain.usecase.GetNoteUseCase
+import com.giraffe.matn.domain.usecase.ObserveBookmarksUseCase
 import com.giraffe.matn.domain.usecase.ObserveContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
+import com.giraffe.matn.domain.usecase.ObserveNotesUseCase
+import com.giraffe.matn.domain.usecase.ObserveVerseAnnotationsUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
 import com.giraffe.matn.domain.usecase.ResolveResumeTargetUseCase
+import com.giraffe.matn.domain.usecase.SaveNoteUseCase
+import com.giraffe.matn.domain.usecase.SearchLibraryUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
+import com.giraffe.matn.domain.usecase.ToggleBookmarkUseCase
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.playback.SessionStateRecorder
 import com.giraffe.matn.presentation.player.PlayerBarViewModel
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,6 +62,7 @@ import org.koin.dsl.module
  * platform-specific `expect`/`actual` whose construction depends on the host
  * (Android `Context` / iOS bundle).
  */
+@OptIn(ExperimentalTime::class, ExperimentalUuidApi::class)
 fun contentModule() = module {
     single { buildDatabase(get<DatabaseDriverFactory>()) }
     single<MatnRepository> { MatnRepositoryImpl(get()) }
@@ -68,4 +87,19 @@ fun contentModule() = module {
     // in initMatnKoin; platform lifecycle hooks reach it via flushSessionState() (T039).
     single { SessionStateRecorder(get<PlaybackController>().state, get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
     factory { PlayerBarViewModel(get()) }
+    single<SearchRepository> { SearchRepositoryImpl(get()) }
+    factory { SearchLibraryUseCase(get()) }
+    single<BookmarkRepository> {
+        BookmarkRepositoryImpl(get(), clock = { Clock.System.now().toEpochMilliseconds() }, newId = { Uuid.random().toString() })
+    }
+    factory { ToggleBookmarkUseCase(get()) }
+    factory { ObserveBookmarksUseCase(get()) }
+    single<NoteRepository> {
+        NoteRepositoryImpl(get(), clock = { Clock.System.now().toEpochMilliseconds() }, newId = { Uuid.random().toString() })
+    }
+    factory { SaveNoteUseCase(get()) }
+    factory { DeleteNoteUseCase(get()) }
+    factory { GetNoteUseCase(get()) }
+    factory { ObserveNotesUseCase(get()) }
+    factory { ObserveVerseAnnotationsUseCase(get(), get()) }
 }
