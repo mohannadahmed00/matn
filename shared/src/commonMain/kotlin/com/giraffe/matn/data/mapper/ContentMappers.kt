@@ -1,14 +1,23 @@
 package com.giraffe.matn.data.mapper
 
 import com.giraffe.matn.db.Audio_asset as AudioAssetRow
+import com.giraffe.matn.db.Bookmark as BookmarkRow
 import com.giraffe.matn.db.Chapter as ChapterRow
 import com.giraffe.matn.db.Matn as MatnRow
+import com.giraffe.matn.db.Note as NoteRow
+import com.giraffe.matn.db.SelectAllBookmarksWithContext as BookmarkContextRow
+import com.giraffe.matn.db.SelectAllNotesWithContext as NoteContextRow
 import com.giraffe.matn.db.SelectLibrarySummaries as LibrarySummaryRow
 import com.giraffe.matn.db.Verse as VerseRow
+import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.AudioAsset
+import com.giraffe.matn.domain.model.Bookmark
+import com.giraffe.matn.domain.model.BookmarkEntry
 import com.giraffe.matn.domain.model.Chapter
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
+import com.giraffe.matn.domain.model.Note
+import com.giraffe.matn.domain.model.NoteEntry
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.domain.model.Verse
 
@@ -85,3 +94,32 @@ internal fun LibrarySummaryRow.toMatnSummary(): MatnSummary? {
         totalDurationMs = total_duration_ms.toLong(),
     )
 }
+
+/** The `selectAllBookmarksWithContext` JOIN guarantees a resolvable matn/verse for every row
+ *  (FK CASCADE removes the bookmark if the verse is ever deleted), so this mapper is total. */
+internal fun BookmarkContextRow.toBookmarkEntry(): BookmarkEntry = BookmarkEntry(
+    bookmark = Bookmark(id = id, verseId = verse_id, createdAtMs = created_at),
+    ref = AnnotatedVerseRef(
+        matnId = matn_id,
+        matnTitle = matn_title,
+        verseId = verse_id,
+        verseNumber = verse_number.toInt(),
+        verseText = verse_text,
+    ),
+)
+
+internal fun BookmarkRow.toDomain(): Bookmark = Bookmark(id = id, verseId = verse_id, createdAtMs = created_at)
+
+internal fun NoteRow.toDomain(): Note = Note(id = id, verseId = verse_id, text = text, updatedAtMs = updated_at)
+
+/** Same totality guarantee as [toBookmarkEntry] — see its KDoc. */
+internal fun NoteContextRow.toNoteEntry(): NoteEntry = NoteEntry(
+    note = Note(id = id, verseId = verse_id, text = text, updatedAtMs = updated_at),
+    ref = AnnotatedVerseRef(
+        matnId = matn_id,
+        matnTitle = matn_title,
+        verseId = verse_id,
+        verseNumber = verse_number.toInt(),
+        verseText = verse_text,
+    ),
+)

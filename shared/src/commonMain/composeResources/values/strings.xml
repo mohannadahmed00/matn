@@ -45,4 +45,21 @@
     <string name="coming_soon_message">هذه الميزة قيد الإعداد ولم تُتَح بعد.</string>
     <string name="coming_soon_back_to_library">العودة إلى المكتبة</string>
     <string name="home_daily_goal_label">هدف اليوم</string>
+    <string name="search_open">بحث</string>
+    <string name="search_field_placeholder">ابحث في مكتبتك</string>
+    <string name="search_idle_prompt">ابحث عن بيت أو باب أو متن</string>
+    <string name="search_no_results">لا نتائج</string>
+    <string name="search_clear">مسح البحث</string>
+    <string name="bookmarked_indicator">محفوظ في الإشارات المرجعية</string>
+    <string name="toggle_bookmark">إشارة مرجعية</string>
+    <string name="notes_tab_title">الإشارات المرجعية والملاحظات</string>
+    <string name="notes_tab_bookmarks_header">الإشارات المرجعية</string>
+    <string name="notes_tab_notes_header">الملاحظات</string>
+    <string name="notes_tab_bookmarks_empty">لا توجد إشارات مرجعية بعد</string>
+    <string name="notes_tab_notes_empty">لا توجد ملاحظات بعد</string>
+    <string name="note_editor_hint">اكتب ملاحظتك هنا</string>
+    <string name="note_editor_save">حفظ</string>
+    <string name="note_editor_delete">حذف الملاحظة</string>
+    <string name="has_note_indicator">توجد ملاحظة</string>
+    <string name="toggle_note">إضافة ملاحظة</string>
 </resources>

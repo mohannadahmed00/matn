@@ -12,27 +12,42 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.savedstate.read
 import com.giraffe.matn.di.MatnKoinHolder
 import com.giraffe.matn.domain.repository.RepetitionSettingsStore
+import com.giraffe.matn.domain.usecase.DeleteNoteUseCase
 import com.giraffe.matn.domain.usecase.DismissContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
+import com.giraffe.matn.domain.usecase.GetNoteUseCase
 import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
+import com.giraffe.matn.domain.usecase.ObserveBookmarksUseCase
 import com.giraffe.matn.domain.usecase.ObserveContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
+import com.giraffe.matn.domain.usecase.ObserveNotesUseCase
+import com.giraffe.matn.domain.usecase.ObserveVerseAnnotationsUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
 import com.giraffe.matn.domain.usecase.ResolveResumeTargetUseCase
+import com.giraffe.matn.domain.usecase.SaveNoteUseCase
+import com.giraffe.matn.domain.usecase.ToggleBookmarkUseCase
+import com.giraffe.matn.domain.usecase.SearchLibraryUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
+import com.giraffe.matn.domain.model.SearchResult
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.details.MatnDetailsScreen
 import com.giraffe.matn.presentation.details.MatnDetailsViewModel
 import com.giraffe.matn.presentation.home.HomeScreen
 import com.giraffe.matn.presentation.home.HomeViewModel
+import com.giraffe.matn.presentation.notes.NotesTabScreen
+import com.giraffe.matn.presentation.notes.NotesTabViewModel
 import com.giraffe.matn.presentation.player.PlayerBarViewModel
+import com.giraffe.matn.presentation.search.SearchScreen
+import com.giraffe.matn.presentation.search.SearchViewModel
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -42,8 +57,11 @@ import org.jetbrains.compose.resources.stringResource
  *  * `home` — the library grid, [NavigationTab.LIBRARY]
  *  * `matn/{matnId}` — the reading/details screen (no bottom bar — the focused reading/playback
  *    surface owns the whole screen, matching the canonical design)
- *  * `goals`/`notes`/`settings` — [NavigationTab.GOALS]/[NOTES]/[SETTINGS], all routed to the
- *    shared [ComingSoonScreen] until Phases 6-8 land (FR-007)
+ *  * `search` — dedicated search screen (Phase 6 US1), pushed from Home's top-bar entry point;
+ *    no bottom bar
+ *  * `notes` — [NavigationTab.NOTES]'s real screen (Phase 6 US2/US3): bookmarks + notes
+ *  * `goals`/`settings` — [NavigationTab.GOALS]/[SETTINGS], still routed to the shared
+ *    [ComingSoonScreen] until Phases 7-8 land (FR-007)
  *
  * The graph is authored once and extended per story. ViewModels are built per destination
  * with `androidx.lifecycle.viewmodel.compose.viewModel { ... }`, injecting use cases from the
@@ -95,10 +113,21 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                 HomeScreen(
                     viewModel = viewModel,
                     onOpenMatn = { id -> navController.navigate(Routes.matnDetails(id)) },
+                    onOpenSearch = { navController.navigate(Routes.SEARCH) },
                 )
             }
-            composable(Routes.MATN_DETAILS) { backStackEntry ->
+            composable(
+                route = Routes.MATN_DETAILS,
+                arguments = listOf(
+                    navArgument(Routes.FOCUS_VERSE_ID_ARG) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
+            ) { backStackEntry ->
                 val matnId = backStackEntry.arguments?.read { getString(Routes.MATN_ID_ARG) } ?: ""
+                val focusVerseId = (backStackEntry.arguments?.read { getString(Routes.FOCUS_VERSE_ID_ARG) } ?: "")
+                    .ifBlank { null }
                 val koin = MatnKoinHolder.koin
                 val viewModel: MatnDetailsViewModel = viewModel {
                     MatnDetailsViewModel(
@@ -107,7 +136,13 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         observeVerses = koin.get<ObserveVersesUseCase>(),
                         getFontSize = koin.get<GetFontSizeUseCase>(),
                         setFontSize = koin.get<SetFontSizeUseCase>(),
-                        koin.get<PlaybackController>(),
+                        playbackController = koin.get<PlaybackController>(),
+                        focusVerseId = focusVerseId,
+                        observeVerseAnnotations = koin.get<ObserveVerseAnnotationsUseCase>(),
+                        toggleBookmark = koin.get<ToggleBookmarkUseCase>(),
+                        getNote = koin.get<GetNoteUseCase>(),
+                        saveNote = koin.get<SaveNoteUseCase>(),
+                        deleteNote = koin.get<DeleteNoteUseCase>(),
                     )
                 }
                 val playerBar: PlayerBarViewModel = viewModel {
@@ -115,11 +150,46 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                 }
                 MatnDetailsScreen(viewModel = viewModel, playerBar = playerBar)
             }
+            composable(Routes.SEARCH) {
+                val koin = MatnKoinHolder.koin
+                val viewModel: SearchViewModel = viewModel {
+                    SearchViewModel(searchLibrary = koin.get<SearchLibraryUseCase>())
+                }
+                SearchScreen(
+                    viewModel = viewModel,
+                    onResultClick = { result ->
+                        // search-contract.md § 6: every result kind navigates through the matn
+                        // route's optional focusVerseId; a chapter with no verses falls back to
+                        // the plain matn route.
+                        when (result) {
+                            is SearchResult.VerseMatch ->
+                                navController.navigate(Routes.matnDetails(result.ref.matnId, result.ref.verseId))
+                            is SearchResult.ChapterMatch ->
+                                navController.navigate(Routes.matnDetails(result.matnId, result.firstVerseId))
+                            is SearchResult.MatnMatch ->
+                                navController.navigate(Routes.matnDetails(result.matnId))
+                        }
+                    },
+                    onBack = { navController.popBackStack() },
+                )
+            }
             composable(Routes.GOALS) {
                 ComingSoonScreen(tab = NavigationTab.GOALS, onBackToLibrary = { navController.navigate(Routes.HOME) })
             }
             composable(Routes.NOTES) {
-                ComingSoonScreen(tab = NavigationTab.NOTES, onBackToLibrary = { navController.navigate(Routes.HOME) })
+                val koin = MatnKoinHolder.koin
+                val viewModel: NotesTabViewModel = viewModel {
+                    NotesTabViewModel(
+                        observeBookmarks = koin.get<ObserveBookmarksUseCase>(),
+                        observeNotes = koin.get<ObserveNotesUseCase>(),
+                    )
+                }
+                NotesTabScreen(
+                    viewModel = viewModel,
+                    onNavigateToVerse = { matnId, verseId ->
+                        navController.navigate(Routes.matnDetails(matnId, verseId))
+                    },
+                )
             }
             composable(Routes.SETTINGS) {
                 ComingSoonScreen(tab = NavigationTab.SETTINGS, onBackToLibrary = { navController.navigate(Routes.HOME) })
@@ -147,10 +217,13 @@ private fun MatnBottomNavigationBar(currentRoute: String?, onTabSelected: (Navig
 
 object Routes {
     const val MATN_ID_ARG = "matnId"
+    const val FOCUS_VERSE_ID_ARG = "focusVerseId"
     const val HOME = "home"
-    const val MATN_DETAILS = "matn/{$MATN_ID_ARG}"
+    const val MATN_DETAILS = "matn/{$MATN_ID_ARG}?$FOCUS_VERSE_ID_ARG={$FOCUS_VERSE_ID_ARG}"
     const val GOALS = "goals"
     const val NOTES = "notes"
     const val SETTINGS = "settings"
-    fun matnDetails(matnId: String): String = "matn/$matnId"
+    const val SEARCH = "search"
+    fun matnDetails(matnId: String, focusVerseId: String? = null): String =
+        if (focusVerseId != null) "matn/$matnId?$FOCUS_VERSE_ID_ARG=$focusVerseId" else "matn/$matnId"
 }

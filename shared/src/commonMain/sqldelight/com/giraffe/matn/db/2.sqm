@@ -1,0 +1,21 @@
+-- Phase 6 (schema v2 -> v3): additive bookmark/note tables. NOTE ON NUMBERING: tasks.md/plan.md
+-- were authored describing this as a "v1 -> v2" migration, but the live schema was already at
+-- version 2 (Phase 4's `1.sqm` added `matn_session`) by the time this feature was implemented —
+-- see the existing `db/1.sqm` and `shared/src/androidHostTest/kotlin/com/giraffe/matn/db/
+-- MigrationTest.kt`. This file is named for the version it migrates FROM (SQLDelight convention),
+-- so it is `2.sqm`, bumping `ContentDatabase.Schema.version` to 3. The CREATE TABLE text below
+-- MUST stay byte-identical to Content.sq's `bookmark`/`note` definitions — MigrationV2Test is the
+-- guard that proves the upgrade path (research.md D3/T006).
+
+CREATE TABLE bookmark (
+    id         TEXT NOT NULL PRIMARY KEY,
+    verse_id   TEXT NOT NULL UNIQUE REFERENCES verse(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE note (
+    id         TEXT NOT NULL PRIMARY KEY,
+    verse_id   TEXT NOT NULL UNIQUE REFERENCES verse(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);

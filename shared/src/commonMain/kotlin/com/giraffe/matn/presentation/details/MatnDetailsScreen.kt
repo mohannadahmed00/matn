@@ -82,6 +82,11 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.ma
         onSetLoopStart = viewModel::onSetLoopStart,
         onSetLoopEnd = viewModel::onSetLoopEnd,
         onClearLoop = viewModel::onClearLoop,
+        onToggleBookmark = viewModel::onToggleBookmark,
+        onOpenNoteEditor = viewModel::onOpenNoteEditor,
+        onSaveNote = viewModel::onSaveNote,
+        onDeleteNote = viewModel::onDeleteNote,
+        onDismissNoteEditor = viewModel::onDismissNoteEditor,
         playerBar = playerBar,
     )
 }
@@ -105,6 +110,11 @@ fun MatnDetailsContent(
     onSetLoopStart: (String) -> Unit = {},
     onSetLoopEnd: (String) -> Unit = {},
     onClearLoop: () -> Unit = {},
+    onToggleBookmark: (String) -> Unit = {},
+    onOpenNoteEditor: (String) -> Unit = {},
+    onSaveNote: (String) -> Unit = {},
+    onDeleteNote: () -> Unit = {},
+    onDismissNoteEditor: () -> Unit = {},
     playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
     // specs/010-design-system-adoption User Story 2: the repetition-setup sheet's open/closed
@@ -136,12 +146,18 @@ fun MatnDetailsContent(
                 // header, table of contents, full verse list — is unchanged (User Story 4).
                 val carouselState = com.giraffe.matn.presentation.player.windowVersesForCarousel(
                     verses = state.verses,
-                    activeVerseId = state.activeVerseId,
+                    // Phase 6 (research.md D5): a route-supplied focusVerseId centers the
+                    // carousel on that verse when no playback session is active yet — real
+                    // playback (activeVerseId non-null) always takes precedence.
+                    activeVerseId = state.activeVerseId ?: state.focusVerseId,
                 )
                 if (carouselState != null) {
                     com.giraffe.matn.presentation.player.ReadingCarousel(
                         state = carouselState,
                         fontSize = state.fontSize,
+                        annotations = state.annotations,
+                        onToggleBookmark = onToggleBookmark,
+                        onOpenNoteEditor = onOpenNoteEditor,
                         modifier = Modifier.weight(1f),
                     )
                 } else {
@@ -171,6 +187,24 @@ fun MatnDetailsContent(
                 onSetLoopEnd = onSetLoopEnd,
                 onClearLoop = onClearLoop,
                 onStartPlayback = onGlobalPlayClicked,
+            )
+        }
+        val noteEditor = state.noteEditor
+        if (noteEditor != null) {
+            // Local draft state, seeded from the prefill once GetNoteUseCase resolves — same
+            // idiom as RepetitionSetupHost's draft (Principle II: nothing here is a ViewModel
+            // call until the user explicitly saves/deletes).
+            var draft by remember(noteEditor.verseId, noteEditor.initialText) {
+                mutableStateOf(noteEditor.initialText.orEmpty())
+            }
+            com.giraffe.matn.presentation.notes.NoteEditorSheet(
+                verseRef = noteEditor.verseRef,
+                initialText = noteEditor.initialText,
+                draft = draft,
+                onDraftChange = { draft = it },
+                onSave = { onSaveNote(draft) },
+                onDelete = onDeleteNote,
+                onDismiss = onDismissNoteEditor,
             )
         }
     }

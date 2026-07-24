@@ -130,6 +130,24 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
    `NavigationBar` on every top-level screen, with the Goals and Notes tabs routed to a shared
    "coming soon" placeholder until Phases 6–7 land.
 
+7. **Phase 6 (Search, Bookmarks & Notes) design questions — resolved 2026-07-24.** Three open
+   questions in `specs/006-search-bookmarks-notes/contracts/ui-contract.md` were resolved by
+   fetching *Search Matn* (`fa8b63b0…`), *Bookmarks & Notes* (`bc99ab7f…`), and re-inspecting
+   *Reading & Playback (Updated)* (`ac354abd…`) — see `specs/006-search-bookmarks-notes/design-notes.md`
+   for the full write-up:
+   - **Search scope**: the fetched design queries the whole library, matching the spec's
+     library-wide requirement (FR-001) — no conflict to override.
+   - **Notes-tab segmentation**: the design uses stacked sections (not tabs/segmented control);
+     implemented that way.
+   - **Verse-card bookmark/note affordance**: the design shows a bookmark icon in the active
+     verse card's action row but **no dedicated note-taking affordance** — this is a real
+     affordance gap in the Stitch set. Per the ui-contract.md fallback rule, the note action was
+     added to the same action row alongside the bookmark toggle, with a visually distinct
+     hand-drawn glyph (pencil-on-page vs. ribbon) rather than inventing a new screen region.
+   - Also noted: the fetched *Search Matn* HTML bleeds in teacher/producer-portal navigation
+     chrome (dashboard, upload-matn, "Ustadh Ahmed" identity) from a shared Stitch project shell —
+     not part of the student search screen; ignored during implementation.
+
 ## Phase 10 — Design System Adoption
 
 Phases 1–5's screens (Home/Library, Matn Details, Reading & Playback, Repetition Setup) have been

@@ -1,8 +1,10 @@
 package com.giraffe.matn.presentation.details
 
 import com.giraffe.matn.core.AppError
+import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.LoopRange
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.domain.model.VerseAnnotations
 
 /**
  * Immutable UI state for the Matn details / reading screen (data-model.md §4.2; Principle II).
@@ -27,6 +29,29 @@ data class MatnDetailsUiState(
     val isPlaying: Boolean = false,
     val loopRangeVerseIds: Set<String> = emptySet(),
     val loopRange: LoopRange? = null,
+    /** Phase 6 (research.md D5): the route's optional `focusVerseId`, honored only while no
+     *  playback session is active (`activeVerseId == null`) — see [MatnDetailsScreen]'s carousel
+     *  windowing. Never starts playback by itself. */
+    val focusVerseId: String? = null,
+    /** Phase 6 (US2/US3): per-verse bookmark/note indicator flags, keyed by verse id. A verse
+     *  absent from this map has no annotation. */
+    val annotations: Map<String, VerseAnnotations> = emptyMap(),
+    /** Phase 6 (US3): the note-editor bottom sheet's state, or `null` when closed. */
+    val noteEditor: NoteEditorState? = null,
+)
+
+/**
+ * US3 note-editor sheet state. [initialText] is `null` until [com.giraffe.matn.domain.usecase.GetNoteUseCase]
+ * resolves (prefill may arrive after the sheet opens, or stay `null` for a genuinely new note) —
+ * the sheet's live draft text is local Compose state in the host (the
+ * [com.giraffe.matn.presentation.player.RepetitionSetupSheet] precedent), seeded from
+ * [initialText]. [saveError] surfaces a rejected blank save (FR-019) without closing the sheet.
+ */
+data class NoteEditorState(
+    val verseId: String,
+    val verseRef: AnnotatedVerseRef,
+    val initialText: String?,
+    val saveError: Boolean = false,
 )
 
 data class MatnHeader(

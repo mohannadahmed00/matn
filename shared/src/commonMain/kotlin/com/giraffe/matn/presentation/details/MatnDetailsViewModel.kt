@@ -3,10 +3,14 @@ package com.giraffe.matn.presentation.details
 import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
+import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.Chapter
 import com.giraffe.matn.domain.model.MatnDetails
+import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.Verse
+import com.giraffe.matn.domain.model.VerseAnnotations
+import com.giraffe.matn.domain.usecase.SaveNoteParams
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.base.BaseViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -38,6 +42,17 @@ class MatnDetailsViewModel(
     private val getFontSize: FlowUseCase<Unit, ReadingFontSize>,
     private val setFontSize: UseCase<ReadingFontSize, Unit>,
     private val playbackController: PlaybackController,
+    /** Phase 6 (research.md D5): optional initial carousel focus from the route. Honored once,
+     *  only if present in the loaded verse list — never starts playback. */
+    private val focusVerseId: String? = null,
+    /** Phase 6 (US2 FR-011/FR-016): per-verse bookmark/note indicator map for this matn. */
+    private val observeVerseAnnotations: FlowUseCase<String, Map<String, VerseAnnotations>>,
+    /** Phase 6 (US2 FR-010): active-verse bookmark toggle. */
+    private val toggleBookmark: UseCase<String, Boolean>,
+    /** Phase 6 (US3 FR-015): note-editor prefill/save/delete. */
+    private val getNote: UseCase<String, Note?>,
+    private val saveNote: UseCase<SaveNoteParams, Note>,
+    private val deleteNote: UseCase<String, Unit>,
 ) : BaseViewModel<MatnDetailsUiState>(MatnDetailsUiState()) {
 
     // The two async inputs (details load + verse stream) are cached here and folded into UI
@@ -52,6 +67,75 @@ class MatnDetailsViewModel(
         observeVerseList()
         observeFontSize()
         observePlayback()
+        observeAnnotations()
+    }
+
+    /** US2 FR-010: toggle the bookmark on [verseId] (typically the active verse). Best-effort —
+     *  the observed [observeVerseAnnotations] flow re-emits and updates state on success. */
+    fun onToggleBookmark(verseId: String) {
+        runUseCase(
+            useCase = toggleBookmark,
+            params = verseId,
+            onSuccess = {/* observeAnnotations() re-emits and updates state */ },
+            onError = {/* best-effort; leave current indicator state */ },
+        )
+    }
+
+    private fun observeAnnotations() {
+        observeVerseAnnotations.invoke(matnId)
+            .onEach { annotations -> setState { it.copy(annotations = annotations) } }
+            .launchIn(viewModelScope)
+    }
+
+    /** US3 FR-015: open the editor for [verseId], prefilling via [getNote] once it resolves
+     *  (best-effort — a failed prefill still opens the sheet as a create-new note). */
+    fun onOpenNoteEditor(verseId: String) {
+        val verseRow = verseRows.firstOrNull { it.id == verseId } ?: return
+        val ref = AnnotatedVerseRef(
+            matnId = matnId,
+            matnTitle = loadedDetails?.matn?.title.orEmpty(),
+            verseId = verseId,
+            verseNumber = verseRow.displayNumber,
+            verseText = verseRow.arabicText,
+        )
+        setState { it.copy(noteEditor = NoteEditorState(verseId = verseId, verseRef = ref, initialText = null)) }
+        runUseCase(
+            useCase = getNote,
+            params = verseId,
+            onSuccess = { note ->
+                setState { it.copy(noteEditor = it.noteEditor?.takeIf { e -> e.verseId == verseId }?.copy(initialText = note?.text)) }
+            },
+            onError = {/* prefill best-effort; sheet stays open as create-new */ },
+        )
+    }
+
+    /** US3 FR-015/FR-019: persist [text] for the open editor's verse. A blank [text] surfaces
+     *  [NoteEditorState.saveError] and keeps the sheet open — the Save button is disabled for
+     *  blank drafts, so this only guards a defensive/programmatic call. */
+    fun onSaveNote(text: String) {
+        val editor = stateValue.noteEditor ?: return
+        runUseCase(
+            useCase = saveNote,
+            params = SaveNoteParams(editor.verseId, text),
+            onSuccess = { setState { it.copy(noteEditor = null) } },
+            onError = { setState { it.copy(noteEditor = it.noteEditor?.copy(saveError = true)) } },
+        )
+    }
+
+    /** US3 FR-015: explicit delete (never triggered by an empty save, FR-019). */
+    fun onDeleteNote() {
+        val editor = stateValue.noteEditor ?: return
+        runUseCase(
+            useCase = deleteNote,
+            params = editor.verseId,
+            onSuccess = { setState { it.copy(noteEditor = null) } },
+            onError = {/* best-effort; leave the sheet open so the user can retry */ },
+        )
+    }
+
+    /** US3: dismiss without saving — the draft is discarded (FR-019). */
+    fun onDismissNoteEditor() {
+        setState { it.copy(noteEditor = null) }
     }
 
     /** User intent: persist a new font-size step (US4). */
@@ -154,6 +238,7 @@ class MatnDetailsViewModel(
                 },
                 chapters = details?.chapters.orEmpty().toChapterRows(verseRows),
                 showTableOfContents = details?.showTableOfContents ?: false,
+                focusVerseId = focusVerseId?.takeIf { id -> verseRows.any { it.id == id } },
             )
         }
     }
