@@ -104,6 +104,22 @@ Daily goals remain as in v2 (e.g., "practice 10 verses" or "listen 20 minutes"),
 
 ---
 
+# Navigation & App Shell
+
+A persistent bottom navigation bar with four tabs is the app's primary navigation surface,
+present on every top-level screen:
+
+- **Library** — Home Screen (see above).
+- **Goals** — Memorization Progress & Daily Goals.
+- **Notes** — Bookmarks & Notes.
+- **Settings** — App preferences, storage management, onboarding-related permissions.
+
+Tabs for features not yet built are shown but route to a simple "coming soon" placeholder rather
+than being hidden — the shell itself is stable chrome shared by every screen, independent of which
+feature phases have landed.
+
+---
+
 # User Experience & UI Guidelines
 
 - **Typography:** Elegant, legible classical Arabic typeface (e.g., Amiri, Uthman Taha) with adjustable font-size slider.

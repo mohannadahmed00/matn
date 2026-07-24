@@ -22,9 +22,6 @@
     <string name="player_speed">سرعة التشغيل</string>
     <string name="player_now_playing">البيت</string>
     <string name="verse_play">تشغيل هذا البيت</string>
-    <string name="loop_set_start">تحديد بداية التكرار (A)</string>
-    <string name="loop_set_end">تحديد نهاية التكرار (B)</string>
-    <string name="loop_clear">إلغاء نطاق التكرار</string>
     <string name="mode_normal">عادي</string>
     <string name="mode_memorization">حفظ</string>
     <string name="mode_ab_loop">تكرار مقطع</string>
@@ -32,4 +29,20 @@
     <string name="continue_learning_verse">البيت %1$d</string>
     <string name="continue_learning_resume">استكمال الآن</string>
     <string name="continue_learning_dismiss">إخفاء</string>
+    <string name="repetition_setup_title">إعدادات التكرار</string>
+    <string name="repetition_setup_ab_toggle">وضعية A-B</string>
+    <string name="repetition_setup_start_verse">بيت البداية</string>
+    <string name="repetition_setup_end_verse">بيت النهاية</string>
+    <string name="repetition_setup_verse_repeat">تكرار البيت الواحد</string>
+    <string name="repetition_setup_segment_repeat">تكرار المقطع كاملاً</string>
+    <string name="repetition_setup_start_action">بدء التكرار المنتظم</string>
+    <string name="repetition_setup_open">إعدادات التكرار</string>
+    <string name="nav_library">المكتبة</string>
+    <string name="nav_goals">الأهداف</string>
+    <string name="nav_notes">الملاحظات</string>
+    <string name="nav_settings">الإعدادات</string>
+    <string name="coming_soon_title">قريباً</string>
+    <string name="coming_soon_message">هذه الميزة قيد الإعداد ولم تُتَح بعد.</string>
+    <string name="coming_soon_back_to_library">العودة إلى المكتبة</string>
+    <string name="home_daily_goal_label">هدف اليوم</string>
 </resources>

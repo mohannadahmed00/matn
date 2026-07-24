@@ -2,7 +2,7 @@ package com.giraffe.matn.presentation.details
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,6 +48,8 @@ import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.presentation.common.CoverImage
 import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.formatDuration
+import com.giraffe.matn.presentation.theme.MatnShapes
+import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.toSp
 import com.giraffe.matn.presentation.theme.verseFontFamily
@@ -59,9 +61,6 @@ import matn.shared.generated.resources.font_large
 import matn.shared.generated.resources.font_medium
 import matn.shared.generated.resources.font_small
 import matn.shared.generated.resources.font_xlarge
-import matn.shared.generated.resources.loop_clear
-import matn.shared.generated.resources.loop_set_end
-import matn.shared.generated.resources.loop_set_start
 import matn.shared.generated.resources.player_play
 import matn.shared.generated.resources.verse_play
 import matn.shared.generated.resources.verses_count
@@ -108,6 +107,11 @@ fun MatnDetailsContent(
     onClearLoop: () -> Unit = {},
     playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
+    // specs/010-design-system-adoption User Story 2: the repetition-setup sheet's open/closed
+    // flag is local UI state (Principle II precedent: GoldScrub's drag state in PlayerBar.kt is
+    // the same kind of ephemeral, non-persisted interaction state) — nothing is written to a
+    // ViewModel until the sheet's own "start" action fires.
+    var repetitionSheetOpen by remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.isLoading -> CircularProgressIndicator(
@@ -121,26 +125,53 @@ fun MatnDetailsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(24.dp),
+                    .padding(MatnSpacing.gutter),
                 textAlign = TextAlign.Center,
             )
 
             else -> Column(modifier = Modifier.fillMaxSize()) {
-                VerseList(
-                    state = state,
-                    onFontSizeChanged = onFontSizeChanged,
-                    onVersePlayClicked = onVersePlayClicked,
-                    onGlobalPlayClicked = onGlobalPlayClicked,
-                    onSetLoopStart = onSetLoopStart,
-                    onSetLoopEnd = onSetLoopEnd,
-                    onClearLoop = onClearLoop,
-                    modifier = Modifier.weight(1f),
+                // specs/010-design-system-adoption User Story 1: while a verse is actively being
+                // read/listened to, the focused 3-verse carousel replaces the scrollable browse
+                // list. With no active verse (session not started / stopped) the browse list —
+                // header, table of contents, full verse list — is unchanged (User Story 4).
+                val carouselState = com.giraffe.matn.presentation.player.windowVersesForCarousel(
+                    verses = state.verses,
+                    activeVerseId = state.activeVerseId,
                 )
+                if (carouselState != null) {
+                    com.giraffe.matn.presentation.player.ReadingCarousel(
+                        state = carouselState,
+                        fontSize = state.fontSize,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    VerseList(
+                        state = state,
+                        onFontSizeChanged = onFontSizeChanged,
+                        onVersePlayClicked = onVersePlayClicked,
+                        onGlobalPlayClicked = onGlobalPlayClicked,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 if (playerBar != null) {
-                    com.giraffe.matn.presentation.player.DrillPanel(viewModel = playerBar)
-                    com.giraffe.matn.presentation.player.PlayerBar(viewModel = playerBar)
+                    com.giraffe.matn.presentation.player.PlayerBar(
+                        viewModel = playerBar,
+                        onRepeatSettingsClicked = { repetitionSheetOpen = true },
+                    )
                 }
             }
+        }
+        if (playerBar != null) {
+            com.giraffe.matn.presentation.player.RepetitionSetupHost(
+                visible = repetitionSheetOpen,
+                onDismiss = { repetitionSheetOpen = false },
+                verses = state.verses,
+                playerBar = playerBar,
+                onSetLoopStart = onSetLoopStart,
+                onSetLoopEnd = onSetLoopEnd,
+                onClearLoop = onClearLoop,
+                onStartPlayback = onGlobalPlayClicked,
+            )
         }
     }
 }
@@ -151,9 +182,6 @@ private fun VerseList(
     onFontSizeChanged: (ReadingFontSize) -> Unit = {},
     onVersePlayClicked: (String) -> Unit = {},
     onGlobalPlayClicked: () -> Unit = {},
-    onSetLoopStart: (String) -> Unit = {},
-    onSetLoopEnd: (String) -> Unit = {},
-    onClearLoop: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -181,7 +209,12 @@ private fun VerseList(
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(
+            start = MatnSpacing.marginMobile,
+            end = MatnSpacing.marginMobile,
+            top = MatnSpacing.unit,
+            bottom = MatnSpacing.gutter + MatnSpacing.unit,
+        ),
     ) {
         if (header != null) {
             item(key = "header") {
@@ -218,11 +251,7 @@ private fun VerseList(
                 inLoopRange = row.id in state.loopRangeVerseIds,
                 isLoopStart = row.id == state.loopRange?.startVerseId,
                 isLoopEnd = row.id == state.loopRange?.endVerseId,
-                hasLoopRange = state.loopRange != null,
                 onPlayClicked = { onVersePlayClicked(row.id) },
-                onSetLoopStart = { onSetLoopStart(row.id) },
-                onSetLoopEnd = { onSetLoopEnd(row.id) },
-                onClearLoop = onClearLoop,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
@@ -240,7 +269,7 @@ private fun Frontispiece(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 20.dp),
+            .padding(top = MatnSpacing.unit, bottom = MatnSpacing.gutter - MatnSpacing.unit),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -264,16 +293,16 @@ private fun Frontispiece(
             text = header.title,
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 16.dp),
+            modifier = Modifier.padding(top = MatnSpacing.unit * 2),
         )
         Text(
             text = header.author,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = MatnSpacing.unit / 2),
         )
-        GoldRule(modifier = Modifier.padding(vertical = 16.dp))
+        GoldRule(modifier = Modifier.padding(vertical = MatnSpacing.unit * 2))
         if (header.description.isNotBlank()) {
             Text(
                 text = header.description,
@@ -288,7 +317,7 @@ private fun Frontispiece(
             text = totals,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = MatnSpacing.unit + 4.dp),
         )
     }
 }
@@ -299,7 +328,7 @@ private fun GoldRule(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = MatnSpacing.unit * 4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -308,7 +337,7 @@ private fun GoldRule(modifier: Modifier = Modifier) {
         )
         Box(
             modifier = Modifier
-                .padding(horizontal = 10.dp)
+                .padding(horizontal = MatnSpacing.unit + 2.dp)
                 .size(6.dp)
                 .background(MaterialTheme.colorScheme.secondary, CircleShape),
         )
@@ -381,8 +410,10 @@ private fun errorMessage(error: AppError?): String = when (error) {
 }
 
 /**
- * One verse row. A long-press opens the A–B loop menu (US2): in-range rows carry a gold-tinted
- * background, and the A/B boundary rows additionally show a small "A"/"B" marker on the rosette.
+ * One verse row. A–B loop range selection now lives in the User Story 2
+ * [com.giraffe.matn.presentation.player.RepetitionSetupSheet] rather than a per-row long-press
+ * menu — this row is display-only: in-range rows carry a tinted background, and the A/B boundary
+ * rows show a small "A"/"B" marker on the rosette, both still driven by `state.loopRange`.
  */
 @Composable
 private fun VerseRowItem(
@@ -393,11 +424,7 @@ private fun VerseRowItem(
     inLoopRange: Boolean = false,
     isLoopStart: Boolean = false,
     isLoopEnd: Boolean = false,
-    hasLoopRange: Boolean = false,
     onPlayClicked: () -> Unit = {},
-    onSetLoopStart: () -> Unit = {},
-    onSetLoopEnd: () -> Unit = {},
-    onClearLoop: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     val rowBackground = when {
@@ -405,66 +432,50 @@ private fun VerseRowItem(
         inLoopRange -> scheme.secondary.copy(alpha = 0.10f)
         else -> androidx.compose.ui.graphics.Color.Transparent
     }
-    var menuExpanded by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(rowBackground)
-                .combinedClickable(onClick = onPlayClicked, onLongClick = { menuExpanded = true })
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            VerseRosette(
-                number = row.displayNumber,
-                isActive = isActive,
-                boundaryMark = when {
-                    isLoopStart -> "A"
-                    isLoopEnd -> "B"
-                    else -> null
-                },
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(rowBackground)
+            .clickable(onClick = onPlayClicked)
+            .padding(vertical = MatnSpacing.unit * 2),
+        verticalAlignment = Alignment.Top,
+    ) {
+        VerseRosette(
+            number = row.displayNumber,
+            isActive = isActive,
+            boundaryMark = when {
+                isLoopStart -> "A"
+                isLoopEnd -> "B"
+                else -> null
+            },
+        )
+        Spacer(modifier = Modifier.width(MatnSpacing.unit + 6.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = row.arabicText,
+                fontFamily = verseFont,
+                fontSize = fontSize,
+                // A ratio of the (already token-driven) reading font size, not an independent
+                // magic literal — the constant here is the line-height *multiplier*, matching how
+                // MatnSpacing itself is a scale of named multiples rather than one-off values.
+                lineHeight = (fontSize.value * 1.7f).sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = row.arabicText,
-                    fontFamily = verseFont,
-                    fontSize = fontSize,
-                    lineHeight = (fontSize.value * 1.7f).sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = formatDuration(row.durationMs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-            IconButton(onClick = onPlayClicked) {
-                PlayGlyph(
-                    color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    size = 18.dp,
-                    contentDescription = stringResource(Res.string.verse_play),
-                )
-            }
+            Text(
+                text = formatDuration(row.durationMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = MatnSpacing.unit),
+            )
         }
-        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.loop_set_start)) },
-                onClick = { onSetLoopStart(); menuExpanded = false },
+        IconButton(onClick = onPlayClicked) {
+            PlayGlyph(
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                size = 18.dp,
+                contentDescription = stringResource(Res.string.verse_play),
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.loop_set_end)) },
-                onClick = { onSetLoopEnd(); menuExpanded = false },
-            )
-            if (hasLoopRange) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.loop_clear)) },
-                    onClick = { onClearLoop(); menuExpanded = false },
-                )
-            }
         }
     }
 }
@@ -603,7 +614,6 @@ private fun VerseRowItemInLoopRangePreview() {
             verseFont = FontFamily.Default,
             inLoopRange = true,
             isLoopStart = true,
-            hasLoopRange = true,
         )
     }
 }
@@ -612,7 +622,7 @@ private fun VerseRowItemInLoopRangePreview() {
 @Composable
 private fun VerseRosetteBoundaryMarkPreview() {
     MatnTheme {
-        Box(modifier = Modifier.padding(16.dp)) { VerseRosette(number = 5, boundaryMark = "A") }
+        Box(modifier = Modifier.padding(MatnSpacing.gutter)) { VerseRosette(number = 5, boundaryMark = "A") }
     }
 }
 
@@ -650,7 +660,7 @@ private fun MatnDetailsWithLoopRangePreview() {
 @Composable
 private fun VerseRosettePreview() {
     MatnTheme {
-        Box(modifier = Modifier.padding(16.dp)) { VerseRosette(number = 7) }
+        Box(modifier = Modifier.padding(MatnSpacing.gutter)) { VerseRosette(number = 7) }
     }
 }
 

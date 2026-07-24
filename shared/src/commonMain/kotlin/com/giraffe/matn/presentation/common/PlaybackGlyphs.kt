@@ -7,8 +7,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -83,6 +86,38 @@ fun SkipNextGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp,
             color,
         )
         drawRoundRect(color, topLeft = Offset(w * 0.66f, h * 0.20f), size = Size(w * 0.12f, h * 0.60f), cornerRadius = CornerRadius(w * 0.05f))
+    }
+}
+
+/** Two counter-rotating arcs with arrowheads — the repetition-setup entry point (specs/010 US2). */
+@Composable
+fun RepeatGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
+    Canvas(modifier.size(size).desc(contentDescription)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = Stroke(width = w * 0.09f, cap = StrokeCap.Round)
+        val topRect = Rect(w * 0.15f, h * 0.15f, w * 0.85f, h * 0.62f)
+        drawArc(color, startAngle = 200f, sweepAngle = 160f, useCenter = false, style = stroke, topLeft = topRect.topLeft, size = topRect.size)
+        val bottomRect = Rect(w * 0.15f, h * 0.38f, w * 0.85f, h * 0.85f)
+        drawArc(color, startAngle = 20f, sweepAngle = 160f, useCenter = false, style = stroke, topLeft = bottomRect.topLeft, size = bottomRect.size)
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.85f, h * 0.15f)
+                lineTo(w * 0.97f, h * 0.30f)
+                lineTo(w * 0.72f, h * 0.32f)
+                close()
+            },
+            color,
+        )
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.15f, h * 0.85f)
+                lineTo(w * 0.03f, h * 0.70f)
+                lineTo(w * 0.28f, h * 0.68f)
+                close()
+            },
+            color,
+        )
     }
 }
 

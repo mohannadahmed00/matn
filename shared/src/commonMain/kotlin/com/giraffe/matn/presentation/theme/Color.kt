@@ -5,43 +5,81 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
 /**
- * Matn's "المخطوط" (manuscript) palette — a deliberate visual identity grounded in the craft of
- * classical Arabic manuscripts rather than stock Material defaults: a parchment page, iron-gall
- * **ink**, a **scholarly green**, and a restrained **illumination gold** (the vocabulary of
- * منمنمات / manuscript illumination). Phase 1 ships the light scheme only (dark mode is Phase 8).
+ * Canonical Material 3 color roles, pulled verbatim from the Stitch design set (project
+ * `5201142409061412050`) and recorded in `docs/DESIGN-SOURCE.md` § Design tokens. Phase 10 ships
+ * the light scheme only — dark tokens don't exist in the Stitch set yet and remain Phase 9's job.
  */
-val Parchment = Color(0xFFF7F2E8)        // page background
-val ParchmentDim = Color(0xFFEDE4D2)     // raised fields (cover, cards)
-val InkBlack = Color(0xFF23201B)         // primary reading ink
-val MutedInk = Color(0xFF6C6152)         // secondary text (author, meta)
-val ScholarGreen = Color(0xFF14594A)     // primary — interactive, accents on Arabic titles
-val ScholarGreenDeep = Color(0xFF0A3128) // on-container green
-val ScholarGreenSoft = Color(0xFFCADFD6) // primary container
-val IlluminationGold = Color(0xFFB0842A) // secondary — verse rosette, ornament, dividers
-val GoldDeep = Color(0xFF4A3608)         // on-secondary-container
-val GoldSoft = Color(0xFFEBDCBB)         // secondary container
-val Hairline = Color(0xFFE2D8C4)         // subtle rules between verses
-val OutlineInk = Color(0xFFB8AB92)       // stronger outlines
-val RustError = Color(0xFF8C3B2B)        // muted, period-appropriate error red
+val Primary = Color(0xFF425546)
+val OnPrimary = Color(0xFFFFFFFF)
+val PrimaryContainer = Color(0xFF5A6D5D)
+val OnPrimaryContainer = Color(0xFFD9EEDA)
+val InversePrimary = Color(0xFFB7CCB9)
+val Secondary = Color(0xFF6B5C41)
+val OnSecondary = Color(0xFFFFFFFF)
+val SecondaryContainer = Color(0xFFF2DDBA)
+val OnSecondaryContainer = Color(0xFF706145)
+val Tertiary = Color(0xFF51504B)
+val OnTertiary = Color(0xFFFFFFFF)
+val TertiaryContainer = Color(0xFF696863)
+val OnTertiaryContainer = Color(0xFFEBE8E1)
+val Background = Color(0xFFFCF9F8)
+val OnBackground = Color(0xFF1B1C1C)
+val Surface = Color(0xFFFCF9F8)
+val OnSurface = Color(0xFF1B1C1C)
+val SurfaceVariant = Color(0xFFE4E2E1)
+val OnSurfaceVariant = Color(0xFF434843)
+val SurfaceTint = Color(0xFF506353)
+val InverseSurface = Color(0xFF303030)
+val InverseOnSurface = Color(0xFFF3F0F0)
+val Outline = Color(0xFF737872)
+val OutlineVariant = Color(0xFFC3C8C1)
+val Error = Color(0xFFBA1A1A)
+val OnError = Color(0xFFFFFFFF)
+val ErrorContainer = Color(0xFFFFDAD6)
+val OnErrorContainer = Color(0xFF93000A)
+val SurfaceDim = Color(0xFFDCD9D9)
+val SurfaceBright = Color(0xFFFCF9F8)
+val SurfaceContainerLowest = Color(0xFFFFFFFF)
+val SurfaceContainerLow = Color(0xFFF6F3F2)
+val SurfaceContainer = Color(0xFFF0EDED)
+val SurfaceContainerHigh = Color(0xFFEAE7E7)
+val SurfaceContainerHighest = Color(0xFFE4E2E1)
 
-/** The single light color scheme for Phase 1, mapping the manuscript palette onto M3 roles. */
+/** The single light color scheme for Phase 10, mapping the Stitch token set onto M3 roles. */
 val MatnLightColors: ColorScheme = lightColorScheme(
-    primary = ScholarGreen,
-    onPrimary = Parchment,
-    primaryContainer = ScholarGreenSoft,
-    onPrimaryContainer = ScholarGreenDeep,
-    secondary = IlluminationGold,
-    onSecondary = InkBlack,
-    secondaryContainer = GoldSoft,
-    onSecondaryContainer = GoldDeep,
-    background = Parchment,
-    onBackground = InkBlack,
-    surface = Parchment,
-    onSurface = InkBlack,
-    surfaceVariant = ParchmentDim,
-    onSurfaceVariant = MutedInk,
-    outline = OutlineInk,
-    outlineVariant = Hairline,
-    error = RustError,
-    onError = Parchment,
+    primary = Primary,
+    onPrimary = OnPrimary,
+    primaryContainer = PrimaryContainer,
+    onPrimaryContainer = OnPrimaryContainer,
+    inversePrimary = InversePrimary,
+    secondary = Secondary,
+    onSecondary = OnSecondary,
+    secondaryContainer = SecondaryContainer,
+    onSecondaryContainer = OnSecondaryContainer,
+    tertiary = Tertiary,
+    onTertiary = OnTertiary,
+    tertiaryContainer = TertiaryContainer,
+    onTertiaryContainer = OnTertiaryContainer,
+    background = Background,
+    onBackground = OnBackground,
+    surface = Surface,
+    onSurface = OnSurface,
+    surfaceVariant = SurfaceVariant,
+    onSurfaceVariant = OnSurfaceVariant,
+    surfaceTint = SurfaceTint,
+    inverseSurface = InverseSurface,
+    inverseOnSurface = InverseOnSurface,
+    outline = Outline,
+    outlineVariant = OutlineVariant,
+    error = Error,
+    onError = OnError,
+    errorContainer = ErrorContainer,
+    onErrorContainer = OnErrorContainer,
+    surfaceDim = SurfaceDim,
+    surfaceBright = SurfaceBright,
+    surfaceContainerLowest = SurfaceContainerLowest,
+    surfaceContainerLow = SurfaceContainerLow,
+    surfaceContainer = SurfaceContainer,
+    surfaceContainerHigh = SurfaceContainerHigh,
+    surfaceContainerHighest = SurfaceContainerHighest,
 )

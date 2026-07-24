@@ -14,6 +14,8 @@ import com.giraffe.matn.domain.model.MatnSummary
  *  * [continueLearning] is the Phase-4 Home offer. `null` renders **nothing at all** — no
  *    placeholder, no reserved space (FR-015). It stays null until its own collector resolves and
  *    MUST NOT gate the grid (SC-005/T043a).
+ *  * [dailyGoal] (specs/010-design-system-adoption) is the top-bar progress ring's state. It
+ *    stays at its default (placeholder) value until specs/007 wires up real goal tracking.
  */
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -21,4 +23,5 @@ data class HomeUiState(
     val isEmpty: Boolean = false,
     val error: AppError? = null,
     val continueLearning: ContinueLearningEntry? = null,
+    val dailyGoal: DailyGoalUiState = DailyGoalUiState(),
 )
