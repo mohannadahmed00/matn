@@ -68,7 +68,7 @@ US2 Daily goal + completion ring (P2), US3 Goals tab dashboard (P3).
 **Purpose**: Schema v4, the progress models, and the one repository that all three stories read from.
 **No user-story work may begin until this phase is complete and green.**
 
-- [ ] T005 Add the two new tables to `SQL/Content.sq`. Append them near the existing `bookmark`/`note` table definitions, each with a short comment citing its FRs (match the file's existing comment style). Use this DDL **verbatim**:
+- [X] T005 Add the two new tables to `SQL/Content.sq`. Append them near the existing `bookmark`/`note` table definitions, each with a short comment citing its FRs (match the file's existing comment style). Use this DDL **verbatim**:
   ```sql
   -- Phase 7 (FR-001…FR-005): explicit per-verse recall self-report. `id` is a UUID minted at
   -- creation (Constitution VI); UNIQUE(verse_id) enforces one status per verse and doubles as the
@@ -91,7 +91,7 @@ US2 Daily goal + completion ring (P2), US3 Goals tab dashboard (P3).
       UNIQUE (day_epoch, verse_id)
   );
   ```
-- [ ] T006 Add the named queries to `SQL/Content.sq` (append at the end of the file). Use this SQL **verbatim** — the aggregate is the single source of truth for every progress surface (research.md D4):
+- [X] T006 Add the named queries to `SQL/Content.sq` (append at the end of the file). Use this SQL **verbatim** — the aggregate is the single source of truth for every progress surface (research.md D4):
   ```sql
   -- Phase 7: memorization queries (progress-contract.md § Repository interfaces).
 
@@ -142,8 +142,8 @@ US2 Daily goal + completion ring (P2), US3 Goals tab dashboard (P3).
   selectDailyPracticeCount:
   SELECT COUNT(*) AS practiced_count FROM daily_practice WHERE day_epoch = ?;
   ```
-- [ ] T007 Create the migration `SQL/3.sqm` (note: migrations live directly in `db/`, NOT in a `migrations/` subfolder — see the existing `SQL/1.sqm` and `SQL/2.sqm`). It migrates FROM schema version 3, bumping `ContentDatabase.Schema.version` to 4. Content = a header comment (mirror `SQL/2.sqm`'s header explaining the numbering convention) followed by the **byte-identical** `CREATE TABLE memorization (…);` and `CREATE TABLE daily_practice (…);` statements from T005. Copying the DDL exactly is what makes the migration test meaningful.
-- [ ] T008 Write the migration test at `shared/src/androidHostTest/kotlin/com/giraffe/matn/db/MigrationV3Test.kt`. **It goes in `androidHostTest`, not `commonTest`** — copy the structure of the existing `shared/src/androidHostTest/kotlin/com/giraffe/matn/db/MigrationV2Test.kt` exactly (only the JVM driver can be handed a hand-built legacy schema without `Schema.create()` overwriting it). Assert: (a) content seeded at v3 (matn, verse, bookmark, note, matn_session rows) is fully intact after `migrate(3, 4)`; (b) the `memorization` and `daily_practice` tables accept inserts afterwards; (c) `UNIQUE(day_epoch, verse_id)` rejects (or ignores) a duplicate same-day row; (d) migrating an empty v3 DB leaves both new tables empty. Also update the existing `MigrationTest.kt` assertion `schema_version_is_three` → `schema_version_is_four` (T007 bumps the version again).
+- [X] T007 Create the migration `SQL/3.sqm` (note: migrations live directly in `db/`, NOT in a `migrations/` subfolder — see the existing `SQL/1.sqm` and `SQL/2.sqm`). It migrates FROM schema version 3, bumping `ContentDatabase.Schema.version` to 4. Content = a header comment (mirror `SQL/2.sqm`'s header explaining the numbering convention) followed by the **byte-identical** `CREATE TABLE memorization (…);` and `CREATE TABLE daily_practice (…);` statements from T005. Copying the DDL exactly is what makes the migration test meaningful.
+- [X] T008 Write the migration test at `shared/src/androidHostTest/kotlin/com/giraffe/matn/db/MigrationV3Test.kt`. **It goes in `androidHostTest`, not `commonTest`** — copy the structure of the existing `shared/src/androidHostTest/kotlin/com/giraffe/matn/db/MigrationV2Test.kt` exactly (only the JVM driver can be handed a hand-built legacy schema without `Schema.create()` overwriting it). Assert: (a) content seeded at v3 (matn, verse, bookmark, note, matn_session rows) is fully intact after `migrate(3, 4)`; (b) the `memorization` and `daily_practice` tables accept inserts afterwards; (c) `UNIQUE(day_epoch, verse_id)` rejects (or ignores) a duplicate same-day row; (d) migrating an empty v3 DB leaves both new tables empty. Also update the existing `MigrationTest.kt` assertion `schema_version_is_three` → `schema_version_is_four` (T007 bumps the version again).
 - [ ] T009 [P] Create `KOTLIN/domain/model/MatnProgress.kt` with exactly this content (plus KDoc citing data-model.md §2.1 and FR-006/FR-008):
   ```kotlin
   data class MatnProgress(
