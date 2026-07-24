@@ -4,7 +4,7 @@
     <string name="library_empty">لا توجد متون محمّلة بعد</string>
     <string name="toc_header">الفهرس</string>
     <string name="back">رجوع</string>
-    <string name="verses_count">%d بيت</string>
+    <string name="verses_count">%1$d بيت</string>
     <string name="font_size">حجم الخط</string>
     <string name="font_small">صغير</string>
     <string name="font_medium">متوسط</string>

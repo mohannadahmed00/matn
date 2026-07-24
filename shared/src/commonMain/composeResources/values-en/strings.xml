@@ -4,7 +4,7 @@
     <string name="library_empty">No texts loaded yet</string>
     <string name="toc_header">Contents</string>
     <string name="back">Back</string>
-    <string name="verses_count">%d verses</string>
+    <string name="verses_count">%1$d verses</string>
     <string name="font_size">Font size</string>
     <string name="font_small">Small</string>
     <string name="font_medium">Medium</string>
