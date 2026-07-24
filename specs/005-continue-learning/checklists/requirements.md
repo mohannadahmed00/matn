@@ -45,6 +45,24 @@ behavior (FR-021, FR-022), both genuine product decisions with no safe default. 
 Downstream updates made for consistency: US1 scenarios 2 and 6, two new edge cases (audio focus
 held on resume; position saved at the very end of a verse), SC-006/SC-006a, and two Assumptions.
 
+**Iteration 3 (2026-07-24, `/speckit-clarify`)** — 16/16 → 16/16; no checkbox changed state, but
+three substantive gaps were closed:
+
+- **Lifecycle + terminology.** The spec used "opened", "listened", and "engaged with"
+  interchangeably for the pointer that drives the entry. Resolved: the pointer moves **only on
+  playback** (FR-002a), while per-matn records are also created by a settings change (FR-002b), so a
+  configured-but-unplayed drill still survives a restart. Terminology normalized to "last listened"
+  throughout, including the Key Entities rename.
+- **FR-026 was untestable.** It required "a safe, **defined** fallback position" without defining it
+  — the "testable and unambiguous" item was checked on a requirement containing an undefined term.
+  Now specifies the nearest surviving verse in reading order, starting at that verse's beginning,
+  with repetition settings retained.
+- **FR-017 scope was undefined and potentially destructive.** "Clear the saved session" did not say
+  what it cleared. Now split into FR-017 (clears the pointer only) and FR-017a (explicitly
+  non-destructive), preventing an implementation that wipes configured drills from a dismiss control.
+
+Net: +3 functional requirements (36 total), +2 success criteria (13 total), +4 edge cases.
+
 **Questions avoided by consulting Phase 3** — three candidate clarifications were resolved from the
 merged Phase 3 spec (`specs/004-repetition-engine/spec.md`) rather than asked:
 

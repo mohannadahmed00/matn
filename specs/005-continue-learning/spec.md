@@ -44,6 +44,9 @@ they were.
 
 - Q: When the student taps Continue Learning, should playback start automatically or should the session be restored in a paused state? → A: Auto-play immediately — a single tap resumes listening, without a second explicit play.
 - Q: On resume, should playback restart from the exact saved position within the verse, or from the beginning of the saved verse? → A: From the exact saved millisecond position within the verse.
+- Q: What event establishes or updates the pointer that drives the Continue Learning entry — opening a matn, or actually playing audio in it? → A: Only when audio actually plays. Browsing into a matn without listening never changes the entry, so a real in-progress session is not displaced by a glance. The concept is "last listened matn", not "last opened".
+- Q: When the saved verse no longer exists but its matn does, where should resuming land? → A: The nearest surviving verse in reading order — nearest preceding first, else nearest following — preserving the student's place as closely as the content allows.
+- Q: What should "clear the saved session" clear? → A: Only the Continue Learning entry (the last-listened pointer). Each matn retains its own saved verse, position, and repetition settings, so the action is non-destructive and reversible by listening again.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -159,8 +162,8 @@ cleanly with the entry either absent or safely handled.
    the Home screen, **Then** no broken Continue Learning entry is shown and the Home screen loads
    normally.
 4. **Given** saved state points at a verse that no longer exists within a matn that does, **When**
-   the student resumes, **Then** the app opens that matn at a safe fallback position rather than
-   erroring or landing on nothing.
+   the student resumes, **Then** the app opens that matn at the nearest surviving verse in reading
+   order, starting from the beginning of that verse, with the matn's repetition settings retained.
 5. **Given** the student is listening and the session advances from verse to verse, **When** each
    verse transition occurs, **Then** the saved state is updated so that an abrupt termination
    immediately afterward loses at most the current verse's partial progress.
@@ -181,6 +184,16 @@ cleanly with the entry either absent or safely handled.
   create a second session or restart it unexpectedly.
 - **Switching matn mid-session**: Opening a different matn and listening updates which matn the
   Continue Learning entry points at, while the previous matn keeps its own saved settings.
+- **Browsing without listening**: Opening one or several matn without starting playback leaves the
+  Continue Learning entry pointing at the last matn actually listened to — a glance never displaces
+  real progress.
+- **Configured but never played**: Setting up a drill on a matn and closing the app before pressing
+  play preserves those settings for that matn, without making it the Continue Learning entry.
+- **Dismiss then reopen the matn**: After dismissing the Continue Learning entry, opening that same
+  matn directly still restores its saved verse, position, and repetition settings — dismissal hides
+  the shortcut, it does not erase progress.
+- **Dismiss then listen again**: Listening to any matn after a dismissal re-establishes the Continue
+  Learning entry pointing at that matn.
 - **Very first verse, zero position**: A session saved at the very start of a matn produces a valid
   entry rather than being mistaken for "no saved state".
 - **Rapid open-and-close**: Opening a matn and immediately closing the app records a coherent state
@@ -206,8 +219,16 @@ cleanly with the entry either absent or safely handled.
 - **FR-001**: The system MUST persist locally, per matn, the student's session state: the last
   listened verse, the playback position within that verse, the verse repeat counter, the matn repeat
   counter, and any active A–B loop range.
-- **FR-002**: The system MUST additionally persist a single pointer to the **most recently opened
+- **FR-002**: The system MUST additionally persist a single pointer to the **most recently listened
   matn**, so the Home screen can identify which saved session to offer as Continue Learning.
+- **FR-002a**: The pointer in FR-002 MUST be established or updated **only when audio actually begins
+  playing** in a matn. Merely opening a matn's reading screen, scrolling it, or adjusting its settings
+  without starting playback MUST NOT change which matn Continue Learning offers.
+- **FR-002b**: A per-matn saved session record (FR-001) MUST be created on first **playback** in that
+  matn **or** on the first **repetition-settings change** made for it — a drill configured but not yet
+  played MUST survive a restart. Mere navigation into a matn, with neither playback nor a settings
+  change, MUST NOT create a record. Creating a record this way MUST NOT by itself move the FR-002
+  pointer, which remains playback-gated.
 - **FR-003**: Persisted verse and matn references MUST use stable identities rather than display
   positions or list indices, so saved state survives reordering, scrolling, and content updates.
 - **FR-004**: The playback position MUST be persisted at millisecond granularity.
@@ -245,8 +266,11 @@ cleanly with the entry either absent or safely handled.
   entry.
 - **FR-016**: The entry MUST reflect the most recent session; after resuming and listening further,
   it MUST describe the newer position.
-- **FR-017**: The student MUST be able to clear the saved session, after which the entry is no longer
-  offered.
+- **FR-017**: The student MUST be able to dismiss the Continue Learning entry. Dismissing MUST clear
+  only the last-listened pointer (FR-002), so the entry is no longer offered.
+- **FR-017a**: Dismissing MUST be **non-destructive**: every matn's saved verse, playback position,
+  and repetition settings MUST be retained, so opening any matn afterwards still restores its drill
+  (FR-023). Listening to any matn again MUST re-establish the entry.
 
 **Restoring a session**
 
@@ -272,7 +296,10 @@ cleanly with the entry either absent or safely handled.
 - **FR-025**: If saved state references a matn that no longer exists, the system MUST treat it as no
   saved state and MUST NOT surface a broken entry.
 - **FR-026**: If saved state references a verse that no longer exists within an existing matn, the
-  system MUST resume at a safe, defined fallback position within that matn rather than failing.
+  system MUST resume at the **nearest surviving verse in reading order** — the nearest preceding verse
+  if one exists, otherwise the nearest following verse — rather than failing or discarding the
+  session. Playback MUST begin at the **start** of that substituted verse, since the saved millisecond
+  offset belongs to a verse that no longer exists. That matn's repetition settings MUST be retained.
 - **FR-027**: If a saved A–B range references verses that no longer exist, the system MUST correct or
   clear the range rather than activating an invalid range.
 - **FR-028**: Internally inconsistent saved state — such as a saved verse outside its own saved loop
@@ -299,16 +326,19 @@ cleanly with the entry either absent or safely handled.
 Phase 4 is the first phase to **persist** playback-related state. It turns the transient session
 state shaped by Phases 2 and 3 into durable local records.
 
-- **Saved Matn Session** (new, persisted): One record per matn the student has engaged with —
-  the last listened verse, the position within it, the verse and matn repeat counters, and any A–B
-  loop range. Keyed by the matn's stable identity, matching the per-matn scoping established in
-  Phase 3. Notably **excludes** the derived playback mode and in-flight repetition progress, both of
-  which are recomputed or reset rather than stored.
-- **Last Opened Matn Pointer** (new, persisted): A single reference identifying which matn the
-  student most recently engaged with — the input for the Continue Learning entry. Separate from the
-  per-matn records, because every matn keeps its own settings while only one is "most recent".
+- **Saved Matn Session** (new, persisted): One record per matn the student has either listened to or
+  configured — the last listened verse, the position within it, the verse and matn repeat counters,
+  and any A–B loop range. Created on first playback or first settings change for that matn (FR-002b),
+  never on mere navigation. Keyed by the matn's stable identity, matching the per-matn scoping
+  established in Phase 3. Notably **excludes** the derived playback mode and in-flight repetition
+  progress, both of which are recomputed or reset rather than stored.
+- **Last Listened Matn Pointer** (new, persisted): A single reference identifying which matn the
+  student most recently *played audio in* — the input for the Continue Learning entry. Updated only
+  when playback begins (FR-002a), so browsing cannot displace a real in-progress session. Separate
+  from the per-matn records, because every matn keeps its own settings while only one is "most
+  recently listened".
 - **Continue Learning Entry** (derived, not stored): The Home screen offer, computed by resolving the
-  last-opened pointer against its saved session and current content. It exists only when that
+  last-listened pointer against its saved session and current content. It exists only when that
   resolution succeeds, which is what keeps stale state from surfacing as a broken entry.
 - **Verse / Matn**: Read to resolve saved identities into real content, to validate that saved state
   can still be honored, and to position the restored reading screen.
@@ -338,6 +368,10 @@ state shaped by Phases 2 and 3 into durable local records.
   sessions.
 - **SC-009**: Each matn independently restores its own repetition settings, with **zero** cross-matn
   leakage across a test set of at least three differently configured matn.
+- **SC-009a**: Dismissing the Continue Learning entry loses **zero** saved per-matn state — every
+  matn still restores its verse, position, and settings afterwards.
+- **SC-009b**: Opening matn without playing them changes the Continue Learning entry in **zero**
+  cases; the entry continues to name the last matn actually listened to.
 - **SC-010**: All saving and restoring works with the device fully offline (airplane mode), making
   **zero** network requests.
 
@@ -354,9 +388,14 @@ state shaped by Phases 2 and 3 into durable local records.
   the restored targets — the student's *configuration* is what carries across restarts, not their
   position within a repetition cycle.
 - **One Continue Learning entry, many saved sessions.** Every matn keeps its own saved settings, but
-  Home offers a single entry for the most recently opened matn, matching the product spec's singular
-  `last_opened_matn_id` and the single card in the Home design. A multi-entry "recent matn" list is
-  not part of this phase.
+  Home offers a single entry for the most recently *listened* matn, matching the product spec's
+  singular `last_opened_matn_id` and the single card in the Home design. A multi-entry "recent matn"
+  list is not part of this phase.
+- **"Listened", not "opened"** *(confirmed via clarification)*: The product spec's field name
+  `last_opened_matn_id` is read as *last listened*. The pointer moves only when audio plays
+  (FR-002a), so browsing the library never discards a genuine in-progress drill. Per-matn records are
+  slightly broader — a configured-but-unplayed drill is still saved (FR-002b) — because losing a
+  deliberate configuration on restart would contradict Phase 3's per-matn settings promise.
 - **Resume auto-plays** *(confirmed via clarification)*: Tapping Continue Learning both restores the
   session and starts audio, so the promise is genuinely one tap. Whether the session was playing or
   paused when saved is therefore **not** persisted — resume always plays. The Phase 2 audio-focus and
