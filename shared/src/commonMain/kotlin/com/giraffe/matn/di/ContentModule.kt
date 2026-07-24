@@ -5,6 +5,7 @@ import com.giraffe.matn.data.db.DatabaseDriverFactory
 import com.giraffe.matn.data.db.buildDatabase
 import com.giraffe.matn.data.repository.AudioAssetRepositoryImpl
 import com.giraffe.matn.data.repository.BookmarkRepositoryImpl
+import com.giraffe.matn.data.repository.DailyGoalRepositoryImpl
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.repository.NoteRepositoryImpl
 import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
@@ -20,6 +21,7 @@ import com.giraffe.matn.domain.audio.AudioSourceResolver
 import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.repository.AudioAssetRepository
 import com.giraffe.matn.domain.repository.BookmarkRepository
+import com.giraffe.matn.domain.repository.DailyGoalRepository
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.domain.repository.NoteRepository
 import com.giraffe.matn.domain.repository.ProgressRepository
@@ -37,6 +39,7 @@ import com.giraffe.matn.domain.usecase.GetNoteUseCase
 import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
 import com.giraffe.matn.domain.usecase.ObserveBookmarksUseCase
 import com.giraffe.matn.domain.usecase.ObserveContinueLearningUseCase
+import com.giraffe.matn.domain.usecase.ObserveDailyProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
 import com.giraffe.matn.domain.usecase.ObserveMatnProgressUseCase
@@ -47,10 +50,12 @@ import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
 import com.giraffe.matn.domain.usecase.ResolveResumeTargetUseCase
 import com.giraffe.matn.domain.usecase.SaveNoteUseCase
 import com.giraffe.matn.domain.usecase.SearchLibraryUseCase
+import com.giraffe.matn.domain.usecase.SetDailyGoalUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.ToggleBookmarkUseCase
 import com.giraffe.matn.domain.usecase.ToggleVerseMemorizedUseCase
 import com.giraffe.matn.playback.PlaybackController
+import com.giraffe.matn.playback.PracticeSignalRecorder
 import com.giraffe.matn.playback.SessionStateRecorder
 import com.giraffe.matn.presentation.player.PlayerBarViewModel
 import kotlin.time.Clock
@@ -127,4 +132,10 @@ fun contentModule() = module {
     factory { ObserveVerseMemorizationUseCase(get()) }
     factory { ObserveMatnProgressUseCase(get()) }
     factory { ObserveLibraryProgressUseCase(get()) }
+    single<DailyGoalRepository> { DailyGoalRepositoryImpl(get()) }
+    factory { SetDailyGoalUseCase(get()) }
+    factory { ObserveDailyProgressUseCase(get(), get()) }
+    // T038: mirrors the SessionStateRecorder registration above — observes the SAME
+    // PlaybackController singleton; started once in initMatnKoin.
+    single { PracticeSignalRecorder(get<PlaybackController>().state, get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
 }

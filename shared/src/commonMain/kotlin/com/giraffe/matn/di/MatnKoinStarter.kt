@@ -9,6 +9,7 @@ import com.giraffe.matn.data.seed.SeedVerse
 import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.repository.MatnRepository
+import com.giraffe.matn.playback.PracticeSignalRecorder
 import com.giraffe.matn.playback.SessionStateRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -84,6 +85,8 @@ fun initMatnKoin(
     // recorder here also materializes the PlaybackController singleton it observes — the same
     // instance every ViewModel gets.
     app.koin.get<SessionStateRecorder>().start()
+    // Phase 7 (US2): start crediting the daily practice goal for the same PlaybackController.
+    app.koin.get<PracticeSignalRecorder>().start()
 
     if (seedIfEmpty) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

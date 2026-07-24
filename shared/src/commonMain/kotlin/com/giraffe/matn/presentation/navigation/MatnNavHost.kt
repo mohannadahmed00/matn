@@ -109,6 +109,7 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         playbackController = koin.get<PlaybackController>(),
                         settingsStore = koin.get<RepetitionSettingsStore>(),
                         observeLibraryProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase>(),
+                        observeDailyProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveDailyProgressUseCase>(),
                     )
                 }
                 HomeScreen(
