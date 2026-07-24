@@ -45,4 +45,9 @@
     <string name="coming_soon_message">هذه الميزة قيد الإعداد ولم تُتَح بعد.</string>
     <string name="coming_soon_back_to_library">العودة إلى المكتبة</string>
     <string name="home_daily_goal_label">هدف اليوم</string>
+    <string name="search_open">بحث</string>
+    <string name="search_field_placeholder">ابحث في مكتبتك</string>
+    <string name="search_idle_prompt">ابحث عن بيت أو باب أو متن</string>
+    <string name="search_no_results">لا نتائج</string>
+    <string name="search_clear">مسح البحث</string>
 </resources>

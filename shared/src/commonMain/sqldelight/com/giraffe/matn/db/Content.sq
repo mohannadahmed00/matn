@@ -114,6 +114,14 @@ ORDER BY matn.title;
 selectChaptersByMatn:
 SELECT * FROM chapter WHERE matn_id = ? ORDER BY display_order;
 
+-- Phase 6 (research.md D2): search-corpus reads, library-wide, in-memory filtered by
+-- ArabicNormalizer. Reactive (asFlow/mapToList) so content changes re-emit current results.
+selectAllChapters:
+SELECT * FROM chapter ORDER BY matn_id, display_order;
+
+selectAllVerses:
+SELECT * FROM verse ORDER BY matn_id, display_number;
+
 selectVersesByMatn:
 SELECT * FROM verse WHERE matn_id = ? ORDER BY display_number;
 

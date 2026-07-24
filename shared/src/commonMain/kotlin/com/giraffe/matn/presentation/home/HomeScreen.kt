@@ -42,6 +42,7 @@ import matn.shared.generated.resources.app_title
 import matn.shared.generated.resources.coming_soon_title
 import matn.shared.generated.resources.home_daily_goal_label
 import matn.shared.generated.resources.library_empty
+import matn.shared.generated.resources.search_open
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -53,7 +54,7 @@ import org.jetbrains.compose.resources.stringResource
  * them to [onOpenMatn], keeping navigation out of the ViewModel (Principle II).
  */
 @Composable
-fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit) {
+fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit, onOpenSearch: () -> Unit = {}) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) {
         viewModel.navigation.collect { matnId -> onOpenMatn(matnId) }
@@ -63,6 +64,7 @@ fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit) {
         onOpenMatn = onOpenMatn,
         onResume = viewModel::onResumeClicked,
         onDismiss = viewModel::onDismissClicked,
+        onOpenSearch = onOpenSearch,
     )
 }
 
@@ -74,10 +76,10 @@ fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit) {
  * localized empty state is shown instead of the grid (FR-004/SC-008). RTL throughout (provided by
  * [MatnTheme]). No network (FR-018/SC-006).
  *
- * **Deviation from the literal Stitch mockup**: the top bar's menu and search icons are not
- * rendered — neither has a destination yet (no drawer, Search is Phase 6), and per the same
- * judgment call as `PlayerBar`'s omitted audio-settings icon, a dead affordance is worse than a
- * bar that's just the wordmark for now.
+ * **Deviation from the literal Stitch mockup**: the top bar's menu icon is not rendered — it has
+ * no destination yet (no drawer), and per the same judgment call as `PlayerBar`'s omitted
+ * audio-settings icon, a dead affordance is worse than omitting it. The search icon (Phase 6,
+ * US1) IS wired now — it opens [com.giraffe.matn.presentation.search.SearchScreen].
  */
 @Composable
 fun HomeContent(
@@ -85,9 +87,10 @@ fun HomeContent(
     onOpenMatn: (String) -> Unit,
     onResume: () -> Unit = {},
     onDismiss: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        HomeTopBar()
+        HomeTopBar(onOpenSearch = onOpenSearch)
         Box(modifier = Modifier.fillMaxSize()) {
             when {
                 state.isLoading -> CircularProgressIndicator(
@@ -135,9 +138,10 @@ fun HomeContent(
     }
 }
 
-/** The app-identity top bar — wordmark only; see [HomeContent]'s KDoc for why. */
+/** The app-identity top bar — wordmark plus the US1 search entry point; see [HomeContent]'s
+ *  KDoc for why the menu icon is still omitted. */
 @Composable
-private fun HomeTopBar() {
+private fun HomeTopBar(onOpenSearch: () -> Unit = {}) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Box(
             modifier = Modifier
@@ -151,6 +155,15 @@ private fun HomeTopBar() {
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
+            androidx.compose.material3.IconButton(
+                onClick = onOpenSearch,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                com.giraffe.matn.presentation.common.SearchGlyph(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    contentDescription = stringResource(Res.string.search_open),
+                )
+            }
         }
     }
 }

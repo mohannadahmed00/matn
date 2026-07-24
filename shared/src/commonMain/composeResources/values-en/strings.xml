@@ -45,4 +45,9 @@
     <string name="coming_soon_message">This feature is still being built and isn’t available yet.</string>
     <string name="coming_soon_back_to_library">Back to Library</string>
     <string name="home_daily_goal_label">Today’s Goal</string>
+    <string name="search_open">Search</string>
+    <string name="search_field_placeholder">Search your library</string>
+    <string name="search_idle_prompt">Search for a verse, chapter, or text</string>
+    <string name="search_no_results">No matches</string>
+    <string name="search_clear">Clear search</string>
 </resources>

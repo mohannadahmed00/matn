@@ -59,6 +59,44 @@ fun NotesGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, co
     }
 }
 
+/** A magnifying-glass search affordance — the Home top-bar entry point into
+ *  [com.giraffe.matn.presentation.search.SearchScreen] (US1). */
+@Composable
+fun SearchGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
+    Canvas(modifier.size(size).desc(contentDescription)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = Stroke(width = w * 0.10f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        drawCircle(color, radius = w * 0.28f, center = Offset(w * 0.42f, h * 0.42f), style = stroke)
+        drawLine(
+            color,
+            start = Offset(w * 0.62f, h * 0.62f),
+            end = Offset(w * 0.84f, h * 0.84f),
+            strokeWidth = w * 0.11f,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+        )
+    }
+}
+
+/** A simple chevron back-affordance, shared by any screen with a dedicated top-bar back action
+ *  (e.g. [com.giraffe.matn.presentation.search.SearchScreen]). Points toward the app's RTL start
+ *  edge (visually the right side under [com.giraffe.matn.presentation.theme.MatnTheme]'s forced
+ *  RTL layout direction), matching the "back" string resource's placement. */
+@Composable
+fun BackGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
+    Canvas(modifier.size(size).desc(contentDescription)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = Stroke(width = w * 0.11f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.38f, h * 0.22f)
+            lineTo(w * 0.68f, h * 0.5f)
+            lineTo(w * 0.38f, h * 0.78f)
+        }
+        drawPath(path, color, style = stroke)
+    }
+}
+
 @Composable
 fun SettingsGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
     Canvas(modifier.size(size).desc(contentDescription)) {
