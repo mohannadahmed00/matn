@@ -41,6 +41,8 @@ import com.giraffe.matn.domain.model.SearchResult
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.details.MatnDetailsScreen
 import com.giraffe.matn.presentation.details.MatnDetailsViewModel
+import com.giraffe.matn.presentation.goals.GoalsScreen
+import com.giraffe.matn.presentation.goals.GoalsViewModel
 import com.giraffe.matn.presentation.home.HomeScreen
 import com.giraffe.matn.presentation.home.HomeViewModel
 import com.giraffe.matn.presentation.notes.NotesTabScreen
@@ -60,8 +62,8 @@ import org.jetbrains.compose.resources.stringResource
  *  * `search` — dedicated search screen (Phase 6 US1), pushed from Home's top-bar entry point;
  *    no bottom bar
  *  * `notes` — [NavigationTab.NOTES]'s real screen (Phase 6 US2/US3): bookmarks + notes
- *  * `goals`/`settings` — [NavigationTab.GOALS]/[SETTINGS], still routed to the shared
- *    [ComingSoonScreen] until Phases 7-8 land (FR-007)
+ *  * `goals` — [NavigationTab.GOALS]'s real screen (Phase 7 US3): the Goals dashboard
+ *  * `settings` — [NavigationTab.SETTINGS], still routed to the shared [ComingSoonScreen]
  *
  * The graph is authored once and extended per story. ViewModels are built per destination
  * with `androidx.lifecycle.viewmodel.compose.viewModel { ... }`, injecting use cases from the
@@ -180,7 +182,16 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                 )
             }
             composable(Routes.GOALS) {
-                ComingSoonScreen(tab = NavigationTab.GOALS, onBackToLibrary = { navController.navigate(Routes.HOME) })
+                val koin = MatnKoinHolder.koin
+                val viewModel: GoalsViewModel = viewModel {
+                    GoalsViewModel(
+                        observeDailyProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveDailyProgressUseCase>(),
+                        observeLibraryProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase>(),
+                        setDailyGoal = koin.get<com.giraffe.matn.domain.usecase.SetDailyGoalUseCase>(),
+                        observeLibrary = koin.get<ObserveLibraryUseCase>(),
+                    )
+                }
+                GoalsScreen(viewModel = viewModel)
             }
             composable(Routes.NOTES) {
                 val koin = MatnKoinHolder.koin

@@ -67,4 +67,8 @@
     <string name="matn_progress_label">Memorized</string>
     <string name="mark_chapter_memorized">Mark chapter as memorized</string>
     <string name="unmark_chapter_memorized">Unmark chapter</string>
+    <string name="goals_daily_target_label">Verses per day</string>
+    <string name="goals_progress_section_title">Matn progress</string>
+    <string name="goals_empty_title">Start your memorization journey</string>
+    <string name="goals_empty_message">No verses memorized yet — open a text and start memorizing to see your goals here</string>
 </resources>

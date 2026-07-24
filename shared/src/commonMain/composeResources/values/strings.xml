@@ -67,4 +67,8 @@
     <string name="matn_progress_label">محفوظ</string>
     <string name="mark_chapter_memorized">تمييز الباب كمحفوظ</string>
     <string name="unmark_chapter_memorized">إلغاء تمييز الباب</string>
+    <string name="goals_daily_target_label">عدد الأبيات يوميًا</string>
+    <string name="goals_progress_section_title">تقدم المتون</string>
+    <string name="goals_empty_title">ابدأ رحلة الحفظ</string>
+    <string name="goals_empty_message">لم تُحفظ أبيات بعد — افتح متنًا وابدأ الحفظ لتظهر أهدافك هنا</string>
 </resources>
