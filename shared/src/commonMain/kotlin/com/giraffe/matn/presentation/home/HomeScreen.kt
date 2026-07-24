@@ -1,6 +1,5 @@
 package com.giraffe.matn.presentation.home
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,7 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -34,12 +31,12 @@ import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.presentation.common.ContinueLearningCard
+import com.giraffe.matn.presentation.common.DailyGoalRing
 import com.giraffe.matn.presentation.common.MatnCard
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.app_title
-import matn.shared.generated.resources.coming_soon_title
 import matn.shared.generated.resources.home_daily_goal_label
 import matn.shared.generated.resources.library_empty
 import matn.shared.generated.resources.search_open
@@ -114,7 +111,7 @@ fun HomeContent(
                     verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        DailyGoalRing(state.dailyGoal, modifier = Modifier.padding(bottom = MatnSpacing.unit))
+                        DailyGoalSection(state.dailyGoal, modifier = Modifier.padding(bottom = MatnSpacing.unit))
                     }
                     state.continueLearning?.let { entry ->
                         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -173,13 +170,11 @@ private fun HomeTopBar(onOpenSearch: () -> Unit = {}) {
 }
 
 /**
- * The daily-goal progress ring (FR-009/FR-010). While [DailyGoalUiState.isPlaceholder] is `true`
- * (always, until specs/007), the ring shows only its background track — never a fabricated
- * percentage — alongside a "coming soon" label rather than invented progress text.
+ * Home's daily-goal section (FR-009/FR-012): the shared [DailyGoalRing] plus its label, wired to
+ * real practiced/goal tracking (specs/007).
  */
 @Composable
-private fun DailyGoalRing(state: DailyGoalUiState, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
+private fun DailyGoalSection(state: DailyGoalUiState, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -187,41 +182,19 @@ private fun DailyGoalRing(state: DailyGoalUiState, modifier: Modifier = Modifier
             .padding(top = MatnSpacing.unit),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val stroke = Stroke(width = size.minDimension * 0.12f)
-                drawArc(
-                    color = scheme.primary.copy(alpha = 0.12f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = stroke,
-                )
-                if (!state.isPlaceholder && state.progressFraction > 0f) {
-                    drawArc(
-                        color = scheme.primary,
-                        startAngle = -90f,
-                        sweepAngle = 360f * state.progressFraction.coerceIn(0f, 1f),
-                        useCenter = false,
-                        style = stroke,
-                    )
-                }
-            }
-        }
-        Column(modifier = Modifier.padding(start = MatnSpacing.unit * 2)) {
-            Text(
-                text = stringResource(Res.string.home_daily_goal_label),
-                style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurface,
-            )
-            if (state.isPlaceholder) {
-                Text(
-                    text = stringResource(Res.string.coming_soon_title),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = scheme.onSurfaceVariant,
-                )
-            }
-        }
+        DailyGoalRing(
+            fraction = state.fraction,
+            practiced = state.practiced,
+            goal = state.goal,
+            isComplete = state.isComplete,
+            modifier = Modifier.size(64.dp),
+        )
+        Text(
+            text = stringResource(Res.string.home_daily_goal_label),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(start = MatnSpacing.unit * 2),
+        )
     }
 }
 
@@ -277,12 +250,30 @@ private fun HomeContentLoadingPreview() {
 
 @Preview
 @Composable
-private fun DailyGoalRingPlaceholderPreview() {
-    MatnTheme { DailyGoalRing(state = DailyGoalUiState()) }
+private fun HomeContentPartialRingPreview() {
+    MatnTheme {
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                items = listOf(previewSummary("m1", "الأجرومية", 4, 31_300)),
+                dailyGoal = DailyGoalUiState(practiced = 4, goal = 10, fraction = 0.4f, isComplete = false),
+            ),
+            onOpenMatn = {},
+        )
+    }
 }
 
 @Preview
 @Composable
-private fun DailyGoalRingWithProgressPreview() {
-    MatnTheme { DailyGoalRing(state = DailyGoalUiState(isPlaceholder = false, progressFraction = 0.7f)) }
+private fun HomeContentCompleteRingPreview() {
+    MatnTheme {
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                items = listOf(previewSummary("m1", "الأجرومية", 4, 31_300)),
+                dailyGoal = DailyGoalUiState(practiced = 10, goal = 10, fraction = 1f, isComplete = true),
+            ),
+            onOpenMatn = {},
+        )
+    }
 }
