@@ -1,42 +1,48 @@
 package com.giraffe.matn.presentation.home
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.presentation.common.ContinueLearningCard
-import com.giraffe.matn.presentation.common.CoverImage
-import com.giraffe.matn.presentation.common.formatDuration
+import com.giraffe.matn.presentation.common.MatnCard
+import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
+import matn.shared.generated.resources.app_title
+import matn.shared.generated.resources.coming_soon_title
+import matn.shared.generated.resources.home_daily_goal_label
 import matn.shared.generated.resources.library_empty
-import matn.shared.generated.resources.verses_count
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 
 /**
  * Home / library screen (US2) — **stateful** entry. Hoists the [HomeViewModel]'s state and
@@ -61,11 +67,17 @@ fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit) {
 }
 
 /**
- * Stateless library grid. A 2-column [LazyVerticalGrid] of matn cards **keyed by stable
- * `matn.id`** (FR-011/SC-003). Each card shows cover (or placeholder), title, author, verse
- * count, and total duration. Tapping a card invokes [onOpenMatn] (FR-003/SC-001). When the store
- * is empty a centered localized empty state is shown instead of the grid (FR-004/SC-008). RTL
- * throughout (provided by [MatnTheme]). No network (FR-018/SC-006).
+ * Stateless library grid, per the canonical Home/Library Stitch screen
+ * (specs/010-design-system-adoption User Story 4): a top bar, the daily-goal progress ring, the
+ * Continue Learning card (unchanged from Phase 4), and a 2-column [LazyVerticalGrid] of
+ * [MatnCard]s **keyed by stable `matn.id`** (FR-011/SC-003). When the store is empty a centered
+ * localized empty state is shown instead of the grid (FR-004/SC-008). RTL throughout (provided by
+ * [MatnTheme]). No network (FR-018/SC-006).
+ *
+ * **Deviation from the literal Stitch mockup**: the top bar's menu and search icons are not
+ * rendered — neither has a destination yet (no drawer, Search is Phase 6), and per the same
+ * judgment call as `PlayerBar`'s omitted audio-settings icon, a dead affordance is worse than a
+ * bar that's just the wordmark for now.
  */
 @Composable
 fun HomeContent(
@@ -74,42 +86,46 @@ fun HomeContent(
     onResume: () -> Unit = {},
     onDismiss: () -> Unit = {},
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading -> CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-            )
+    Column(modifier = Modifier.fillMaxSize()) {
+        HomeTopBar()
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                state.isLoading -> CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                )
 
-            state.isEmpty -> Text(
-                text = stringResource(Res.string.library_empty),
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(24.dp),
-            )
+                state.isEmpty -> Text(
+                    text = stringResource(Res.string.library_empty),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(MatnSpacing.gutter),
+                )
 
-            else -> Column(modifier = Modifier.fillMaxSize()) {
-                // Phase 4 (FR-015): render the Continue Learning card above the grid when an
-                // entry exists, and render **nothing at all** — no placeholder, no reserved
-                // space — when it is null.
-                state.continueLearning?.let { entry ->
-                    ContinueLearningCard(
-                        entry = entry,
-                        onResume = onResume,
-                        onDismiss = onDismiss,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
-                    )
-                }
-                LazyVerticalGrid(
+                else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(MatnSpacing.marginMobile),
+                    horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
                 ) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        DailyGoalRing(state.dailyGoal, modifier = Modifier.padding(bottom = MatnSpacing.unit))
+                    }
+                    state.continueLearning?.let { entry ->
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            // FR-015: nothing at all — no placeholder, no reserved space — when null.
+                            ContinueLearningCard(
+                                entry = entry,
+                                onResume = onResume,
+                                onDismiss = onDismiss,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = MatnSpacing.unit),
+                            )
+                        }
+                    }
                     items(items = state.items, key = { it.matn.id }) { summary ->
                         MatnCard(summary = summary, onClick = { onOpenMatn(summary.matn.id) })
                     }
@@ -119,45 +135,76 @@ fun HomeContent(
     }
 }
 
+/** The app-identity top bar — wordmark only; see [HomeContent]'s KDoc for why. */
 @Composable
-private fun MatnCard(summary: MatnSummary, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        horizontalAlignment = Alignment.Start,
-    ) {
-        CoverImage(
-            coverImageRef = summary.matn.coverImageRef,
+private fun HomeTopBar() {
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.75f),
-        )
-        Text(
-            text = summary.matn.title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 10.dp),
-        )
-        Text(
-            text = summary.matn.author,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 3.dp),
-        )
-        val totals = stringResource(Res.string.verses_count, summary.verseCount) +
-                " · " + formatDuration(summary.totalDurationMs)
-        Text(
-            text = totals,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
+                .height(56.dp)
+                .padding(horizontal = MatnSpacing.marginMobile),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = stringResource(Res.string.app_title),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/**
+ * The daily-goal progress ring (FR-009/FR-010). While [DailyGoalUiState.isPlaceholder] is `true`
+ * (always, until specs/007), the ring shows only its background track — never a fabricated
+ * percentage — alongside a "coming soon" label rather than invented progress text.
+ */
+@Composable
+private fun DailyGoalRing(state: DailyGoalUiState, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = MatnSpacing.unit)
+            .padding(top = MatnSpacing.unit),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val stroke = Stroke(width = size.minDimension * 0.12f)
+                drawArc(
+                    color = scheme.primary.copy(alpha = 0.12f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = stroke,
+                )
+                if (!state.isPlaceholder && state.progressFraction > 0f) {
+                    drawArc(
+                        color = scheme.primary,
+                        startAngle = -90f,
+                        sweepAngle = 360f * state.progressFraction.coerceIn(0f, 1f),
+                        useCenter = false,
+                        style = stroke,
+                    )
+                }
+            }
+        }
+        Column(modifier = Modifier.padding(start = MatnSpacing.unit * 2)) {
+            Text(
+                text = stringResource(Res.string.home_daily_goal_label),
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurface,
+            )
+            if (state.isPlaceholder) {
+                Text(
+                    text = stringResource(Res.string.coming_soon_title),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -213,10 +260,12 @@ private fun HomeContentLoadingPreview() {
 
 @Preview
 @Composable
-private fun MatnCardPreview() {
-    MatnTheme {
-        Box(modifier = Modifier.width(180.dp).padding(8.dp)) {
-            MatnCard(summary = previewSummary("m1", "الأجرومية", 4, 31_300), onClick = {})
-        }
-    }
+private fun DailyGoalRingPlaceholderPreview() {
+    MatnTheme { DailyGoalRing(state = DailyGoalUiState()) }
+}
+
+@Preview
+@Composable
+private fun DailyGoalRingWithProgressPreview() {
+    MatnTheme { DailyGoalRing(state = DailyGoalUiState(isPlaceholder = false, progressFraction = 0.7f)) }
 }

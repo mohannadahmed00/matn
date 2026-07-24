@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.toc_header
@@ -41,21 +42,21 @@ fun TableOfContents(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp),
+            .padding(bottom = MatnSpacing.unit + 4.dp),
         horizontalAlignment = Alignment.Start,
     ) {
         Text(
             text = stringResource(Res.string.toc_header),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 4.dp),
+            modifier = Modifier.padding(bottom = MatnSpacing.unit / 2),
         )
         chapters.forEach { chapter ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onChapterSelected(chapter) }
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = MatnSpacing.unit + 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -63,7 +64,7 @@ fun TableOfContents(
                         .size(6.dp)
                         .background(MaterialTheme.colorScheme.secondary, CircleShape),
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(MatnSpacing.unit + 4.dp))
                 Text(
                     text = chapter.title,
                     style = MaterialTheme.typography.bodyLarge,

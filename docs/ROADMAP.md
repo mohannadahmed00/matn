@@ -4,7 +4,7 @@
 
 Matn is a Kotlin Multiplatform (Android + iOS) mobile application that helps students read, listen to, and memorize Islamic texts (متون). It is designed as an active memorization companion — combining synced Arabic text, teacher-recorded audio, and flexible repetition tools — rather than a passive audio player.
 
-Development is broken into sequential **phases**, each scoped to a single [spec-kit](https://github.com/github/spec-kit) cycle (`/specify` → `/plan` → `/tasks` → `/implement`). Each phase produces an independently buildable and testable slice of the app. Phases 1–3 are hard prerequisites for everything else; Phases 4–9 can largely be reordered to fit priorities, with the exception of Phase 5, which depends on Phases 2–4 being complete.
+Development is broken into sequential **phases**, each scoped to a single [spec-kit](https://github.com/github/spec-kit) cycle (`/specify` → `/plan` → `/tasks` → `/implement`). Each phase produces an independently buildable and testable slice of the app. Phases 1–3 are hard prerequisites for everything else; Phases 4–9 can largely be reordered to fit priorities, with the exception of Phase 5, which depends on Phases 2–4 being complete. Phase 10 is a cross-cutting retrofit of Phases 1–5's UI and should land before Phases 6–9's UI work begins (see Dependency Notes).
 
 > Phase numbers here are 1-indexed and match the `specs/NNN-*` folder each phase corresponds to
 > (Phase 1 → `specs/001-*`, Phase 5 → `specs/005-*`, etc.).
@@ -46,6 +46,17 @@ Per-matn download and removal, file size display before download, and total stor
 ### Phase 9 — Polish & Accessibility
 Dark mode, tablet-friendly adaptive layouts, accessibility contrast compliance, first-launch onboarding and permissions flow, and interface animations/transitions.
 
+### Phase 10 — Design System Adoption
+Retrofits Phases 1–5's UI to the canonical Stitch design set (see `docs/DESIGN-SOURCE.md`):
+centralized Compose design tokens (`Color.kt`/`Type.kt`/`Shape.kt`/`Spacing.kt`) replacing the
+current ad-hoc "manuscript" palette and the raw `.dp`/`.sp` literals scattered across screens;
+re-skinned Home/Library, Matn Details, Reading & Playback, and Repetition Setup screens; the
+Reading & Playback screen reworked from a scrollable verse list to the focused 3-verse carousel
+(previous/active/next) with a floating control bar; and a persistent bottom-navigation shell
+(Library / Goals / Notes / Settings), with the Goals and Notes tabs stubbed as "coming soon"
+until Phases 6–7 land. Cross-cutting rather than additive — it changes already-shipped Phase 1–5
+screens rather than adding a new feature area.
+
 ---
 
 ## Dependency Notes
@@ -53,3 +64,7 @@ Dark mode, tablet-friendly adaptive layouts, accessibility contrast compliance, 
 - **Phases 1, 2, 3** must be completed in order — each is a hard prerequisite for the next.
 - **Phase 5** requires Phases 2–4 to be complete, since there's no meaningful state to resume before then.
 - **Phases 4, 6, 7, 8, 9** can be reordered relative to each other based on priorities, as long as their individual prerequisites above are respected.
+- **Phase 10** should land before Phases 6–9 begin their own UI work, since it establishes the
+  shared design-token system and navigation shell those phases would otherwise have to invent
+  independently (and then rework). It has no hard technical dependency beyond Phases 1–5 already
+  existing to retrofit.

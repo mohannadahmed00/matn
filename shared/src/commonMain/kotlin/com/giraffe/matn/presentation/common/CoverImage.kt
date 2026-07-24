@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -16,7 +15,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.verseFontFamily
 import matn.shared.generated.resources.Res
@@ -39,7 +38,7 @@ fun CoverImage(coverImageRef: String?, modifier: Modifier = Modifier) {
     val placeholderDesc = stringResource(Res.string.cover_placeholder_desc)
     Surface(
         modifier = modifier.semantics { contentDescription = placeholderDesc },
-        shape = RoundedCornerShape(6.dp),
+        shape = MatnShapes.lg,
         color = MaterialTheme.colorScheme.surfaceVariant,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -51,7 +50,9 @@ fun CoverImage(coverImageRef: String?, modifier: Modifier = Modifier) {
                 text = "م",
                 fontFamily = verseFontFamily(),
                 color = MaterialTheme.colorScheme.secondary,
-                fontSize = 44.sp,
+                // displayMedium (45sp in the default M3 scale) — the closest token-routed size to
+                // the design's monogram, rather than an independent magic literal.
+                fontSize = MaterialTheme.typography.displayMedium.fontSize,
                 textAlign = TextAlign.Center,
             )
         }

@@ -1,18 +1,17 @@
 package com.giraffe.matn.presentation.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -39,9 +38,13 @@ import com.giraffe.matn.domain.model.PlaybackStatus
 import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.presentation.common.PauseGlyph
 import com.giraffe.matn.presentation.common.PlayGlyph
+import com.giraffe.matn.presentation.common.RepeatGlyph
 import com.giraffe.matn.presentation.common.SkipNextGlyph
 import com.giraffe.matn.presentation.common.SkipPreviousGlyph
 import com.giraffe.matn.presentation.common.StopGlyph
+import com.giraffe.matn.presentation.common.formatDuration
+import com.giraffe.matn.presentation.theme.MatnShapes
+import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.loading
@@ -49,21 +52,21 @@ import matn.shared.generated.resources.mode_ab_loop
 import matn.shared.generated.resources.mode_memorization
 import matn.shared.generated.resources.mode_normal
 import matn.shared.generated.resources.player_next
-import matn.shared.generated.resources.player_now_playing
 import matn.shared.generated.resources.player_pause
 import matn.shared.generated.resources.player_play
 import matn.shared.generated.resources.player_previous
 import matn.shared.generated.resources.player_speed
 import matn.shared.generated.resources.player_stop
+import matn.shared.generated.resources.repetition_setup_open
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Stateful holder for the player bar (Principle II): collects [PlayerBarViewModel] state and
- * forwards intents to the stateless [PlayerBarContent]. Host at the bottom of the reading screen;
- * visible only while a playback session exists (FR-010).
+ * forwards intents to the stateless [PlayerBarContent]. Host below the [ReadingCarousel] on the
+ * reading screen; visible only while a playback session exists.
  */
 @Composable
-fun PlayerBar(viewModel: PlayerBarViewModel) {
+fun PlayerBar(viewModel: PlayerBarViewModel, onRepeatSettingsClicked: () -> Unit = {}) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     if (state.visible) {
         PlayerBarContent(
@@ -74,6 +77,7 @@ fun PlayerBar(viewModel: PlayerBarViewModel) {
             onPrevious = viewModel::onPrevious,
             onSeek = viewModel::onSeek,
             onSpeedSelected = viewModel::onSpeedSelected,
+            onRepeatSettingsClicked = onRepeatSettingsClicked,
         )
     }
 }
@@ -81,11 +85,14 @@ fun PlayerBar(viewModel: PlayerBarViewModel) {
 /**
  * Stateless player bar — a pure function of [PlayerBarUiState] plus intent lambdas (Principle II).
  *
- * Designed as the page's **colophon**: it sits on parchment (not a Material tinted band), opens with
- * a gold rule broken by a central rosette bead (the reading header's ornament, echoed), and draws
- * transport as manuscript-palette vector glyphs — play/pause a single filled scholar-green bead
- * (the emphasized action, kin to the آية rosette), previous/next/stop quiet ink, speed a small gold
- * cartouche. The scrub is an illumination-gold rule (FR-013). RTL-native (`Row` start→end).
+ * Reworked (specs/010-design-system-adoption, User Story 1) as the floating glass-panel control
+ * bar from the canonical "Reading & Playback (Updated)" Stitch screen: a status row (mode chip +
+ * repetition/pass progress — carried over from the pre-redesign bar since the carousel has no
+ * replacement surface for it yet), a scrub row with elapsed/remaining time, and a three-zone
+ * transport row (repeat-entry-point + stop + speed / prev-play-next / next — RTL-native, `Row`
+ * start→end). [onRepeatSettingsClicked] opens the User Story 2 [RepetitionSetupSheet]. The
+ * audio-settings icon shown in the Stitch mockup is still not rendered — nothing in this or a
+ * later user story gives it a destination yet, so a dead icon remains worse than omitting it.
  */
 @Composable
 fun PlayerBarContent(
@@ -96,204 +103,85 @@ fun PlayerBarContent(
     onPrevious: () -> Unit = {},
     onSeek: (Long) -> Unit = {},
     onSpeedSelected: () -> Unit = {},
+    onRepeatSettingsClicked: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
-    Surface(
-        color = scheme.surface,
-        shadowElevation = 10.dp,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            ColophonRule()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 8.dp, top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // The mode chip reads the derived `PlaybackMode` only — it is never stored or
-                // inferred locally, so it can never contradict the configuration (FR-008).
-                if (!state.isLoading && state.mode != PlaybackMode.NORMAL) {
-                    ModeChip(mode = state.mode)
-                }
-                Text(
-                    text = when {
-                        // Concatenate word + number rather than a `%d` format arg: Compose-resources
-                        // format substitution is unreliable here (the Phase 1 header shows the same
-                        // "%d" glitch), and the label is word-then-number in both locales.
-                        state.activeVerseDisplayNumber != null ->
-                            "${stringResource(Res.string.player_now_playing)} ${state.activeVerseDisplayNumber}"
-                        state.isLoading -> stringResource(Res.string.loading)
-                        else -> ""
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = scheme.onSurface,
-                )
-                if (!state.isLoading && state.activeVerseDisplayNumber != null) {
-                    Text(
-                        text = repetitionLabel(state.repetition, state.verseRepeatTarget),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = scheme.secondary,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                    if (state.matnRepeatTarget != RepeatCount.ONE) {
-                        Text(
-                            text = passLabel(state.pass, state.matnRepeatTarget),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = scheme.secondary,
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.weight(1f))
+    Box(modifier = Modifier.fillMaxWidth().padding(MatnSpacing.unit * 2)) {
+        Surface(
+            color = scheme.surface,
+            shape = MatnShapes.xl,
+            shadowElevation = 12.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(MatnSpacing.unit * 2)) {
+                StatusRow(state = state)
 
-                if (state.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp).padding(end = 8.dp),
-                        strokeWidth = 2.dp,
+                val duration = state.durationMs.coerceAtLeast(1L)
+                if (state.durationMs > 0 && !state.isLoading) {
+                    ScrubRow(positionMs = state.positionMs, durationMs = duration, onSeek = onSeek)
+                } else if (state.isLoading) {
+                    LinearProgressIndicator(
                         color = scheme.primary,
+                        trackColor = scheme.outlineVariant,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = MatnSpacing.unit),
                     )
-                } else {
-                    IconButton(onClick = onPrevious, enabled = state.canPrevious) {
-                        SkipPreviousGlyph(
-                            color = transportInk(state.canPrevious),
-                            contentDescription = stringResource(Res.string.player_previous),
-                        )
-                    }
-                    TransportDisc(
-                        onClick = onPlayPause,
-                        enabled = state.canPlayPause,
-                        contentDescription = stringResource(
-                            if (state.isPlaying) Res.string.player_pause else Res.string.player_play,
-                        ),
-                    ) {
-                        if (state.isPlaying) {
-                            PauseGlyph(color = scheme.onPrimary, size = 20.dp)
-                        } else {
-                            PlayGlyph(color = scheme.onPrimary, size = 20.dp)
-                        }
-                    }
-                    IconButton(onClick = onNext, enabled = state.canNext) {
-                        SkipNextGlyph(
-                            color = transportInk(state.canNext),
-                            contentDescription = stringResource(Res.string.player_next),
-                        )
-                    }
-                    IconButton(onClick = onStop) {
-                        StopGlyph(
-                            color = scheme.onSurfaceVariant,
-                            contentDescription = stringResource(Res.string.player_stop),
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    SpeedPill(speed = state.speed, onClick = onSpeedSelected)
                 }
-            }
 
-            val duration = state.durationMs.coerceAtLeast(1L)
-            if (state.durationMs > 0 && !state.isLoading) {
-                GoldScrub(
-                    positionMs = state.positionMs,
-                    durationMs = duration,
-                    onSeek = onSeek,
+                TransportRow(
+                    state = state,
+                    onPlayPause = onPlayPause,
+                    onStop = onStop,
+                    onNext = onNext,
+                    onPrevious = onPrevious,
+                    onSpeedSelected = onSpeedSelected,
+                    onRepeatSettingsClicked = onRepeatSettingsClicked,
                 )
-            } else if (state.isLoading) {
-                LinearProgressIndicator(
-                    color = scheme.secondary,
-                    trackColor = scheme.outlineVariant,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            } else {
-                Spacer(modifier = Modifier.height(10.dp))
             }
         }
     }
 }
 
-/** A hairline rule broken by a small central gold rosette bead — the reading header's ornament. */
+/** Mode chip + repetition/pass progress, or the loading label — carried over from the prior bar. */
 @Composable
-private fun ColophonRule() {
-    val gold = MaterialTheme.colorScheme.secondary
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 28.dp, end = 28.dp, top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(modifier = Modifier.weight(1f).height(1.dp).background(gold.copy(alpha = 0.4f)))
-        Box(modifier = Modifier.padding(horizontal = 8.dp).size(5.dp).background(gold, CircleShape))
-        Box(modifier = Modifier.weight(1f).height(1.dp).background(gold.copy(alpha = 0.4f)))
-    }
-}
-
-/** Play/pause as a single filled scholar-green disc — the one emphasized control (kin to the rosette). */
-@Composable
-private fun TransportDisc(
-    onClick: () -> Unit,
-    enabled: Boolean,
-    contentDescription: String,
-    content: @Composable () -> Unit,
-) {
+private fun StatusRow(state: PlayerBarUiState) {
     val scheme = MaterialTheme.colorScheme
-    Box(
-        modifier = Modifier
-            .padding(horizontal = 6.dp)
-            .size(46.dp)
-            .clip(CircleShape)
-            .background(if (enabled) scheme.primary else scheme.primary.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, onClickLabel = contentDescription, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
-
-/** The derived mode chip (Normal / Memorization / A–B Loop) — FR-008: reads `state.mode` only. */
-@Composable
-private fun ModeChip(mode: PlaybackMode) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        color = scheme.primaryContainer,
-        shape = RoundedCornerShape(50),
-        modifier = Modifier.padding(end = 8.dp),
-    ) {
+    if (state.isLoading) {
         Text(
-            text = stringResource(
-                when (mode) {
-                    PlaybackMode.NORMAL -> Res.string.mode_normal
-                    PlaybackMode.MEMORIZATION -> Res.string.mode_memorization
-                    PlaybackMode.A_B_LOOP -> Res.string.mode_ab_loop
-                },
-            ),
+            text = stringResource(Res.string.loading),
             style = MaterialTheme.typography.labelMedium,
-            color = scheme.onPrimaryContainer,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = MatnSpacing.unit),
         )
+        return
+    }
+    if (state.mode == PlaybackMode.NORMAL && state.activeVerseDisplayNumber == null) return
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = MatnSpacing.unit)) {
+        if (state.mode != PlaybackMode.NORMAL) {
+            ModeChip(mode = state.mode)
+        }
+        if (state.activeVerseDisplayNumber != null) {
+            Text(
+                text = repetitionLabel(state.repetition, state.verseRepeatTarget),
+                style = MaterialTheme.typography.labelMedium,
+                color = scheme.secondary,
+                modifier = Modifier.padding(start = MatnSpacing.unit),
+            )
+            if (state.matnRepeatTarget != RepeatCount.ONE) {
+                Text(
+                    text = passLabel(state.pass, state.matnRepeatTarget),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.secondary,
+                    modifier = Modifier.padding(start = MatnSpacing.unit),
+                )
+            }
+        }
     }
 }
 
-/** Speed as a small gold cartouche (pill) — GoldSoft field, GoldDeep numerals. */
+/** Scrub slider with elapsed/remaining time labels either side (per the Stitch control bar). */
 @Composable
-private fun SpeedPill(speed: PlaybackSpeed, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        color = scheme.secondaryContainer,
-        shape = RoundedCornerShape(50),
-        modifier = Modifier.clickable(onClickLabel = stringResource(Res.string.player_speed), onClick = onClick),
-    ) {
-        Text(
-            text = speedLabel(speed),
-            // Force LTR: "1×" is a number + the bidi-neutral × sign, which RTL would flip to "×1".
-            style = MaterialTheme.typography.labelLarge.copy(textDirection = TextDirection.Ltr),
-            color = scheme.onSecondaryContainer,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-        )
-    }
-}
-
-/** The scrub reimagined as an illumination-gold rule with a gold bead thumb (FR-013). */
-@Composable
-private fun GoldScrub(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit) {
+private fun ScrubRow(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     var scrubbing by remember { mutableStateOf(false) }
     var scrubValue by remember { mutableStateOf(0f) }
@@ -309,15 +197,152 @@ private fun GoldScrub(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit
             onSeek((scrubValue * durationMs).toLong())
         },
         colors = SliderDefaults.colors(
-            thumbColor = scheme.secondary,
-            activeTrackColor = scheme.secondary,
-            inactiveTrackColor = scheme.outlineVariant,
+            thumbColor = scheme.primary,
+            activeTrackColor = scheme.primary,
+            inactiveTrackColor = scheme.surfaceVariant,
         ),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        modifier = Modifier.fillMaxWidth(),
     )
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
+        Text(
+            text = formatDuration(if (scrubbing) (scrubValue * durationMs).toLong() else positionMs),
+            style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
+            color = scheme.outline,
+        )
+        Text(
+            text = "-${formatDuration((durationMs - positionMs).coerceAtLeast(0L))}",
+            style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
+            color = scheme.outline,
+        )
+    }
 }
 
-/** Enabled transport arrows in ink; disabled ones fade toward the parchment. */
+/** Three-zone transport row: repeat + stop + speed (start) — prev/play-pause/next (center). */
+@Composable
+private fun TransportRow(
+    state: PlayerBarUiState,
+    onPlayPause: () -> Unit,
+    onStop: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onSpeedSelected: () -> Unit,
+    onRepeatSettingsClicked: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (state.isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.dp,
+                color = scheme.primary,
+            )
+            return@Row
+        }
+        IconButton(onClick = onRepeatSettingsClicked) {
+            RepeatGlyph(color = scheme.onSurfaceVariant, contentDescription = stringResource(Res.string.repetition_setup_open))
+        }
+        IconButton(onClick = onStop) {
+            StopGlyph(color = scheme.onSurfaceVariant, contentDescription = stringResource(Res.string.player_stop))
+        }
+        SpeedPill(speed = state.speed, onClick = onSpeedSelected)
+        Spacer(modifier = Modifier.weight(1f))
+        IconButton(onClick = onNext, enabled = state.canNext) {
+            SkipNextGlyph(
+                color = transportInk(state.canNext),
+                contentDescription = stringResource(Res.string.player_next),
+            )
+        }
+        TransportDisc(
+            onClick = onPlayPause,
+            enabled = state.canPlayPause,
+            contentDescription = stringResource(
+                if (state.isPlaying) Res.string.player_pause else Res.string.player_play,
+            ),
+        ) {
+            if (state.isPlaying) {
+                PauseGlyph(color = scheme.onPrimary, size = 24.dp)
+            } else {
+                PlayGlyph(color = scheme.onPrimary, size = 24.dp)
+            }
+        }
+        IconButton(onClick = onPrevious, enabled = state.canPrevious) {
+            SkipPreviousGlyph(
+                color = transportInk(state.canPrevious),
+                contentDescription = stringResource(Res.string.player_previous),
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+    }
+}
+
+/** Play/pause as the single filled, larger primary disc — the one emphasized transport control. */
+@Composable
+private fun TransportDisc(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    contentDescription: String,
+    content: @Composable () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .padding(horizontal = MatnSpacing.unit)
+            .size(56.dp)
+            .clip(CircleShape)
+            .background(if (enabled) scheme.primary else scheme.primary.copy(alpha = 0.35f))
+            .clickable(enabled = enabled, onClickLabel = contentDescription, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+/** The derived mode chip (Normal / Memorization / A–B Loop) — reads `state.mode` only. */
+@Composable
+private fun ModeChip(mode: PlaybackMode) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(color = scheme.primaryContainer, shape = MatnShapes.full) {
+        Text(
+            text = stringResource(
+                when (mode) {
+                    PlaybackMode.NORMAL -> Res.string.mode_normal
+                    PlaybackMode.MEMORIZATION -> Res.string.mode_memorization
+                    PlaybackMode.A_B_LOOP -> Res.string.mode_ab_loop
+                },
+            ),
+            style = MaterialTheme.typography.labelSmall,
+            color = scheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = MatnSpacing.unit, vertical = MatnSpacing.unit / 2),
+        )
+    }
+}
+
+/** Speed as a bordered pill, per the Stitch control bar's speed control. */
+@Composable
+private fun SpeedPill(speed: PlaybackSpeed, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        color = scheme.surfaceContainerHigh,
+        shape = MatnShapes.full,
+        border = androidx.compose.foundation.BorderStroke(1.dp, scheme.outlineVariant),
+        modifier = Modifier
+            .padding(start = MatnSpacing.unit)
+            .clickable(onClickLabel = stringResource(Res.string.player_speed), onClick = onClick),
+    ) {
+        Text(
+            text = speedLabel(speed),
+            // Force LTR: "1×" is a number + the bidi-neutral × sign, which RTL would flip to "×1".
+            style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = MatnSpacing.unit, vertical = MatnSpacing.unit * 3 / 4),
+        )
+    }
+}
+
+/** Enabled transport arrows in on-surface ink; disabled ones fade toward the surface. */
 @Composable
 private fun transportInk(enabled: Boolean) =
     if (enabled) MaterialTheme.colorScheme.onSurface

@@ -1,14 +1,16 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.4.0 → 1.4.1
-Rationale: docs/ROADMAP.md renumbered its phases from 0-indexed to 1-indexed so each phase number
-matches its `specs/NNN-*` folder (Phase 1 ↔ 001-*, ..., Phase 5 ↔ 005-*), removing a recurring
-source of off-by-one confusion. This document's Phase references in the "Phased, Incremental
-Delivery" subsection are updated to match (Phase 4 Continue Learning → Phase 5, Phase 0 → Phase 1,
-Phase 6 → Phase 7, etc.). No principle, rule, or gate changed — wording only, hence PATCH.
+Version change: 1.4.1 → 1.4.2
+Rationale: docs/ROADMAP.md added Phase 10 — Design System Adoption, a cross-cutting retrofit of
+Phases 1–5's UI (specs/010-design-system-adoption) that also resolved the Stitch design-set
+duplicates and the previously-undocumented bottom-navigation shell (now in docs/PRODUCT-SPEC.md §
+Navigation & App Shell). The "Phased, Incremental Delivery" subsection is updated to reference
+Phase 10 and its dependency note. No principle, rule, or gate changed — wording only, hence PATCH.
 
 History:
+  - 1.4.2 (2026-07-24): "Phased, Incremental Delivery" references the new Phase 10 (Design System
+    Adoption) and its dependency note. No semantic change.
   - 1.4.1 (2026-07-24): Phase-number references in "Phased, Incremental Delivery" updated to match
     ROADMAP.md's 1-indexed renumbering (was 0-indexed). No semantic change.
   - 1.4.0 (2026-07-24): Added Principle VIII — Stitch as canonical design source, mandatory
@@ -44,10 +46,9 @@ Templates & artifacts reviewed:
        Principle VIII. Holds the volatile IDs so this constitution does not.
 
 Deferred TODOs:
-  - Duplicate Stitch screens (Matn Details ×2, Reading & Playback ×3) need a confirmed
-    canonical pick; tracked in docs/DESIGN-SOURCE.md "Open issues".
   - "Upload Matn (Timestamp Map)" screen designs the rejected shared-audio-file model and
     should be retired in Stitch; tracked in docs/DESIGN-SOURCE.md "Open issues".
+  - Dark-mode tokens (docs/DESIGN-SOURCE.md "Open issues" #5) remain undefined — owned by Phase 9.
 -->
 
 # Matn Constitution
@@ -269,7 +270,10 @@ specified in `docs/PRODUCT-SPEC.md`).
   the app in a non-building or untestable state.
 - Phase prerequisites MUST be respected: Phases 1 → 2 → 3 are strictly ordered hard prerequisites;
   Phase 5 (Continue Learning / state persistence) requires Phases 2–4; Phases 4, 6, 7, 8, 9 may be
-  reordered relative to each other provided their own prerequisites hold.
+  reordered relative to each other provided their own prerequisites hold. Phase 10 (Design System
+  Adoption) is a cross-cutting retrofit of Phases 1–5's UI and SHOULD land before Phases 6–9 begin
+  their own UI work, since it establishes the shared token system and navigation shell those
+  phases would otherwise have to invent independently.
 - Foundational invariants MUST be established in their owning phase and upheld thereafter:
   UUID-based domain entities and the per-verse audio asset model in Phase 1; recall-based progress
   (not raw listen count) in Phase 7.
@@ -305,4 +309,4 @@ specified in `docs/PRODUCT-SPEC.md`).
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.4.1 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-24
+**Version**: 1.4.2 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-24

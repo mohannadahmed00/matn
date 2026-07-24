@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.giraffe.matn.domain.model.ContinueLearningEntry
+import com.giraffe.matn.presentation.theme.MatnShapes
+import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.continue_learning_dismiss
@@ -55,11 +56,11 @@ fun ContinueLearningCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = MatnShapes.xl,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Column(modifier = Modifier.clickable(onClick = onResume).padding(20.dp)) {
+        Column(modifier = Modifier.clickable(onClick = onResume).padding(MatnSpacing.gutter)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -73,7 +74,7 @@ fun ContinueLearningCard(
                     Text(
                         text = stringResource(Res.string.continue_learning_title),
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = MatnSpacing.unit + 4.dp, vertical = MatnSpacing.unit / 2),
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
@@ -89,7 +90,7 @@ fun ContinueLearningCard(
                     Text(
                         text = "×",
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.padding(horizontal = MatnSpacing.unit, vertical = MatnSpacing.unit / 4),
                     )
                 }
             }
@@ -99,26 +100,26 @@ fun ContinueLearningCard(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier.padding(top = MatnSpacing.unit + 4.dp),
             )
             Text(
                 text = stringResource(Res.string.continue_learning_verse, entry.verseDisplayNumber),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = MatnSpacing.unit / 4),
             )
             // Resume pill — design: on-primary-container background, primary-container text,
             // rounded-full, filled play glyph leading the label.
             Surface(
-                modifier = Modifier.padding(top = 16.dp).clickable(onClick = onResume),
+                modifier = Modifier.padding(top = MatnSpacing.unit * 2).clickable(onClick = onResume),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 contentColor = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = MatnSpacing.unit * 3, vertical = MatnSpacing.unit + 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit),
                 ) {
                     // ▶ play glyph — no Material Icons dependency (rule 6); the manuscript design
                     // language uses text glyphs throughout (cf. CoverImage's "م").
@@ -148,7 +149,7 @@ private fun sampleEntry(title: String) = ContinueLearningEntry(
 @Composable
 private fun ContinueLearningCardPreview() {
     MatnTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
+        Box(modifier = Modifier.padding(MatnSpacing.gutter)) {
             ContinueLearningCard(
                 entry = sampleEntry("الأجرومية"),
                 onResume = {},
@@ -162,7 +163,7 @@ private fun ContinueLearningCardPreview() {
 @Composable
 private fun ContinueLearningCardLongTitlePreview() {
     MatnTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
+        Box(modifier = Modifier.padding(MatnSpacing.gutter)) {
             ContinueLearningCard(
                 entry = sampleEntry(
                     "حاشية الأمير على متن السيد البكري في علم النحو والصرف والمعاني والبيان والبديع",

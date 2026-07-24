@@ -7,6 +7,13 @@ a layout — see Principle VIII in [`../.specify/memory/constitution.md`](../.sp
 This file is the **registry** (which screen backs which phase). It deliberately holds no design
 content — the designs themselves live in Stitch and are fetched on demand via MCP.
 
+> **2026-07-24 audit note:** the registry below was originally written against the roadmap's old
+> 0-indexed phase numbers, before the `docs/ROADMAP.md` renumber to 1-indexed. All phase numbers
+> here have been corrected (+1) to match the live roadmap. The "Design System" screen entry that
+> used to head this registry has been removed — it never existed as a real screen in the Stitch
+> project (its ID was a stub, never fetched). There is no separate design-system screen; every
+> screen embeds an identical token set in its own inline `tailwind.config`, extracted below.
+
 ## Project
 
 | Field | Value |
@@ -31,42 +38,74 @@ npx -y @_davideast/stitch-mcp init
 Verify with `npx -y @_davideast/stitch-mcp doctor`, then restart the agent so it picks up the
 server.
 
+## Design tokens
+
+Extracted verbatim from the `tailwind.config` embedded in every fetched screen (Home / Library,
+Repetition Setup, Matn Details — all identical). This is the canonical token set until
+`specs/010-design-system-adoption` lands the equivalent Compose `Color.kt` / `Type.kt` /
+`Shape.kt` / `Spacing.kt`.
+
+- **Color roles** (Material 3 role names): `primary #425546`, `on-primary #ffffff`,
+  `primary-container #5a6d5d`, `on-primary-container #d9eeda`, `secondary #6b5c41`,
+  `secondary-container #f2ddba`, `background #fcf9f8`, `surface #fcf9f8`,
+  `surface-container-low #f6f3f2`, `surface-container #f0eded`, `surface-container-high #eae7e7`,
+  `surface-container-lowest #ffffff`, `on-surface #1b1c1c`, `on-surface-variant #434843`,
+  `outline #737872`, `outline-variant #c3c8c1`, `error #ba1a1a`. (Full role set — including all
+  `-fixed`/`-dim`/`inverse-*` roles — is in every screen's `<script id="tailwind-config">` block.)
+- **Fonts**: `Amiri` (`body-ar` 24px/2.2 line-height, `display-ar` 40px/700/1.6 line-height) for
+  Arabic verse text; `Source Serif 4` (`headline-lg` 32px/600, `headline-lg-mobile` 24px/600,
+  `body-md` 16px/400) for headings and Latin UI copy; `Plus Jakarta Sans` (`label-sm`
+  12px/600/uppercase-tracking) for buttons, chips, nav labels; `Material Symbols Outlined` for
+  all icons.
+- **Spacing**: `margin-mobile 20px`, `margin-desktop 64px`, `gutter 24px`, `unit 8px`,
+  `container-max 1024px`.
+- **Radii**: `DEFAULT 0.25rem`, `lg 0.5rem`, `xl 0.75rem`, `full 9999px`.
+
+**Current-code gap**: `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/theme/` has no
+`Shape.kt`/`Dimens.kt`/`Spacing.kt`, uses a different ad-hoc "manuscript" color palette, and only
+bundles the Amiri font (no Source Serif 4 / Plus Jakarta Sans). 91+ raw `.dp`/`.sp` literals exist
+directly in screen composables — a standing Principle VIII violation independent of this redesign.
+
 ## Screen registry
 
-Screen IDs are stable; use them with the `get_screen_code` / `get_screen_image` /
-`extract_design_context` MCP tools.
+Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools (`stitch` server).
 
 ### Foundational
 
 | Screen | ID | Notes |
 |--------|----|-------|
-| Design System | `asset-stub-assets_f38282d0af114c788fa66a0166344c53` | **Read first.** Source for the shared token set (color, type scale, spacing, radii) and the reusable component inventory. |
-| Matn Brand Logo | `d3e5ae25b9734ceaa4fdba8c04ed54af` | Brand asset. |
+| Matn Brand Logo | `d3e5ae25b9734ceaa4fdba8c04ed54af` | Brand asset (icon + wordmark lockup). |
 
 ### Phase-mapped screens
 
 | Screen | ID | Phase |
 |--------|----|-------|
-| Home / Library | `618643f891144557b5a4ddf4bbad0c03` | **1** (library grid); its *Continue Learning* card is **4**; its progress ring is **6** |
-| Matn Details (Refined) | `472161bbcdee47adb26d94a1fefcc3a8` | **1** |
-| Matn Details | `106e8e5d4cf748898f12a2e554ca07e5` | **1** — earlier iteration, see *Duplicates* below |
-| Reading & Playback (Updated) | `ac354abd54c246ed841f63b31a19fbf2` | **2** |
-| Reading & Playback | `490d65e3499f4a0ca9d1f6c269eef91a` | **2** — earlier iteration |
-| Reading & Playback | `e27cc8b9a4624fbabae6368cb9a98bfe` | **2** — earlier iteration |
-| Repetition Setup | `c17c4877123f403292a30c78ae685f6e` | **3** |
-| Search Matn | `fa8b63b036c94510ba1be2d90e7a3417` | **5** |
-| Bookmarks & Notes | `bc99ab7f8110479086326271d0aa0310` | **5** |
-| Progress & Goals | `f059cccd2f634bc9ba2cf4d620e5df80` | **6** |
-| Splash Screen | `6aba0b42e95d43e5b6f81928f3e3f7c6` | **8** (first-launch / onboarding) |
+| Home / Library | `618643f891144557b5a4ddf4bbad0c03` | **2** (library grid); its *Continue Learning* card is **5**; its daily-goal progress ring is **7**; its bottom nav shell (Library/Goals/Notes/Settings) is **10** |
+| Matn Details (Refined) | `472161bbcdee47adb26d94a1fefcc3a8` | **2** — canonical, see *Duplicates* below |
+| Matn Details | `106e8e5d4cf748898f12a2e554ca07e5` | **2** — superseded iteration |
+| Reading & Playback (Updated) | `ac354abd54c246ed841f63b31a19fbf2` | **3** — canonical, see *Duplicates* below |
+| Reading & Playback | `490d65e3499f4a0ca9d1f6c269eef91a` | **3** — superseded iteration |
+| Reading & Playback | `e27cc8b9a4624fbabae6368cb9a98bfe` | **3** — superseded; see *Duplicates* below (this ID and Repetition Setup resolve to the identical HTML artifact) |
+| Repetition Setup | `c17c4877123f403292a30c78ae685f6e` | **4** |
+| Search Matn | `fa8b63b036c94510ba1be2d90e7a3417` | **6** |
+| Bookmarks & Notes | `bc99ab7f8110479086326271d0aa0310` | **6** |
+| Progress & Goals | `f059cccd2f634bc9ba2cf4d620e5df80` | **7** |
+| Splash Screen | `6aba0b42e95d43e5b6f81928f3e3f7c6` | **9** (first-launch / onboarding) |
 
 ## Open issues in the design set
 
-These are unresolved and MUST be settled before the affected phase is implemented.
-
-1. **Duplicates need a canonical pick.** *Matn Details* has 2 variants and *Reading & Playback*
-   has 3. The titles suggest `472161bb…` (Refined) and `ac354abd…` (Updated) are the latest, but
-   **this has not been visually confirmed** — no one has fetched the designs yet. Confirm before
-   building Phase 2 / Phase 3 UI, and delete or clearly retire the superseded screens in Stitch.
+1. ~~**Duplicates need a canonical pick.**~~ **Resolved 2026-07-24** by visual/HTML comparison:
+   - *Matn Details*: `472161bb…` "(Refined)" is canonical. Diff vs. the superseded `106e8e5d…` is
+     small — Refined drops a redundant header `play_arrow` button and a stray `mic` icon that
+     don't correspond to any spec'd control.
+   - *Reading & Playback*: `ac354abd…` "(Updated)" is canonical (3-verse carousel with a floating
+     glass control bar). `490d65e3…` is an earlier iteration of the same layout. `e27cc8b9…`
+     (390×884, no screenshot) is a stranger case: its `htmlCode.downloadUrl` resolves to the
+     **exact same generated HTML file** as *Repetition Setup* (`c17c4877…`) — i.e. in Stitch's
+     backing store these two differently-titled/differently-sized catalog entries are the same
+     artifact. Treat `e27cc8b9…` as a duplicate pointer, not a distinct design.
+   - All three superseded/duplicate entries should be retired in Stitch to stop future agents from
+     picking them up as guidance.
 
 2. **`Upload Matn (Timestamp Map)` (`f55899af78974175b345f3c3cd048387`) contradicts a locked
    architectural decision.** The constitution and `PRODUCT-SPEC.md` lock the audio model to *one
@@ -84,3 +123,19 @@ These are unresolved and MUST be settled before the affected phase is implemente
 5. **No dark-mode variants exist.** Principle VII makes dark mode contractual and Phase 9 owns it,
    but the Stitch set is light-theme only. Dark tokens will need to be derived rather than
    imported.
+
+6. ~~**The bottom navigation shell (Library / Goals / Notes / Settings) is undocumented outside
+   Stitch.**~~ **Resolved 2026-07-24**: documented in `docs/PRODUCT-SPEC.md` § Navigation & App
+   Shell and implemented in `specs/010-design-system-adoption` (User Story 3) — a persistent
+   `NavigationBar` on every top-level screen, with the Goals and Notes tabs routed to a shared
+   "coming soon" placeholder until Phases 6–7 land.
+
+## Phase 10 — Design System Adoption
+
+Phases 1–5's screens (Home/Library, Matn Details, Reading & Playback, Repetition Setup) have been
+retrofitted to this registry's canonical designs — see `specs/010-design-system-adoption/`. The
+"Design tokens" section above is now backed by real Compose token files
+(`presentation/theme/{Color,Type,Shape,Spacing}.kt`), and the reading experience has moved from a
+scrollable verse list to the focused 3-verse carousel described by the "Reading & Playback
+(Updated)" screen. Repetition Setup's bottom sheet and the bottom navigation shell are both
+implemented; dark mode (issue 5) remains open and owned by Phase 9.
