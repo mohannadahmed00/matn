@@ -6,11 +6,14 @@ import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.Chapter
 import com.giraffe.matn.domain.model.MatnDetails
+import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.Verse
 import com.giraffe.matn.domain.model.VerseAnnotations
+import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
 import com.giraffe.matn.domain.usecase.SaveNoteParams
+import com.giraffe.matn.domain.usecase.ToggleVerseMemorizedUseCase
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.base.BaseViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -53,6 +56,12 @@ class MatnDetailsViewModel(
     private val getNote: UseCase<String, Note?>,
     private val saveNote: UseCase<SaveNoteParams, Note>,
     private val deleteNote: UseCase<String, Unit>,
+    /** Phase 7 (US1 FR-006/FR-002): per-matn progress + memorized-verse indicators. Optional/
+     *  defaulted so existing call sites and tests keep compiling. */
+    private val observeMatnProgress: FlowUseCase<String, MatnProgress>? = null,
+    private val observeVerseMemorization: FlowUseCase<String, Set<String>>? = null,
+    private val toggleVerseMemorized: UseCase<ToggleVerseMemorizedUseCase.Params, Unit>? = null,
+    private val markChapterMemorized: UseCase<MarkChapterMemorizedUseCase.Params, Unit>? = null,
 ) : BaseViewModel<MatnDetailsUiState>(MatnDetailsUiState()) {
 
     // The two async inputs (details load + verse stream) are cached here and folded into UI
@@ -68,6 +77,59 @@ class MatnDetailsViewModel(
         observeFontSize()
         observePlayback()
         observeAnnotations()
+        observeProgress()
+        observeMemorization()
+    }
+
+    /** US1 FR-002: toggle "memorized" on [verseId] — the target boolean is the inverse of its
+     *  current membership in [MatnDetailsUiState.memorizedVerseIds]. */
+    fun onToggleMemorized(verseId: String) {
+        val useCase = toggleVerseMemorized ?: return
+        val target = verseId !in stateValue.memorizedVerseIds
+        runUseCase(
+            useCase = useCase,
+            params = ToggleVerseMemorizedUseCase.Params(verseId, target),
+            onSuccess = {/* observeMemorization()/observeProgress() re-emit and update state */ },
+            onError = {/* best-effort; leave current indicator state */ },
+        )
+    }
+
+    /** US1 FR-003: bulk mark/un-mark every verse in [chapterId]. */
+    fun onMarkChapterMemorized(chapterId: String, memorized: Boolean) {
+        val useCase = markChapterMemorized ?: return
+        runUseCase(
+            useCase = useCase,
+            params = MarkChapterMemorizedUseCase.Params(chapterId, memorized),
+            onSuccess = {/* observeMemorization()/observeProgress() re-emit and update state */ },
+            onError = {/* best-effort; leave current indicator state */ },
+        )
+    }
+
+    private fun observeProgress() {
+        val useCase = observeMatnProgress ?: return
+        useCase.invoke(matnId)
+            .onEach { progress ->
+                setState { current ->
+                    current.copy(
+                        progress = progress,
+                        // Ordering hazard: `header` may not exist yet (details load races this
+                        // emission). Re-applying from the stored `progress` inside rebuild()
+                        // covers that case; this copy covers the reverse order.
+                        header = current.header?.copy(
+                            memorizedCount = progress.memorizedCount,
+                            progressFraction = progress.fraction,
+                        ),
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun observeMemorization() {
+        val useCase = observeVerseMemorization ?: return
+        useCase.invoke(matnId)
+            .onEach { ids -> setState { it.copy(memorizedVerseIds = ids) } }
+            .launchIn(viewModelScope)
     }
 
     /** US2 FR-010: toggle the bookmark on [verseId] (typically the active verse). Best-effort —
@@ -234,6 +296,8 @@ class MatnDetailsViewModel(
                         description = d.matn.description,
                         verseCount = verseRows.size,
                         totalDurationMs = verseRows.sumOf { it.durationMs },
+                        memorizedCount = current.progress?.memorizedCount ?: 0,
+                        progressFraction = current.progress?.fraction ?: 0f,
                     )
                 },
                 chapters = details?.chapters.orEmpty().toChapterRows(verseRows),

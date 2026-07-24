@@ -62,4 +62,9 @@
     <string name="note_editor_delete">Delete note</string>
     <string name="has_note_indicator">Has a note</string>
     <string name="toggle_note">Add note</string>
+    <string name="memorized_indicator">Memorized</string>
+    <string name="toggle_memorized">Mark as memorized</string>
+    <string name="matn_progress_label">Memorized</string>
+    <string name="mark_chapter_memorized">Mark chapter as memorized</string>
+    <string name="unmark_chapter_memorized">Unmark chapter</string>
 </resources>

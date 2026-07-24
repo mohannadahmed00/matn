@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.presentation.common.CoverImage
+import com.giraffe.matn.presentation.common.MatnProgressBar
 import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.formatDuration
 import com.giraffe.matn.presentation.theme.MatnShapes
@@ -61,6 +62,7 @@ import matn.shared.generated.resources.font_large
 import matn.shared.generated.resources.font_medium
 import matn.shared.generated.resources.font_small
 import matn.shared.generated.resources.font_xlarge
+import matn.shared.generated.resources.matn_progress_label
 import matn.shared.generated.resources.player_play
 import matn.shared.generated.resources.verse_play
 import matn.shared.generated.resources.verses_count
@@ -87,6 +89,8 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.ma
         onSaveNote = viewModel::onSaveNote,
         onDeleteNote = viewModel::onDeleteNote,
         onDismissNoteEditor = viewModel::onDismissNoteEditor,
+        onToggleMemorized = viewModel::onToggleMemorized,
+        onMarkChapterMemorized = viewModel::onMarkChapterMemorized,
         playerBar = playerBar,
     )
 }
@@ -115,6 +119,8 @@ fun MatnDetailsContent(
     onSaveNote: (String) -> Unit = {},
     onDeleteNote: () -> Unit = {},
     onDismissNoteEditor: () -> Unit = {},
+    onToggleMemorized: (String) -> Unit = {},
+    onMarkChapterMemorized: (String, Boolean) -> Unit = { _, _ -> },
     playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
     // specs/010-design-system-adoption User Story 2: the repetition-setup sheet's open/closed
@@ -156,8 +162,10 @@ fun MatnDetailsContent(
                         state = carouselState,
                         fontSize = state.fontSize,
                         annotations = state.annotations,
+                        memorizedVerseIds = state.memorizedVerseIds,
                         onToggleBookmark = onToggleBookmark,
                         onOpenNoteEditor = onOpenNoteEditor,
+                        onToggleMemorized = onToggleMemorized,
                         modifier = Modifier.weight(1f),
                     )
                 } else {
@@ -166,6 +174,7 @@ fun MatnDetailsContent(
                         onFontSizeChanged = onFontSizeChanged,
                         onVersePlayClicked = onVersePlayClicked,
                         onGlobalPlayClicked = onGlobalPlayClicked,
+                        onMarkChapterMemorized = onMarkChapterMemorized,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -216,6 +225,7 @@ private fun VerseList(
     onFontSizeChanged: (ReadingFontSize) -> Unit = {},
     onVersePlayClicked: (String) -> Unit = {},
     onGlobalPlayClicked: () -> Unit = {},
+    onMarkChapterMemorized: (String, Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -273,6 +283,14 @@ private fun VerseList(
                             coroutineScope.launch { listState.animateScrollToItem(target) }
                         }
                     },
+                    // US1 FR-003: a chapter row is "all memorized" only when it has verses AND
+                    // every one of them is in the memorized set — an empty chapter is never
+                    // reported as fully memorized.
+                    isChapterMemorized = { chapter ->
+                        val chapterVerseIds = verses.filter { it.chapterId == chapter.id }.map { it.id }
+                        chapterVerseIds.isNotEmpty() && chapterVerseIds.all { it in state.memorizedVerseIds }
+                    },
+                    onMarkChapterMemorized = onMarkChapterMemorized,
                 )
             }
         }
@@ -352,6 +370,13 @@ private fun Frontispiece(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = MatnSpacing.unit + 4.dp),
+        )
+        MatnProgressBar(
+            fraction = header.progressFraction,
+            label = stringResource(Res.string.matn_progress_label),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MatnSpacing.gutter, vertical = MatnSpacing.unit),
         )
     }
 }

@@ -7,11 +7,14 @@ import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.Chapter
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnDetails
+import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.domain.model.Verse
+import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
 import com.giraffe.matn.domain.usecase.SaveNoteParams
+import com.giraffe.matn.domain.usecase.ToggleVerseMemorizedUseCase
 import com.giraffe.matn.playback.FakeAudioEngine
 import com.giraffe.matn.playback.FakeWakeLock
 import com.giraffe.matn.playback.PlaybackController
@@ -433,6 +436,10 @@ class MatnDetailsViewModelTest {
         getNote: UseCase<String, Note?> = FakeUseCase { Resource.Success(null) },
         saveNote: UseCase<SaveNoteParams, Note> = FakeUseCase { params -> Resource.Success(Note("n", params.verseId, params.text, 0L)) },
         deleteNote: UseCase<String, Unit> = FakeUseCase { Resource.Success(Unit) },
+        progressFlow: Flow<MatnProgress>? = null,
+        memorizationFlow: Flow<Set<String>>? = null,
+        toggleVerseMemorized: UseCase<ToggleVerseMemorizedUseCase.Params, Unit>? = null,
+        markChapterMemorized: UseCase<MarkChapterMemorizedUseCase.Params, Unit>? = null,
     ): MatnDetailsViewModel {
         val versesState = MutableStateFlow(verses)
         return MatnDetailsViewModel(
@@ -448,7 +455,80 @@ class MatnDetailsViewModelTest {
             getNote = getNote,
             saveNote = saveNote,
             deleteNote = deleteNote,
+            observeMatnProgress = progressFlow?.let { flow -> FakeFlowUseCase { flow } },
+            observeVerseMemorization = memorizationFlow?.let { flow -> FakeFlowUseCase { flow } },
+            toggleVerseMemorized = toggleVerseMemorized,
+            markChapterMemorized = markChapterMemorized,
         )
+    }
+
+    @Test
+    fun `progress flow lands in header memorizedCount and progressFraction`() = runTest {
+        val progressState = MutableStateFlow(MatnProgress(matnId = "simple-1", memorizedCount = 1, totalCount = 3))
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            progressFlow = progressState,
+        )
+        val header = vm.state.value.header
+        assertNotNull(header)
+        assertEquals(1, header.memorizedCount)
+        assertEquals(1f / 3f, header.progressFraction)
+
+        progressState.value = MatnProgress(matnId = "simple-1", memorizedCount = 3, totalCount = 3)
+        assertEquals(3, vm.state.value.header?.memorizedCount)
+        assertEquals(1f, vm.state.value.header?.progressFraction)
+    }
+
+    @Test
+    fun `memorization flow lands in memorizedVerseIds`() = runTest {
+        val memorizedState = MutableStateFlow(emptySet<String>())
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            memorizationFlow = memorizedState,
+        )
+        assertEquals(emptySet(), vm.state.value.memorizedVerseIds)
+        memorizedState.value = setOf("v1")
+        assertEquals(setOf("v1"), vm.state.value.memorizedVerseIds)
+    }
+
+    @Test
+    fun `onToggleMemorized targets the inverse of current membership`() = runTest {
+        var lastParams: ToggleVerseMemorizedUseCase.Params? = null
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            memorizationFlow = MutableStateFlow(setOf("v1")),
+            toggleVerseMemorized = FakeUseCase { params -> lastParams = params; Resource.Success(Unit) },
+        )
+        vm.onToggleMemorized("v2") // not memorized -> target true
+        assertEquals(ToggleVerseMemorizedUseCase.Params("v2", true), lastParams)
+
+        vm.onToggleMemorized("v1") // already memorized -> target false
+        assertEquals(ToggleVerseMemorizedUseCase.Params("v1", false), lastParams)
+
+        // Playback state is untouched by toggling memorized state.
+        assertEquals(false, vm.state.value.isPlaying)
+        assertNull(vm.state.value.activeVerseId)
+    }
+
+    @Test
+    fun `onMarkChapterMemorized forwards both arguments`() = runTest {
+        var lastParams: MarkChapterMemorizedUseCase.Params? = null
+        val vm = newViewModel(
+            matnDetails = MatnDetails(structuredMatn, structuredChapters, true),
+            verses = structuredVerses,
+            markChapterMemorized = FakeUseCase { params -> lastParams = params; Resource.Success(Unit) },
+        )
+        vm.onMarkChapterMemorized("c1", true)
+        assertEquals(MarkChapterMemorizedUseCase.Params("c1", true), lastParams)
+
+        vm.onMarkChapterMemorized("c1", false)
+        assertEquals(MarkChapterMemorizedUseCase.Params("c1", false), lastParams)
+
+        assertEquals(false, vm.state.value.isPlaying)
+        assertNull(vm.state.value.activeVerseId)
     }
 }
 

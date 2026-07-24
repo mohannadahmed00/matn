@@ -23,6 +23,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.giraffe.matn.domain.model.VerseAnnotations
 import com.giraffe.matn.presentation.common.BookmarkGlyph
+import com.giraffe.matn.presentation.common.MemorizedGlyph
 import com.giraffe.matn.presentation.common.NoteGlyph
 import com.giraffe.matn.presentation.details.VerseRow
 import com.giraffe.matn.presentation.theme.MatnShapes
@@ -35,8 +36,10 @@ import com.giraffe.matn.domain.model.ReadingFontSize
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.bookmarked_indicator
 import matn.shared.generated.resources.has_note_indicator
+import matn.shared.generated.resources.memorized_indicator
 import matn.shared.generated.resources.player_now_playing
 import matn.shared.generated.resources.toggle_bookmark
+import matn.shared.generated.resources.toggle_memorized
 import matn.shared.generated.resources.toggle_note
 import org.jetbrains.compose.resources.stringResource
 
@@ -54,8 +57,10 @@ fun ReadingCarousel(
     state: ReadingCarouselUiState,
     fontSize: ReadingFontSize = ReadingFontSize.MEDIUM,
     annotations: Map<String, VerseAnnotations> = emptyMap(),
+    memorizedVerseIds: Set<String> = emptySet(),
     onToggleBookmark: (String) -> Unit = {},
     onOpenNoteEditor: (String) -> Unit = {},
+    onToggleMemorized: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val verseFont = verseFontFamily()
@@ -65,18 +70,32 @@ fun ReadingCarousel(
             .padding(horizontal = MatnSpacing.gutter),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        NeighborVerse(verse = state.previousVerse, fontSize = fontSize, verseFont = verseFont, annotations = annotations)
+        NeighborVerse(
+            verse = state.previousVerse,
+            fontSize = fontSize,
+            verseFont = verseFont,
+            annotations = annotations,
+            memorizedVerseIds = memorizedVerseIds,
+        )
         Box(modifier = Modifier.height(MatnSpacing.unit * 6))
         ActiveVerseCard(
             verse = state.activeVerse,
             fontSize = fontSize,
             verseFont = verseFont,
             annotations = annotations,
+            memorizedVerseIds = memorizedVerseIds,
             onToggleBookmark = onToggleBookmark,
             onOpenNoteEditor = onOpenNoteEditor,
+            onToggleMemorized = onToggleMemorized,
         )
         Box(modifier = Modifier.height(MatnSpacing.unit * 6))
-        NeighborVerse(verse = state.nextVerse, fontSize = fontSize, verseFont = verseFont, annotations = annotations)
+        NeighborVerse(
+            verse = state.nextVerse,
+            fontSize = fontSize,
+            verseFont = verseFont,
+            annotations = annotations,
+            memorizedVerseIds = memorizedVerseIds,
+        )
     }
 }
 
@@ -91,6 +110,7 @@ private fun NeighborVerse(
     fontSize: ReadingFontSize,
     verseFont: androidx.compose.ui.text.font.FontFamily,
     annotations: Map<String, VerseAnnotations> = emptyMap(),
+    memorizedVerseIds: Set<String> = emptySet(),
 ) {
     if (verse == null) return
     val scheme = MaterialTheme.colorScheme
@@ -125,6 +145,14 @@ private fun NeighborVerse(
                     contentDescription = stringResource(Res.string.bookmarked_indicator),
                 )
             }
+            if (verse.id in memorizedVerseIds) {
+                MemorizedGlyph(
+                    color = scheme.secondary,
+                    filled = true,
+                    size = 14.dp,
+                    contentDescription = stringResource(Res.string.memorized_indicator),
+                )
+            }
         }
     }
 }
@@ -136,13 +164,16 @@ private fun ActiveVerseCard(
     fontSize: ReadingFontSize,
     verseFont: androidx.compose.ui.text.font.FontFamily,
     annotations: Map<String, VerseAnnotations> = emptyMap(),
+    memorizedVerseIds: Set<String> = emptySet(),
     onToggleBookmark: (String) -> Unit = {},
     onOpenNoteEditor: (String) -> Unit = {},
+    onToggleMemorized: (String) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     val annotation = annotations[verse.id]
     val isBookmarked = annotation?.isBookmarked == true
     val hasNote = annotation?.hasNote == true
+    val isMemorized = verse.id in memorizedVerseIds
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -175,6 +206,13 @@ private fun ActiveVerseCard(
                         color = if (isBookmarked) scheme.secondary else scheme.onSurfaceVariant,
                         filled = isBookmarked,
                         contentDescription = stringResource(Res.string.toggle_bookmark),
+                    )
+                }
+                IconButton(onClick = { onToggleMemorized(verse.id) }) {
+                    MemorizedGlyph(
+                        color = if (isMemorized) scheme.secondary else scheme.onSurfaceVariant,
+                        filled = isMemorized,
+                        contentDescription = stringResource(Res.string.toggle_memorized),
                     )
                 }
             }
@@ -298,6 +336,37 @@ private fun ReadingCarouselBookmarkedAndNotedActiveVersePreview() {
                 nextVerse = previewVerse("v3", 3, "مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ"),
             ),
             annotations = mapOf("v2" to com.giraffe.matn.domain.model.VerseAnnotations("v2", isBookmarked = true, hasNote = true)),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ReadingCarouselMemorizedActiveVersePreview() {
+    MatnTheme {
+        ReadingCarousel(
+            state = ReadingCarouselUiState(
+                previousVerse = previewVerse("v1", 1, "يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي"),
+                activeVerse = previewVerse("v2", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ وَمُصْطَفَاهُ"),
+                nextVerse = previewVerse("v3", 3, "مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ"),
+            ),
+            memorizedVerseIds = setOf("v2"),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ReadingCarouselMemorizedBookmarkedAndNotedActiveVersePreview() {
+    MatnTheme {
+        ReadingCarousel(
+            state = ReadingCarouselUiState(
+                previousVerse = previewVerse("v1", 1, "يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي"),
+                activeVerse = previewVerse("v2", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ وَمُصْطَفَاهُ"),
+                nextVerse = previewVerse("v3", 3, "مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ"),
+            ),
+            annotations = mapOf("v2" to com.giraffe.matn.domain.model.VerseAnnotations("v2", isBookmarked = true, hasNote = true)),
+            memorizedVerseIds = setOf("v2"),
         )
     }
 }

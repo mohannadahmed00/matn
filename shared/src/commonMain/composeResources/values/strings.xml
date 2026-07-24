@@ -62,4 +62,9 @@
     <string name="note_editor_delete">حذف الملاحظة</string>
     <string name="has_note_indicator">توجد ملاحظة</string>
     <string name="toggle_note">إضافة ملاحظة</string>
+    <string name="memorized_indicator">محفوظ</string>
+    <string name="toggle_memorized">تمييز كمحفوظ</string>
+    <string name="matn_progress_label">محفوظ</string>
+    <string name="mark_chapter_memorized">تمييز الباب كمحفوظ</string>
+    <string name="unmark_chapter_memorized">إلغاء تمييز الباب</string>
 </resources>
