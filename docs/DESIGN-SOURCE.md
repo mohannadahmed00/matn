@@ -127,8 +127,9 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
 6. ~~**The bottom navigation shell (Library / Goals / Notes / Settings) is undocumented outside
    Stitch.**~~ **Resolved 2026-07-24**: documented in `docs/PRODUCT-SPEC.md` § Navigation & App
    Shell and implemented in `specs/010-design-system-adoption` (User Story 3) — a persistent
-   `NavigationBar` on every top-level screen, with the Goals and Notes tabs routed to a shared
-   "coming soon" placeholder until Phases 6–7 land.
+   `NavigationBar` on every top-level screen. The Notes tab got its real screen in Phase 6; the
+   Goals tab got its real screen in Phase 7 (see issue 8 below) — only Settings still routes to the
+   shared "coming soon" placeholder.
 
 7. **Phase 6 (Search, Bookmarks & Notes) design questions — resolved 2026-07-24.** Three open
    questions in `specs/006-search-bookmarks-notes/contracts/ui-contract.md` were resolved by
@@ -147,6 +148,23 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
    - Also noted: the fetched *Search Matn* HTML bleeds in teacher/producer-portal navigation
      chrome (dashboard, upload-matn, "Ustadh Ahmed" identity) from a shared Stitch project shell —
      not part of the student search screen; ignored during implementation.
+
+8. **Phase 7 (Progress & Daily Goals) — implemented 2026-07-24.** *Progress & Goals*
+   (`f059cccd…`) and the daily-goal ring region of *Home / Library* (`618643f8…`) were fetched —
+   see `specs/007-progress-daily-goals/design-notes.md` for the full write-up. Deviations from the
+   fetched design:
+   - **No per-card progress affordance existed** on the fetched Home/Library grid card (title,
+     author, verse count, sync-status icon only). FR-006 requires one, so `MatnCard` gained a
+     compact `MatnProgressBar`-style affordance not present in the captured design.
+   - **No zero/empty state was captured** for the Goals dashboard (both fetches showed populated
+     data). The Goals tab's empty state (SC-007) is an original composition built from the same
+     ring/list tokens, not a captured design.
+   - **Streak/day-of-week tracker row** (THU/WED/TUE/MON) appears below the daily-target stepper
+     in the fetched Home screen but is out of scope for this phase's functional requirements —
+     not implemented.
+   - The ring's interior renders the practiced/goal figure (e.g. "4/10") rather than a bare
+     percentage, per an explicit implementation-task instruction; the fetched design's caption
+     line ("X out of Y verses") was folded into the same treatment rather than duplicated.
 
 ## Phase 10 — Design System Adoption
 
