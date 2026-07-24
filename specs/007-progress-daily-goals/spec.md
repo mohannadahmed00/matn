@@ -8,6 +8,14 @@
 
 **Input**: User description: "read @docs/ROADMAP.md and create a specification for the Phase 7 — Progress & Daily Goals"
 
+## Clarifications
+
+### Session 2026-07-24
+
+- Q: Which actions credit a verse toward the daily goal ("practiced today")? → A: Marking the verse memorized, or completing at least one full playthrough of it in Memorization or A–B Loop mode. A Normal continuous single playthrough does not count.
+- Q: When a verse that already counted toward today's goal is later un-marked as memorized, does today's ring count decrease? → A: No — the daily practice record is append-only for the day; un-marking corrects the matn percentage only and never reduces today's count.
+- Q: What is the default daily goal shown before the student sets one? → A: 10 verses per day.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Mark verses as memorized and see per-matn progress (Priority: P1)
@@ -71,7 +79,7 @@ A student wants one place to see how they are doing across everything they are m
 
 - **Empty library / matn with zero verses**: A matn with no verses must show 0% (or a defined "no verses" state) without a divide-by-zero error, and must not break the overall dashboard.
 - **Fully memorized matn**: When every verse of a matn is memorized, its progress reads exactly 100%, and the details/library/Goals views agree.
-- **Un-marking below today's count**: Un-marking a verse as memorized adjusts the matn percentage; if that verse was the practice event that counted toward today's goal, the daily count and un-mark interaction must resolve to a consistent state (see FR-014) rather than a negative or phantom count.
+- **Un-marking after it counted today**: Un-marking a verse as memorized adjusts the matn percentage but does not reduce today's practiced-verse count — the day's practice record is append-only (see FR-014), so the ring never shows a negative or phantom count.
 - **Day rollover mid-session**: If the local day changes while the app is open and the student is mid-practice, the ring for the new day starts fresh; verses practiced before midnight remain attributed to the prior day.
 - **Device clock / time-zone change**: "Today" is defined by the device's local calendar day; a manual clock or time-zone change is handled gracefully (the ring reflects the device's current local day) without corrupting historical records or crashing.
 - **Goal set to an extreme value**: Setting a very large daily goal simply leaves the ring partially filled; setting a goal at or below the minimum is bounded to a valid positive value.
@@ -99,12 +107,12 @@ A student wants one place to see how they are doing across everything they are m
 
 #### Daily goal & completion ring
 
-- **FR-009**: Students MUST be able to set and change a daily goal expressed as a positive whole number of verses to practice per day, with a sensible default provided before the student sets one.
+- **FR-009**: Students MUST be able to set and change a daily goal expressed as a positive whole number of verses to practice per day. Before the student sets one, the system MUST default the daily goal to 10 verses.
 - **FR-010**: The system MUST track, per local calendar day, the number of *distinct* verses the student has practiced that day, where a verse counts at most once per day regardless of how many times it is replayed or repeated.
-- **FR-011**: The system MUST define "practiced today" as a recall-oriented action on a verse — the student marking it memorized, or completing a memorization/repetition pass of it — and MUST NOT count passive raw playback frequency beyond one credit per verse per day.
+- **FR-011**: The system MUST define "practiced today" as one of two recall-oriented actions on a verse: the student marking it memorized, or completing at least one full playthrough of that verse within a Memorization-mode or A–B Loop session. A Normal continuous single playthrough MUST NOT credit a verse, and no verse MAY be credited more than once per day regardless of how many times it is replayed.
 - **FR-012**: The Home screen MUST show a daily completion ring that visualizes today's distinct practiced-verse count against the current daily goal, filling proportionally and reading as complete when the goal is met.
 - **FR-013**: The daily count and completion ring MUST reset at the start of each local calendar day, while leaving accumulated memorized state and matn percentages unaffected.
-- **FR-014**: The daily practiced-verse count MUST never become negative or exceed the number of distinct verses actually practiced that day, and MUST remain consistent when a verse's memorized state is toggled.
+- **FR-014**: The daily practiced-verse count MUST never become negative or exceed the number of distinct verses actually practiced that day. The day's practice record is append-only: once a verse is credited for a given day, later un-marking its memorized state MUST NOT remove that day's credit (it adjusts only the matn percentage).
 
 #### Goals tab (shell integration)
 
@@ -122,7 +130,7 @@ A student wants one place to see how they are doing across everything they are m
 - **Memorization Status**: Whether a specific verse is memorized. Keyed to stable verse identity; carries the time it was marked (for ordering and as the basis for the daily practice signal). At most one status per verse; toggleable.
 - **Matn Progress** *(derived, not independently stored)*: A matn's memorized-verse count over its total verse count, expressed as a percentage. Computed from Memorization Status; surfaced on the library card, details header, and Goals dashboard.
 - **Daily Goal**: The student's target number of distinct verses to practice per day. A single device-local setting with a default; editable.
-- **Daily Practice Record**: For a given local calendar day, the set of distinct verses practiced that day, from which the day's count (and the completion ring's fill) is derived. Verses count at most once per day; the record is scoped to a day and forms the basis for the reset behavior.
+- **Daily Practice Record**: For a given local calendar day, the set of distinct verses practiced that day, from which the day's count (and the completion ring's fill) is derived. Verses count at most once per day; the record is append-only within a day (un-marking a verse's memorized state does not remove it) and is scoped to a day, forming the basis for the reset behavior.
 
 ## Success Criteria *(mandatory)*
 
@@ -141,7 +149,7 @@ A student wants one place to see how they are doing across everything they are m
 
 - **Recall-based metric only (this phase)**: Progress is driven by the explicit "mark as memorized" self-report, per the roadmap's "recall-based progress metric rather than raw playback frequency." The product spec's *optional, additive* spaced-repetition heuristic (a verse counting only after being practiced across multiple distinct sessions with time gaps) is deferred beyond this phase; the daily-practice model is structured so it can be layered in later without reworking the memorized-state data.
 - **Daily goal unit** *(informed default)*: The daily goal is expressed as a number of *verses to practice per day*, which aligns with the phase's recall-based framing. Time-based goals (e.g., "listen 20 minutes") — the alternative example in the product spec — are out of scope for this phase because minutes measure playback effort rather than recall.
-- **Definition of "practiced today"**: A verse is counted toward the daily goal when the student performs a recall-oriented action on it that day — marking it memorized, or completing a memorization/repetition pass of it (building on the Phase 3 playback and Phase 4 repetition engines). Passive re-listening credits a verse at most once per day, keeping the daily metric decoupled from raw playback frequency.
+- **Definition of "practiced today"** *(clarified 2026-07-24)*: A verse is counted toward the daily goal when the student either marks it memorized or completes at least one full playthrough of it within a Memorization-mode or A–B Loop session (building on the Phase 3 playback and Phase 4 repetition engines). A Normal continuous single playthrough does not count, and re-listening credits a verse at most once per day, keeping the daily metric decoupled from raw playback frequency.
 - **Mark granularity**: Marking is primarily per-verse; a "mark entire chapter" convenience action is provided for structured متون. Per-matn and per-chapter percentages are always *derived* from per-verse state, never stored independently, so they cannot drift.
 - **"Today" is device-local**: The daily count and reset are based on the device's local calendar day; the app does not depend on the network or a server clock.
 - **Reminders out of scope**: Daily-goal reminder notifications (and the notification permission they require) are handled by the Phase 9 onboarding/permissions flow, not this phase.
