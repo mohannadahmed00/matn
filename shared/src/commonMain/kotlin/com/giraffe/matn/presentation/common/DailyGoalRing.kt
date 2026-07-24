@@ -11,13 +11,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 
 /**
  * Shared daily-goal completion ring (Phase 7, data-model.md §2.2) — used by BOTH the Home top bar
  * and the Goals dashboard (Constitution VIII, extract at second use). Stateless and parameterized:
  * driven entirely by [fraction]/[practiced]/[goal]/[isComplete]; no ViewModel, no repository.
+ * [diameter] defaults to the Goals-dashboard scale; Home passes a smaller token multiple.
  */
 @Composable
 fun DailyGoalRing(
@@ -26,9 +28,10 @@ fun DailyGoalRing(
     goal: Int,
     isComplete: Boolean,
     modifier: Modifier = Modifier,
+    diameter: Dp = MatnSpacing.unit * 12,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Box(modifier = modifier.size(96.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = Stroke(width = size.minDimension * 0.12f)
             drawArc(

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -187,7 +186,7 @@ private fun DailyGoalSection(state: DailyGoalUiState, modifier: Modifier = Modif
             practiced = state.practiced,
             goal = state.goal,
             isComplete = state.isComplete,
-            modifier = Modifier.size(64.dp),
+            diameter = MatnSpacing.unit * 8,
         )
         Text(
             text = stringResource(Res.string.home_daily_goal_label),
