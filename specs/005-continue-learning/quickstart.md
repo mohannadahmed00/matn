@@ -90,6 +90,10 @@ survives that.
 reading screen at that verse, and **audio resumes from where it stopped, mid-verse** — not from the
 verse's start, and with no second tap.
 
+**Also check (SC-005)**: Home feels no slower to open than before this phase. The grid must not
+wait on the entry — if the library visibly stalls until the card appears, the two collectors have
+been coupled; see T033. The automated counterpart is T043a.
+
 ### B2. The drill resumes, not just the verse *(FR-019, FR-020, SC-002)*
 
 Set a distinctive drill — verse repeat 7, an A–B loop over verses 12–18 — then force-close and

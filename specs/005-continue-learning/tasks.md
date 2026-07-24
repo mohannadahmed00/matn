@@ -334,7 +334,10 @@ fun PlaybackState.toDurableSnapshot(): DurableSnapshot? {
   - `suspend fun flush()` writes the current snapshot immediately; idempotent and a no-op when the snapshot is null (W6).
   - **Swallow write failures** — log at most; never rethrow, never surface to UI (W7, FR-011).
 
-- [ ] T023 [US1] Create `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionStateRecorderTest.kt`. Drive a `MutableStateFlow<PlaybackState>` against a fake `SessionStateRepository` that records calls. Use `runTest` + the virtual-time scheduler for the throttle — **no real delays, no clock**. Assert W1–W7, and specifically **W3**: emitting a state that differs only in `status`, `speed`, `notice`, `pauseReason`, or `cursor` produces **zero** writes. W3 is the guard against throttling regressing into per-tick I/O.
+- [ ] T023 [US1] Create `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionStateRecorderTest.kt`. Drive a `MutableStateFlow<PlaybackState>` against a fake `SessionStateRepository` that records calls. Use `runTest` + the virtual-time scheduler for the throttle — **no real delays, no clock**. Assert W1–W7, plus these three specific rows:
+  - **W3 (the important one)**: a state differing only in `status`, `speed`, `notice`, `pauseReason`, or `cursor` produces **zero** writes. This is the guard against throttling regressing into per-tick I/O.
+  - **FR-016 — the entry tracks the newest position**: emit a snapshot at verse 5, then one at verse 9; assert the stored session ends at verse 9, not verse 5. Resuming and listening further must move the entry forward.
+  - **SC-009b — browsing never moves the pointer**: emit a `PlaybackState` with `matnId` set but `activeVerseId == null` (a matn opened but never played); assert **zero** writes and **no** `setLastListenedMatnId` call. This is the automated counterpart to quickstart B3 and the direct guard on FR-002a.
 
 ### Reading state back
 
@@ -394,6 +397,7 @@ fun ContinueLearningCard(
   - Collect `observeContinueLearning` in `init` (same `onEach { setState { ... } }.launchIn(viewModelScope)` shape as the existing library collector) and map into `continueLearning`.
   - Add `fun onResumeClicked()`: resolve the target; on `Resolved`, warm the settings-store cache for that matn (T015), then call `playbackController.playFromVerse(matnId, verseId, positionMs)` and navigate to the reading screen. On `None`, do nothing visible.
   - Add `fun onDismissClicked()` calling the dismiss use case.
+  - **SC-005 — the continue-learning collector MUST be independent of the library collector.** It is its own `.onEach { }.launchIn(viewModelScope)`, and it MUST NOT gate `isLoading`. Never `combine`, `zip`, or otherwise await it before the grid renders: the library must paint as soon as its own first emission arrives, whether or not the entry has resolved. `continueLearning` simply stays `null` until it does, and `null` renders nothing (FR-015).
   - **No business logic in the ViewModel** — it forwards to use cases (Principle II).
 
 - [ ] T034 [US1] Wire the card into `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeScreen.kt`. Render `ContinueLearningCard` **above** the library grid when `state.continueLearning != null`; render **nothing at all** when it is null — no placeholder, no empty card, no reserved space (FR-015). Keep the stateless-content / thin-holder split the file already uses.
@@ -460,6 +464,8 @@ the saved target and confirm the app opens cleanly with no broken entry.
 ## Phase 6: Polish & Cross-Cutting
 
 - [ ] T043 [P] Verify Principle VIII compliance in `ContinueLearningCard.kt`: no hard-coded hex colors, no magic `.dp`/`.sp` literals, component is stateless and parameterized, previews present, and it lives in `presentation/common/` rather than inline in the screen. This is a blocking review item.
+
+- [ ] T043a [P] Verify **SC-005** (Continue Learning adds ≤200 ms to Home load) structurally rather than by stopwatch. In `shared/src/commonTest/kotlin/com/giraffe/matn/presentation/HomeLoadIndependenceTest.kt` (new file), construct `HomeViewModel` with a library flow that emits immediately and a continue-learning flow that **never emits**. Assert `isLoading` still becomes `false` and `items` populate. If the grid can render while the entry never resolves at all, the entry cannot be adding measurable latency — which is the property SC-005 actually cares about. Pair with the device observation in [quickstart.md §B1](./quickstart.md).
 
 - [ ] T044 [P] Confirm no new dependency was added: `git diff gradle/libs.versions.toml shared/build.gradle.kts` must be **empty** (except the SQLDelight migration folder, if any config proved necessary in T005).
 

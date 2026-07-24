@@ -184,6 +184,7 @@ shared/src/commonTest/kotlin/com/giraffe/matn/
 ├── data/PersistentRepetitionSettingsStoreTest.kt   # S1–S5
 ├── data/SettingsRestorePathTest.kt         # restore across a simulated restart
 ├── domain/RepeatCountCodecTest.kt          # Unlimited never degrades
+├── presentation/HomeLoadIndependenceTest.kt  # SC-005: entry never gates the grid
 └── db/MigrationTest.kt                     # v1 → v2
 ```
 
