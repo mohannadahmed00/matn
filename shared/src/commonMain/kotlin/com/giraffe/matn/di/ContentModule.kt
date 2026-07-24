@@ -4,9 +4,10 @@ import com.giraffe.matn.data.audio.AudioSourceResolverImpl
 import com.giraffe.matn.data.db.DatabaseDriverFactory
 import com.giraffe.matn.data.db.buildDatabase
 import com.giraffe.matn.data.repository.AudioAssetRepositoryImpl
-import com.giraffe.matn.data.repository.InMemoryRepetitionSettingsStore
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
+import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
 import com.giraffe.matn.data.repository.ReadingPreferencesRepositoryImpl
+import com.giraffe.matn.data.repository.SessionStateRepositoryImpl
 import com.giraffe.matn.data.repository.VerseRepositoryImpl
 import com.giraffe.matn.data.seed.ContentSeedLoader
 import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
@@ -17,14 +18,19 @@ import com.giraffe.matn.domain.repository.AudioAssetRepository
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.domain.repository.ReadingPreferencesRepository
 import com.giraffe.matn.domain.repository.RepetitionSettingsStore
+import com.giraffe.matn.domain.repository.SessionStateRepository
 import com.giraffe.matn.domain.repository.VerseRepository
 import com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase
+import com.giraffe.matn.domain.usecase.DismissContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
+import com.giraffe.matn.domain.usecase.ObserveContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
+import com.giraffe.matn.domain.usecase.ResolveResumeTargetUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
 import com.giraffe.matn.playback.PlaybackController
+import com.giraffe.matn.playback.SessionStateRecorder
 import com.giraffe.matn.presentation.player.PlayerBarViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +58,14 @@ fun contentModule() = module {
     factory { SetFontSizeUseCase(get()) }
     single<AudioSourceResolver> { AudioSourceResolverImpl() }
     factory { BuildPlaybackQueueUseCase(get(), get(), get()) }
-    single<RepetitionSettingsStore> { InMemoryRepetitionSettingsStore() }
+    factory { ObserveContinueLearningUseCase(get()) }
+    factory { ResolveResumeTargetUseCase(get(), get()) }
+    factory { DismissContinueLearningUseCase(get()) }
+    single<SessionStateRepository> { SessionStateRepositoryImpl(get()) }
+    single<RepetitionSettingsStore> { PersistentRepetitionSettingsStore(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
     single { PlaybackController(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
+    // T040: the recorder observes the SAME PlaybackController singleton the UI uses. Started once
+    // in initMatnKoin; platform lifecycle hooks reach it via flushSessionState() (T039).
+    single { SessionStateRecorder(get<PlaybackController>().state, get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
     factory { PlayerBarViewModel(get()) }
 }

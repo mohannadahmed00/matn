@@ -46,6 +46,22 @@ CREATE TABLE app_setting (
     value TEXT NOT NULL
 );
 
+-- Phase 4 (FR-001): one saved session row per matn. Deliberately stores NO mode (derived,
+-- FR-005), NO repetition progress (FR-006), and NO playing/paused flag (resume always plays).
+-- last_verse_display_number is the ordinal anchor that keeps "nearest surviving verse"
+-- computable after the verse row is deleted (FR-026).
+CREATE TABLE matn_session (
+    matn_id                    TEXT NOT NULL PRIMARY KEY,
+    last_verse_id              TEXT NOT NULL,
+    last_verse_display_number  INTEGER NOT NULL,
+    position_ms                INTEGER NOT NULL,
+    verse_repeat               TEXT NOT NULL,
+    matn_repeat                TEXT NOT NULL,
+    loop_start_verse_id        TEXT,
+    loop_end_verse_id          TEXT,
+    FOREIGN KEY (matn_id) REFERENCES matn(id) ON DELETE CASCADE
+);
+
 CREATE INDEX verse_by_matn_order ON verse(matn_id, display_number);
 CREATE INDEX verse_by_chapter    ON verse(chapter_id);
 CREATE INDEX audio_by_verse      ON audio_asset(verse_id);
@@ -131,3 +147,21 @@ DELETE FROM chapter WHERE matn_id = ?;
 
 deleteMatnById:
 DELETE FROM matn WHERE id = ?;
+
+selectSession:
+SELECT * FROM matn_session WHERE matn_id = ?;
+
+upsertSession:
+INSERT INTO matn_session(matn_id,last_verse_id,last_verse_display_number,position_ms,verse_repeat,matn_repeat,loop_start_verse_id,loop_end_verse_id)
+VALUES (?,?,?,?,?,?,?,?)
+ON CONFLICT(matn_id) DO UPDATE SET
+  last_verse_id=excluded.last_verse_id,
+  last_verse_display_number=excluded.last_verse_display_number,
+  position_ms=excluded.position_ms,
+  verse_repeat=excluded.verse_repeat,
+  matn_repeat=excluded.matn_repeat,
+  loop_start_verse_id=excluded.loop_start_verse_id,
+  loop_end_verse_id=excluded.loop_end_verse_id;
+
+deleteSetting:
+DELETE FROM app_setting WHERE key = ?;

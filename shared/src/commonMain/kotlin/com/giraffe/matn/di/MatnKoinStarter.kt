@@ -9,6 +9,7 @@ import com.giraffe.matn.data.seed.SeedVerse
 import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.repository.MatnRepository
+import com.giraffe.matn.playback.SessionStateRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -79,10 +80,26 @@ fun initMatnKoin(
     }
     MatnKoinHolder.initialize(app.koin)
 
+    // T040 (FR-009): start persisting playback snapshots for the whole app lifetime. Resolving the
+    // recorder here also materializes the PlaybackController singleton it observes — the same
+    // instance every ViewModel gets.
+    app.koin.get<SessionStateRecorder>().start()
+
     if (seedIfEmpty) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope.launch { seedBundledSamplesIfEmpty() }
     }
+}
+
+/**
+ * T039 (FR-009/FR-010): the one call each platform backgrounding hook makes — Android
+ * `MainActivity.onStop`, the iOS scene-phase observer. All decision-making lives here in
+ * `commonMain` (Principle IV); the hook bodies contain nothing but this call. Safe before
+ * [initMatnKoin] (a cold start backgrounded before init has nothing to flush).
+ */
+fun flushSessionState() {
+    if (!MatnKoinHolder.isInitialized()) return
+    MatnKoinHolder.koin.get<SessionStateRecorder>().flushAsync()
 }
 
 private suspend fun seedBundledSamplesIfEmpty() {

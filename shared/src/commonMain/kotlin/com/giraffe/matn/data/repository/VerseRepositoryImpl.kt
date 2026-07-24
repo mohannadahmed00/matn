@@ -25,6 +25,11 @@ class VerseRepositoryImpl(private val db: ContentDatabase) : VerseRepository {
             db.contentQueries.selectVersesByChapter(chapterId).executeAsList().map { it.toDomain() }
         }
 
+    override suspend fun getVersesByMatn(matnId: String): Resource<List<Verse>> =
+        storageCall({ "Failed to read verses for matn $matnId" }) {
+            db.contentQueries.selectVersesByMatn(matnId).executeAsList().map { it.toDomain() }
+        }
+
     override suspend fun getVerse(id: String): Resource<Verse?> =
         storageCall({ "Failed to read verse $id" }) {
             db.contentQueries.selectVerseById(id).executeAsOneOrNull()?.toDomain()

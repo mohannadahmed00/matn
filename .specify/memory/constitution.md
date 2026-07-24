@@ -1,16 +1,16 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.3.0 → 1.4.0
-Rationale: Adds Principle VIII (Design Fidelity & Reusable Composables), establishing the
-Stitch project as the canonical visual source of truth for all UI work and mandating that
-composables be built as reusable, token-driven components rather than per-screen one-offs.
-Prompted by the adoption of the Stitch MCP server, which now lets any model pull designs
-directly — making it necessary to state which designs are authoritative, what wins when a
-design conflicts with an architectural decision, and what "reusable" means as a review gate.
-Adding a new principle (none removed or redefined) is a MINOR bump.
+Version change: 1.4.0 → 1.4.1
+Rationale: docs/ROADMAP.md renumbered its phases from 0-indexed to 1-indexed so each phase number
+matches its `specs/NNN-*` folder (Phase 1 ↔ 001-*, ..., Phase 5 ↔ 005-*), removing a recurring
+source of off-by-one confusion. This document's Phase references in the "Phased, Incremental
+Delivery" subsection are updated to match (Phase 4 Continue Learning → Phase 5, Phase 0 → Phase 1,
+Phase 6 → Phase 7, etc.). No principle, rule, or gate changed — wording only, hence PATCH.
 
 History:
+  - 1.4.1 (2026-07-24): Phase-number references in "Phased, Incremental Delivery" updated to match
+    ROADMAP.md's 1-indexed renumbering (was 0-indexed). No semantic change.
   - 1.4.0 (2026-07-24): Added Principle VIII — Stitch as canonical design source, mandatory
     design-token centralization, and reusable-component extraction as a blocking review item.
     Carve-out added for secret-free, root-level MCP server declarations being tracked.
@@ -267,12 +267,12 @@ specified in `docs/PRODUCT-SPEC.md`).
 - Each phase is scoped to a single Spec Kit cycle (`/specify` → `/plan` → `/tasks` → `/implement`)
   and MUST produce an independently buildable and testable slice of the app — no phase may leave
   the app in a non-building or untestable state.
-- Phase prerequisites MUST be respected: Phases 0 → 1 → 2 are strictly ordered hard prerequisites;
-  Phase 4 (Continue Learning / state persistence) requires Phases 1–3; Phases 3, 5, 6, 7, 8 may be
+- Phase prerequisites MUST be respected: Phases 1 → 2 → 3 are strictly ordered hard prerequisites;
+  Phase 5 (Continue Learning / state persistence) requires Phases 2–4; Phases 4, 6, 7, 8, 9 may be
   reordered relative to each other provided their own prerequisites hold.
 - Foundational invariants MUST be established in their owning phase and upheld thereafter:
-  UUID-based domain entities and the per-verse audio asset model in Phase 0; recall-based progress
-  (not raw listen count) in Phase 6.
+  UUID-based domain entities and the per-verse audio asset model in Phase 1; recall-based progress
+  (not raw listen count) in Phase 7.
 
 ### Branching & Pull Requests
 
@@ -305,4 +305,4 @@ specified in `docs/PRODUCT-SPEC.md`).
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.4.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-24
+**Version**: 1.4.1 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-24

@@ -28,4 +28,8 @@
     <string name="mode_normal">عادي</string>
     <string name="mode_memorization">حفظ</string>
     <string name="mode_ab_loop">تكرار مقطع</string>
+    <string name="continue_learning_title">متابعة التعلم</string>
+    <string name="continue_learning_verse">البيت %1$d</string>
+    <string name="continue_learning_resume">استكمال الآن</string>
+    <string name="continue_learning_dismiss">إخفاء</string>
 </resources>

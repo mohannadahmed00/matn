@@ -8,10 +8,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.savedstate.read
 import com.giraffe.matn.di.MatnKoinHolder
+import com.giraffe.matn.domain.repository.RepetitionSettingsStore
+import com.giraffe.matn.domain.usecase.DismissContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
+import com.giraffe.matn.domain.usecase.ObserveContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
+import com.giraffe.matn.domain.usecase.ResolveResumeTargetUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.details.MatnDetailsScreen
@@ -37,6 +41,11 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
             val viewModel: HomeViewModel = viewModel {
                 HomeViewModel(
                     observeLibrary = koin.get<ObserveLibraryUseCase>(),
+                    observeContinueLearning = koin.get<ObserveContinueLearningUseCase>(),
+                    resolveResumeTarget = koin.get<ResolveResumeTargetUseCase>(),
+                    dismissContinueLearning = koin.get<DismissContinueLearningUseCase>(),
+                    playbackController = koin.get<PlaybackController>(),
+                    settingsStore = koin.get<RepetitionSettingsStore>(),
                 )
             }
             HomeScreen(

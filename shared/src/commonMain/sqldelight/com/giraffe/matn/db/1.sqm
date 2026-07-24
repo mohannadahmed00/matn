@@ -1,0 +1,11 @@
+CREATE TABLE matn_session (
+    matn_id                    TEXT NOT NULL PRIMARY KEY,
+    last_verse_id              TEXT NOT NULL,
+    last_verse_display_number  INTEGER NOT NULL,
+    position_ms                INTEGER NOT NULL,
+    verse_repeat               TEXT NOT NULL,
+    matn_repeat                TEXT NOT NULL,
+    loop_start_verse_id        TEXT,
+    loop_end_verse_id          TEXT,
+    FOREIGN KEY (matn_id) REFERENCES matn(id) ON DELETE CASCADE
+);
