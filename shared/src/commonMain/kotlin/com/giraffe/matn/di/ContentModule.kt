@@ -8,6 +8,7 @@ import com.giraffe.matn.data.repository.BookmarkRepositoryImpl
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.repository.NoteRepositoryImpl
 import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
+import com.giraffe.matn.data.repository.ProgressRepositoryImpl
 import com.giraffe.matn.data.repository.ReadingPreferencesRepositoryImpl
 import com.giraffe.matn.data.repository.SearchRepositoryImpl
 import com.giraffe.matn.data.repository.SessionStateRepositoryImpl
@@ -21,6 +22,7 @@ import com.giraffe.matn.domain.repository.AudioAssetRepository
 import com.giraffe.matn.domain.repository.BookmarkRepository
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.domain.repository.NoteRepository
+import com.giraffe.matn.domain.repository.ProgressRepository
 import com.giraffe.matn.domain.repository.ReadingPreferencesRepository
 import com.giraffe.matn.domain.repository.RepetitionSettingsStore
 import com.giraffe.matn.domain.repository.SearchRepository
@@ -53,6 +55,8 @@ import kotlin.uuid.Uuid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.koin.dsl.module
 
 /**
@@ -102,4 +106,15 @@ fun contentModule() = module {
     factory { GetNoteUseCase(get()) }
     factory { ObserveNotesUseCase(get()) }
     factory { ObserveVerseAnnotationsUseCase(get(), get()) }
+    single<ProgressRepository> {
+        ProgressRepositoryImpl(
+            get(),
+            // `todayIn` did not resolve consistently across every target against this file's
+            // kotlin.time.Clock (kotlinx-datetime cross-target version skew); toLocalDateTime
+            // derives the same local epoch-day uniformly (research D1).
+            today = { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toEpochDays() },
+            clock = { Clock.System.now().toEpochMilliseconds() },
+            newId = { Uuid.random().toString() },
+        )
+    }
 }

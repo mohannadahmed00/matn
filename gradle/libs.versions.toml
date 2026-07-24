@@ -19,7 +19,7 @@ serialization = "1.7.3"
 koin = "4.0.0"
 navigationCompose = "2.9.2"
 media3 = "1.4.1"
-kotlinxDatetime = "0.6.2"
+kotlinxDatetime = "0.7.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
