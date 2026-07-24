@@ -66,6 +66,28 @@ CREATE INDEX verse_by_matn_order ON verse(matn_id, display_number);
 CREATE INDEX verse_by_chapter    ON verse(chapter_id);
 CREATE INDEX audio_by_verse      ON audio_asset(verse_id);
 
+-- Phase 6 (FR-010…FR-014): at most one bookmark per verse. `id` is a UUID minted at creation
+-- (Constitution VI — sync-safe identity), independent of `verse_id`; UNIQUE(verse_id) both
+-- enforces the one-per-verse rule and doubles as the per-verse lookup index. ON DELETE CASCADE
+-- ties the bookmark's lifetime to the verse (text content) row, never to audio_asset, so removing
+-- downloaded audio can never delete a bookmark (FR-014).
+CREATE TABLE bookmark (
+    id         TEXT NOT NULL PRIMARY KEY,
+    verse_id   TEXT NOT NULL UNIQUE REFERENCES verse(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL
+);
+
+-- Phase 6 (FR-015…FR-019): at most one note per verse; `id` stays stable across edits (only
+-- `text`/`updated_at` change). `text` is NOT NULL and never stored empty — the domain layer
+-- rejects blank saves before reaching this table (FR-019). Same CASCADE rule as `bookmark`
+-- (FR-018): audio removal never touches notes.
+CREATE TABLE note (
+    id         TEXT NOT NULL PRIMARY KEY,
+    verse_id   TEXT NOT NULL UNIQUE REFERENCES verse(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
 selectMatnById:
 SELECT * FROM matn WHERE id = ?;
 
@@ -165,3 +187,70 @@ ON CONFLICT(matn_id) DO UPDATE SET
 
 deleteSetting:
 DELETE FROM app_setting WHERE key = ?;
+
+-- Phase 6: bookmark queries (annotations-contract.md § Repository interfaces).
+
+selectBookmarkByVerse:
+SELECT * FROM bookmark WHERE verse_id = ?;
+
+insertBookmark:
+INSERT INTO bookmark(id, verse_id, created_at) VALUES (?, ?, ?);
+
+deleteBookmarkByVerse:
+DELETE FROM bookmark WHERE verse_id = ?;
+
+-- Newest-first, deterministic tiebreak by id (annotations-contract.md § Semantics 4).
+selectAllBookmarksWithContext:
+SELECT
+    bookmark.id AS id,
+    bookmark.verse_id AS verse_id,
+    bookmark.created_at AS created_at,
+    matn.id AS matn_id,
+    matn.title AS matn_title,
+    verse.display_number AS verse_number,
+    verse.arabic_text AS verse_text
+FROM bookmark
+JOIN verse ON verse.id = bookmark.verse_id
+JOIN matn ON matn.id = verse.matn_id
+ORDER BY bookmark.created_at DESC, bookmark.id DESC;
+
+selectBookmarkedVerseIdsByMatn:
+SELECT bookmark.verse_id AS verse_id
+FROM bookmark
+JOIN verse ON verse.id = bookmark.verse_id
+WHERE verse.matn_id = ?;
+
+-- Phase 6: note queries (annotations-contract.md § Repository interfaces).
+
+selectNoteByVerse:
+SELECT * FROM note WHERE verse_id = ?;
+
+-- Create-or-replace keeping the original id (data-model.md — id stable across edits).
+upsertNote:
+INSERT INTO note(id, verse_id, text, updated_at) VALUES (?, ?, ?, ?)
+ON CONFLICT(verse_id) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at;
+
+deleteNoteByVerse:
+DELETE FROM note WHERE verse_id = ?;
+
+-- Newest-first, deterministic tiebreak by id (annotations-contract.md § Semantics 4).
+selectAllNotesWithContext:
+SELECT
+    note.id AS id,
+    note.verse_id AS verse_id,
+    note.text AS text,
+    note.updated_at AS updated_at,
+    matn.id AS matn_id,
+    matn.title AS matn_title,
+    verse.display_number AS verse_number,
+    verse.arabic_text AS verse_text
+FROM note
+JOIN verse ON verse.id = note.verse_id
+JOIN matn ON matn.id = verse.matn_id
+ORDER BY note.updated_at DESC, note.id DESC;
+
+selectNotedVerseIdsByMatn:
+SELECT note.verse_id AS verse_id
+FROM note
+JOIN verse ON verse.id = note.verse_id
+WHERE verse.matn_id = ?;
