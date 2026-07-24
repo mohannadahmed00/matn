@@ -58,8 +58,10 @@ death, OS eviction, and upgrade-in-place are device-validated ([quickstart.md](.
 light theme + phone layout (dark mode / tablet remain Phase 8).
 
 **Project Type**: Mobile — KMP shared library (`:shared`) consumed by `:androidApp` and `iosApp`.
-Extends existing `data`/`domain`/`playback`/`presentation` slices; adds no module and no platform
-shell change.
+Extends existing `data`/`domain`/`playback`/`presentation` slices; **adds no module**. It does
+require **one minimal platform-shell hook per platform** — a backgrounding callback that calls
+`SessionStateRecorder.flush()` and nothing else (FR-009/FR-010). No such lifecycle hook exists
+today, so this is the first one. The hook bodies contain no business logic, preserving Principle IV.
 
 **Performance Goals**: Structural changes persisted within 1 s (SC-004); Continue Learning adds
 ≤200 ms to Home load (SC-005); resume ready and audible within 2 s (SC-006); resumed audio within
@@ -88,7 +90,7 @@ Principle VIII, which governs the Home-screen UI work in this phase).
 | **I. Clean Architecture & Layer Boundaries** | Yes | `SessionStateRepository` is a domain interface with a data-layer implementation; the resolver and use cases depend on the interface only. `SessionStateRecorder` observes a `StateFlow` and writes through the repository interface — no SQLDelight type escapes the data layer. `HomeViewModel` reaches persistence solely through use cases. Direction presentation → domain ← data is unchanged. |
 | **II. MVVM Presentation (NON-NEGOTIABLE)** | Yes | `HomeUiState` gains one nullable field and stays a pure projection; the ViewModel owns no persistence decision. `ContinueLearningCard` ships as a **stateless content composable + thin holder**, with `@Preview`s for the states that matter: present, absent (card omitted), and long-title truncation. |
 | **III. DRY via Base Abstractions** | Yes | Reuses `BaseViewModel`, `UseCase`, `Resource`/`AppError`, and the existing `storageCall` helper. `SavedMatnSession` embeds Phase 3's `RepetitionSettings` rather than re-declaring counters and range. The `app_setting` pointer reuses the `ReadingPreferences` key/value pattern rather than inventing a second singleton mechanism. Resolution rules exist in exactly **one** place. |
-| **IV. Shared-First Multiplatform** | Yes | Every decision — write cadence, resolution rules, encoding, defaults — lives in `commonMain`. **No new `expect`/`actual` is introduced**; the existing `DatabaseDriverFactory` already covers both platforms, and the new table needs no platform code at all. |
+| **IV. Shared-First Multiplatform** | Yes | Every decision — write cadence, resolution rules, encoding, defaults — lives in `commonMain`. **No new `expect`/`actual` is introduced**; the existing `DatabaseDriverFactory` already covers both platforms, and the new table needs no platform code. The one platform touch is a backgrounding hook per shell whose entire body is `flush()` — it decides nothing, matching the principle's "platform `actual` implementations MUST contain no business logic" bar. |
 | **V. Test-First & Testable Design (NON-NEGOTIABLE)** | Yes (**core**) | `ResumeTargetResolver` is pure and table-tested with no fakes. `SessionStateRecorder` is testable from a `MutableStateFlow` with no controller, engine, or database — its throttle is driven by the virtual-time scheduler, so nothing persisted depends on a real clock and there is no time source needing a fake. `MigrationTest` covers the upgrade path that fresh-install testing structurally cannot reach. |
 | **VI. Offline-First & Future-Proof Data** | Yes (**this phase delivers it**) | This is the phase the principle's third bullet names outright — last matn/verse, millisecond position, repetition settings, and active A–B range persisted on every verse transition or config change. All identities are stable UUIDs (FR-003). Zero network. The schema adds no assumption blocking remote accounts or sync: `matn_session` is keyed by the same UUIDs a future sync would use, and the migration path introduced here (research D3) is exactly what lets sync-era columns be added later without data loss. A speculative `updated_at_ms` was deliberately **not** added — the principle requires the shape not to *block* sync, not to pre-build for it. |
 | **VII. Experience Fidelity: Audio, RTL & Accessibility** | Yes | Resume reuses Phase 2's audio-focus and `PauseReason` machinery rather than adding a parallel path, so the contractual interruption behavior is preserved — resuming during a call restores paused, never plays over another app (FR-022a). Gaplessness is untouched: this phase adds no playback-path logic. Throttled writes protect against I/O-induced stutter. The card is laid out on the existing native-RTL Home surface. **No progress signal is produced** — upholding the decoupling of memorization from playback activity (Phase 6). |
@@ -148,11 +150,14 @@ shared/src/commonMain/
     │   ├── model/
     │   │   ├── SavedMatnSession.kt         # NEW
     │   │   ├── ResumeTarget.kt             # NEW
-    │   │   └── ContinueLearningEntry.kt    # NEW
+    │   │   ├── ContinueLearningEntry.kt    # NEW
+    │   │   └── RepeatCountCodec.kt         # NEW (storage encoding)
     │   ├── repository/
-    │   │   └── SessionStateRepository.kt   # NEW (interface)
+    │   │   ├── SessionStateRepository.kt   # NEW (interface)
+    │   │   └── VerseRepository.kt          # + getVersesByMatn (one-shot read)
     │   ├── session/
-    │   │   └── ResumeTargetResolver.kt     # NEW (pure — R1–R9)
+    │   │   ├── ResumeTargetResolver.kt     # NEW (pure — R1–R9)
+    │   │   └── VerseRef.kt                 # NEW (ordering projection)
     │   └── usecase/
     │       ├── ObserveContinueLearningUseCase.kt   # NEW
     │       ├── ResolveResumeTargetUseCase.kt       # NEW
@@ -163,18 +168,26 @@ shared/src/commonMain/
     │   └── InMemoryRepetitionSettingsStore.kt      # retained for tests
     ├── playback/
     │   ├── SessionStateRecorder.kt         # NEW (observes controller state)
-    │   └── PlaybackController.kt           # + startPositionMs (defaulted)
+    │   ├── DurableSnapshot.kt              # NEW (persisted projection)
+    │   └── PlaybackController.kt           # 3 sanctioned edits: startPositionMs,
+    │                                       #   focus-gated resume, loopRangeVerseIds
     ├── presentation/
     │   ├── common/ContinueLearningCard.kt  # NEW — reusable, stateless, previewed
     │   └── home/{HomeUiState,HomeViewModel,HomeScreen}.kt   # + card wiring
     └── di/ContentModule.kt                 # + bindings, swap settings store
 
 shared/src/commonTest/kotlin/com/giraffe/matn/
-├── session/ResumeTargetResolverTest.kt     # pure table tests
+├── session/ResumeTargetResolverTest.kt     # pure table tests (R1–R9)
 ├── playback/SessionStateRecorderTest.kt    # write policy W1–W7
-├── data/SessionStateRepositoryTest.kt      # round trip, P1–P5, S1–S5
+├── playback/SessionResumeFocusTest.kt      # FR-022a focus gating, FR-020 loop highlight
+├── data/SessionStateRepositoryTest.kt      # round trip, P1–P5
+├── data/PersistentRepetitionSettingsStoreTest.kt   # S1–S5
+├── data/SettingsRestorePathTest.kt         # restore across a simulated restart
+├── domain/RepeatCountCodecTest.kt          # Unlimited never degrades
 └── db/MigrationTest.kt                     # v1 → v2
 ```
+
+**No existing test file is modified.** Every assertion above lands in a new file.
 
 **Structure Decision**: No new module. The feature extends four existing slices of `:shared`
 (`domain`, `data`, `playback`, `presentation`) following the layout Phases 0–3 established. The one

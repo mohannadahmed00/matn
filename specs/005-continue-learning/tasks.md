@@ -30,8 +30,18 @@ measures directly.
    fails, your new code is wrong — fix your code, not the test. There is **no** sanctioned test
    edit in this phase.
 
-2. **Do not change `PlaybackController` except in T031**, and there only by adding one
-   **defaulted** parameter. No other line of that file changes. It is 602 lines; leave it alone.
+2. **`PlaybackController` may be changed in exactly three tasks — T031, T031a, and T035a — and
+   nowhere else.** It is 602 lines; every other line stays as it is. The three sanctioned changes,
+   in full:
+
+   | Task | Sanctioned change | Nothing else |
+   |---|---|---|
+   | **T031** | Add a defaulted `startPositionMs: Long = 0` to `playFromVerse` / `startSession`, and one `engine.seekTo(...)` call inside the existing `Resource.Success` branch | — |
+   | **T031a** | Gate the automatic resume start on audio focus (FR-022a) | — |
+   | **T035a** | Recompute `loopRangeVerseIds` in `startSession` (FR-020) | — |
+
+   Any change to this file outside these three is a defect. If you believe a fourth is needed,
+   **stop and ask** — do not improvise.
 
 3. **Never persist the playback mode.** `RepetitionSettings.mode` is a computed property with no
    backing field. If you find yourself writing `mode` to the database, stop — you have
@@ -235,7 +245,7 @@ fun decodeRepeatCount(raw: String?): RepeatCount = when {
 - [ ] T017 Wire DI in `shared/src/commonMain/kotlin/com/giraffe/matn/di/ContentModule.kt`:
   - Add `single<SessionStateRepository> { SessionStateRepositoryImpl(get()) }`.
   - **Replace** line 55's `single<RepetitionSettingsStore> { InMemoryRepetitionSettingsStore() }` with the persistent implementation.
-  - Add `factory` bindings for the three use cases from T027–T029 once those exist (revisit this task then).
+  - Leave the use-case bindings for now; **T028** adds them after T025–T027 create those files.
   - Do not reorder or alter any other binding.
 
 **Checkpoint**: `./gradlew :shared:allTests` green. Nothing user-visible yet; Phases 0–3 tests unchanged and passing.
@@ -328,7 +338,10 @@ fun PlaybackState.toDurableSnapshot(): DurableSnapshot? {
 
 ### Reading state back
 
-- [ ] T024 [US1] Add a `suspend fun getVerseRefs(matnId: String): List<VerseRef>` capability for the resolver. Prefer reusing the existing `VerseRepository`; if it has no suitable method, add one that maps `selectVersesByMatn` → `List<VerseRef>` ordered by `display_number`. Do not add a new `.sq` query if `selectVersesByMatn` already serves.
+- [ ] T024 [US1] Add `suspend fun getVersesByMatn(matnId: String): Resource<List<Verse>>` to `shared/src/commonMain/kotlin/com/giraffe/matn/domain/repository/VerseRepository.kt` and implement it in `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/VerseRepositoryImpl.kt`.
+  - **Copy the existing `getVersesByChapter` method exactly** — same `storageCall` wrapper, same mapper — swapping the query for the **already-existing** `selectVersesByMatn`. **Do not add a new `.sq` query**; it is already in `Content.sq`.
+  - The caller (T026) maps `Verse` → `VerseRef(id, displayNumber)`. Both fields already exist on `Verse`.
+  - Rationale: the interface currently exposes only `observeVerses` (a Flow), and the resolver needs a one-shot read.
 
 - [ ] T025 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/ObserveContinueLearningUseCase.kt` implementing `FlowUseCase<Unit, ContinueLearningEntry?>`. Delegates to `repository.observeContinueLearning()`. No logic beyond delegation.
 
@@ -366,6 +379,14 @@ fun ContinueLearningCard(
     `if (startPositionMs > 0) engine.seekTo(startPositionMs)`
   - The default of `0` keeps **every** existing caller and test source-compatible. Do not change `playFromStart`, `pause`, `resume`, `stop`, `next`, `previous`, `seekTo`, `setSpeed`, or any repetition method.
 
+- [ ] T031a [US1] Gate the automatic resume start on audio focus, in `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` (**sanctioned by Rule 2**). This implements **FR-022a**, which Constitution Principle VII makes contractual: *"pause and allow resume, never silently die."*
+  - **Why this is needed**: T031 makes resume start audio automatically. If another app already holds audio focus (an active call), starting playback must not play over it and must not fail silently — the session must restore fully but sit **paused**.
+  - Phase 2 configures `handleAudioFocus = true` on the Media3 player, so the engine will refuse to actually play without focus. The gap is that `PlaybackState` would still report `PLAYING`, so the UI would lie about what the user hears.
+  - Note `onInterruptionBegan` (line ~351) begins with `if (_state.value.status != PlaybackStatus.PLAYING) return`. A focus denial arriving during session start can therefore be dropped. Ensure a denial that arrives while status is `LOADING` or during start is still honoured — the resulting state must be `PAUSED` with `pauseReason = NON_TRANSIENT_INTERRUPTION`, not `PLAYING`.
+  - **Do not** add a second focus-handling path. Reuse the existing `PauseReason` / interruption machinery (research D7).
+
+- [ ] T031b [US1] Add a focus-denial test to `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionResumeFocusTest.kt` (**new file — do not edit the existing `PlaybackControllerTest.kt`**). Using `FakeAudioEngine`, simulate a resume that begins while an interruption is active, and assert final state is `PAUSED` with `pauseReason == NON_TRANSIENT_INTERRUPTION`, that the matn, verse, position, and settings all restored correctly, and that `engine` is not left playing (FR-022a, E3).
+
 - [ ] T032 [US1] Extend `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeUiState.kt` with **one** nullable field: `val continueLearning: ContinueLearningEntry? = null`. Do not alter or reorder the existing four fields.
 
 - [ ] T033 [US1] Extend `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeViewModel.kt`:
@@ -395,6 +416,14 @@ the resume path* and prove it.
 
 - [ ] T035 [US2] Ensure the resume path applies the resolved `settings`, in `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeViewModel.kt` (`onResumeClicked`, added in T033). The settings from `ResumeTarget.Resolved` must be in the store **before** `playFromVerse` runs — `PlaybackController.startSession` reads `settingsStore.get(matnId)` at line 118, so a cold cache would silently yield defaults. Warm the cache (T015) or `put` the resolved settings first. **This ordering is the single most likely bug in the phase.**
 
+- [ ] T035a [US2] Recompute `loopRangeVerseIds` when a session starts, in `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` (**sanctioned by Rule 2**). This implements the second half of **FR-020** — *"its verses are visually marked as the range."*
+  - **The bug**: `loopRangeVerseIds` is assigned in exactly one place — line 285, inside `updateSettings()`. `startSession` copies settings at line 121 (`_state.value.copy(settings = settings)`) but **never** recomputes `loopRangeVerseIds`, so it stays `emptySet()`.
+  - **Consequence**: a restored A–B loop *restricts* playback correctly but its verses are **not highlighted**. Resume looks like it worked; the range is invisible. Easy to mistake for cosmetic — it is FR-020 unmet.
+  - **Fix**: at line 121, change the copy to also set `loopRangeVerseIds = loopRangeVerseIds(settings)`, reusing the existing private helper at line 305. One line. Do not touch `updateSettings`.
+  - **This is a latent Phase 3 bug**, not one Phase 4 introduces — re-opening a matn mid-run already hits the same path. Phase 4 makes it universal, because now every launch restores a loop from storage.
+
+- [ ] T035b [US2] Add an assertion to `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionResumeFocusTest.kt` (or a sibling new test file): starting a session for a matn whose stored settings contain a `LoopRange` yields a non-empty `state.loopRangeVerseIds` containing exactly the verse IDs inside the inclusive range. Without this, T035a can silently regress.
+
 - [ ] T036 [US2] Confirm opening a matn **directly** (not via Continue Learning) also restores its saved settings (FR-023). This should require no new code — `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` already calls `settingsStore.get(matnId)` in `startSession`. Verify the cache in `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/PersistentRepetitionSettingsStore.kt` is populated for a matn opened in a *later app run*; if it is not, fix that file (T015), **not** `PlaybackController`.
 
 - [ ] T037 [US2] Create `shared/src/commonTest/kotlin/com/giraffe/matn/data/SettingsRestorePathTest.kt`. Simulate: put settings for matn A, discard the in-memory cache (construct a fresh store over the same database — this stands in for an app restart), then `get(matnA)`. Assert the saved counters and loop range return, and that `get(matnB)` still returns defaults (SC-009 zero cross-matn leakage).
@@ -413,7 +442,10 @@ showing a broken entry or crashing.
 **Independent test**: Force-close mid-session and confirm the saved place is intact; then invalidate
 the saved target and confirm the app opens cleanly with no broken entry.
 
-- [ ] T039 [US3] Call `SessionStateRecorder.flush()` on lifecycle transitions so an abrupt kill loses at most the current verse's partial position (FR-009, FR-010). Hook it where the app already observes backgrounding; if there is no such hook, add the minimal one in `androidApp` / `iosApp` shells. Also flush on pause and stop. **Do not add business logic to the platform shells** — they call `flush()` and nothing more (Principle IV).
+- [ ] T039 [US3] Call `SessionStateRecorder.flush()` when the app is backgrounded, so an abrupt kill loses at most the current verse's partial position (FR-009, FR-010).
+  - **There is no existing backgrounding hook** — this was verified; you are adding the first one. On Android, hook `onStop` in `androidApp/src/main/kotlin/com/giraffe/matn/MainActivity.kt`. On iOS, hook the equivalent scene/app-lifecycle callback in `iosApp`.
+  - Also flush on pause and stop.
+  - Each hook body is **one call to `flush()` and nothing else** — no business logic in platform shells (Principle IV).
 
 - [ ] T040 [US3] Wire `SessionStateRecorder.start()` at app startup. Add it to `di/ContentModule.kt` as a `single` and start it where Koin is initialized (`di/MatnKoinStarter.kt`). It must observe the same `PlaybackController` singleton the UI uses — not a new instance.
 
@@ -441,20 +473,25 @@ the saved target and confirm the app opens cleanly with no broken entry.
 
 ```
 Phase 1 (T001)
-   └─> Phase 2 Foundational (T002–T017)   ← BLOCKS EVERYTHING
-          ├─> Phase 3 US1 (T018–T034)     ← MVP
-          │      └─> Phase 4 US2 (T035–T038)   depends on US1's resume path
+   └─> Phase 2 Foundational (T002–T017)          ← BLOCKS EVERYTHING
+          ├─> Phase 3 US1 (T018–T034, incl. T031a/T031b)   ← MVP
+          │      └─> Phase 4 US2 (T035–T038, incl. T035a/T035b)
           │             └─> Phase 5 US3 (T039–T042)
           └─────────────────> Phase 6 Polish (T043–T046)
 ```
+
+**Sanctioned `PlaybackController` changes** (Rule 2) are T031 → T031a → T035a, in that order. Each is
+a small, separately-testable edit; do not batch them into one pass.
 
 **Within Phase 2**: T002 → T003 → T004 → T005 → T006 are strictly sequential (schema before
 generation before test). T007–T011 are `[P]` — different files, no shared state. T012 → T013 → T014
 sequential. T015 → T016 sequential.
 
 **Within Phase 3**: T018 → T019 → T020 sequential. T021 → T022 → T023 sequential. T025/T026/T027 are
-`[P]`. T029 → T030 sequential. T031 is independent of everything else in the phase. T032 → T033 →
-T034 sequential.
+`[P]`. T029 → T030 sequential. T031 → T031a → T031b sequential (all touch resume behavior). T032 →
+T033 → T034 sequential.
+
+**Within Phase 4**: T035 → T035a → T035b sequential.
 
 **Story independence**: US2 and US3 build on US1's resume path, so they are *not* fully independent
 here — this is inherent to the feature (there is nothing to resume before US1 exists), not a
@@ -478,8 +515,10 @@ T025 ObserveContinueLearningUseCase.kt · T026 ResolveResumeTargetUseCase.kt · 
 
 ## Implementation strategy
 
-**MVP = Phase 1 + Phase 2 + Phase 3 (T001–T034).** That delivers the phase's headline promise: the
-entry appears and one tap resumes mid-verse. It is demonstrable and shippable on its own.
+**MVP = Phase 1 + Phase 2 + Phase 3 (T001–T034, including T031a/T031b).** That delivers the phase's
+headline promise: the entry appears and one tap resumes mid-verse. It is demonstrable and shippable
+on its own. T031a is **not** optional polish — Constitution Principle VII makes interruption
+handling contractual, so resume-during-a-call must behave correctly in the MVP.
 
 **Then** Phase 4 (the drill resumes — what makes it a memorization tool rather than a bookmark),
 **then** Phase 5 (durability and safe failure), **then** Phase 6.
