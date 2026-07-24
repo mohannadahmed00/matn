@@ -1,14 +1,19 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.2.1 → 1.3.0
-Rationale: Principle II (MVVM Presentation) is materially expanded with two additional
-NON-NEGOTIABLE rules — a mandatory stateless/stateful screen split and mandatory @Preview
-coverage for every state-rendering composable — prompted by a Phase 1 review where screens
-were coupled to their ViewModels and shipped with zero previews. Adding guidance to an
-existing principle (no principle removed or redefined) is a MINOR bump.
+Version change: 1.3.0 → 1.4.0
+Rationale: Adds Principle VIII (Design Fidelity & Reusable Composables), establishing the
+Stitch project as the canonical visual source of truth for all UI work and mandating that
+composables be built as reusable, token-driven components rather than per-screen one-offs.
+Prompted by the adoption of the Stitch MCP server, which now lets any model pull designs
+directly — making it necessary to state which designs are authoritative, what wins when a
+design conflicts with an architectural decision, and what "reusable" means as a review gate.
+Adding a new principle (none removed or redefined) is a MINOR bump.
 
 History:
+  - 1.4.0 (2026-07-24): Added Principle VIII — Stitch as canonical design source, mandatory
+    design-token centralization, and reusable-component extraction as a blocking review item.
+    Carve-out added for secret-free, root-level MCP server declarations being tracked.
   - 1.3.0 (2026-07-19): Principle II expanded — stateless/stateful screen split + @Preview
     coverage as blocking review items.
   - 1.2.1 (2026-07-18): Split docs into PRODUCT-SPEC.md + ROADMAP.md; repointed references accordingly.
@@ -20,8 +25,9 @@ History:
 
 Modified principles:
   - II. MVVM Presentation (NON-NEGOTIABLE) — added: stateless "content" + thin stateful holder
-    split; mandatory @Preview coverage for state-rendering composables.
-Added sections: None (guidance expanded within an existing principle)
+    split; mandatory @Preview coverage for state-rendering composables. (1.3.0)
+Added sections:
+  - VIII. Design Fidelity & Reusable Composables — new principle (1.4.0)
 Removed sections: None
 
 Templates & artifacts reviewed:
@@ -34,8 +40,14 @@ Templates & artifacts reviewed:
   ⚠ .specify/templates/commands/*.md — directory not present in repo; nothing to reconcile.
   ✅ docs/PRODUCT-SPEC.md — Product Vision & Requirements (WHAT); unaffected by this amendment.
   ✅ docs/ROADMAP.md — phased delivery plan (HOW/WHEN); unaffected by this amendment.
+  ✅ docs/DESIGN-SOURCE.md — NEW: Stitch project + screen→phase registry referenced by
+       Principle VIII. Holds the volatile IDs so this constitution does not.
 
-Deferred TODOs: None.
+Deferred TODOs:
+  - Duplicate Stitch screens (Matn Details ×2, Reading & Playback ×3) need a confirmed
+    canonical pick; tracked in docs/DESIGN-SOURCE.md "Open issues".
+  - "Upload Matn (Timestamp Map)" screen designs the rejected shared-audio-file model and
+    should be retired in Stitch; tracked in docs/DESIGN-SOURCE.md "Open issues".
 -->
 
 # Matn Constitution
@@ -44,7 +56,8 @@ Matn is an offline-first Kotlin Multiplatform (Android + iOS) memorization compa
 Islamic texts (المتون). This constitution defines the non-negotiable engineering principles
 that keep the codebase clean, testable, scalable, and free of duplication. Product requirements
 (the WHAT) live in `docs/PRODUCT-SPEC.md`; the phased delivery sequence (the HOW/WHEN) lives in
-`docs/ROADMAP.md`, which also schedules the later online/sync capabilities.
+`docs/ROADMAP.md`, which also schedules the later online/sync capabilities. The canonical UI
+designs (the LOOK) live in the Stitch project registered in `docs/DESIGN-SOURCE.md`.
 
 ## Core Principles
 
@@ -170,6 +183,46 @@ polish.
 **Rationale**: These are the differentiators called out in the product spec; regressions here
 break the product's promise even if the app "works."
 
+### VIII. Design Fidelity & Reusable Composables (NON-NEGOTIABLE)
+
+UI is implemented **from the approved design**, as **reusable components**, driven by **shared
+tokens** — never invented per screen and never copy-pasted.
+
+- **Canonical design source**: The Stitch project registered in `docs/DESIGN-SOURCE.md` is the
+  single visual source of truth. Before implementing or restyling any screen, the implementer
+  (human or model) MUST fetch that screen's design from Stitch via the configured `stitch` MCP
+  server. Inventing a layout for a screen that has a design is a blocking review failure.
+- **The constitution outranks the design**: Where a Stitch screen conflicts with a locked
+  architectural decision or a principle here, **this document wins** and the conflict MUST be
+  raised rather than silently implemented. (Concretely: designs presupposing a shared/continuous
+  audio file with timestamp maps contradict the locked per-verse audio model and MUST NOT be
+  built.) Designs are authoritative about *appearance*, not about *architecture*.
+- **Tokens, not literals**: Color, typography, spacing, corner radii, and elevation MUST be
+  defined once in a shared design-token layer derived from the Stitch Design System screen.
+  Hard-coded literals (raw hex colors, magic `.dp`/`.sp` values) in screen or feature composables
+  are a blocking review failure.
+- **Reusable by default**: Every composable MUST be written as a self-contained, reusable
+  component unless it is genuinely single-use. Concretely:
+  - A UI element that appears on **two or more screens** — or is a recognizable repeated unit
+    within one screen (verse row, matn card, player control, counter stepper, section header) —
+    MUST live in the shared UI component layer, not inline in a screen.
+  - The trigger to extract is the **second use, not the third**: before copy-pasting a composable
+    block, extract it. This is Principle III (DRY) applied to the render layer.
+  - Shared components MUST be **stateless and parameterized** — driven entirely by their
+    parameters and intent lambdas, with no ViewModel, DI, navigation, or repository access — so
+    they compose freely and preview in isolation.
+  - Every shared component carries at least one `@Preview`, per Principle II.
+- **Reuse before adding**: Before writing a new component, the author MUST check the existing
+  shared UI layer for one that fits or can be parameterized. Near-duplicate components (two cards
+  differing only by a label or icon) MUST be unified.
+
+**Rationale**: With designs now reachable programmatically by any model, the failure mode shifts
+from "no design" to "each screen re-implemented from scratch, slightly differently." Pinning a
+canonical source, centralizing tokens, and forcing extraction at the second use keeps a
+multi-screen, bilingual, RTL, light/dark app visually coherent — and keeps the render layer small
+enough to actually preview and screenshot-test. Stating that the constitution outranks the design
+prevents an out-of-date mockup from quietly reversing a locked architectural decision.
+
 ## Technology & Architecture Constraints
 
 - **Stack**: Kotlin Multiplatform with Compose Multiplatform UI; modules `shared` (domain + data +
@@ -182,6 +235,11 @@ break the product's promise even if the app "works."
   boundary; a shared/continuous-file model is out of scope.
 - **Dependency injection** MUST be used to wire layers; no manual singletons or service locators
   reached across layer boundaries.
+- **Design source**: UI designs are retrieved from Stitch through the `stitch` MCP server declared
+  in `.mcp.json` (Claude Code) and `opencode.json` (OpenCode). These declarations are tracked and
+  MUST stay secret-free — credentials live only in each developer's local environment
+  (`STITCH_API_KEY`) or local OAuth credentials. Project and screen IDs live in
+  `docs/DESIGN-SOURCE.md`, never inline in code.
 - Adding a new third-party dependency requires justification against a simpler alternative in the
   PR description.
 
@@ -195,6 +253,10 @@ break the product's promise even if the app "works."
 - **Code review** MUST verify: layer-dependency direction, MVVM state discipline, logic placed in
   `commonMain`, presence of tests for changed domain/data logic, and no duplicated logic that
   should be a base abstraction.
+- **UI review** MUST additionally verify (Principle VIII): the screen matches its Stitch design,
+  no hard-coded colors/spacing/type literals, repeated elements extracted into shared stateless
+  components rather than copy-pasted, and a `@Preview` present for each new state-rendering
+  composable.
 - **CI expectation**: `commonTest` (and platform host tests where relevant) MUST pass before merge.
 
 ### Phased, Incremental Delivery
@@ -223,6 +285,11 @@ specified in `docs/PRODUCT-SPEC.md`).
 - Every PR MUST pass CI (Principle V) and a review verifying constitution compliance before merge.
 - Local-only tooling and editor/assistant config (e.g., `.claude/`, `.opencode/`) MUST stay
   gitignored and out of the repository.
+  - **Carve-out**: root-level *capability* declarations that every contributor needs — currently
+    `.mcp.json` and `opencode.json`, which declare the `stitch` design server — ARE tracked, on the
+    condition that they contain **no credentials**. The distinction is personal preference (local,
+    ignored) versus shared project capability (tracked). Any file that would embed a token or API
+    key stays untracked.
 
 ## Governance
 
@@ -238,4 +305,4 @@ specified in `docs/PRODUCT-SPEC.md`).
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.3.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-19
+**Version**: 1.4.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-24
