@@ -13,8 +13,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.giraffe.matn.presentation.theme.MatnTheme
 
 /**
  * Bookmark/note indicator + action glyphs for the reading carousel (US2/US3, FR-011/FR-016) —
@@ -107,4 +109,18 @@ fun MemorizedGlyph(color: Color, filled: Boolean, modifier: Modifier = Modifier,
             drawPath(check, color, style = Stroke(width = w * 0.07f, cap = StrokeCap.Round))
         }
     }
+}
+
+// --------------------------------------------------------------------------- Previews
+
+@Preview
+@Composable
+private fun MemorizedGlyphFilledPreview() {
+    MatnTheme { MemorizedGlyph(color = androidx.compose.material3.MaterialTheme.colorScheme.secondary, filled = true) }
+}
+
+@Preview
+@Composable
+private fun MemorizedGlyphOutlinePreview() {
+    MatnTheme { MemorizedGlyph(color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, filled = false) }
 }
