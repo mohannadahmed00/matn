@@ -73,6 +73,11 @@ class PlaybackController(
     /** Verses whose audio failed this session; skipped by the planner on every later pass. */
     private var failedVerseIds = mutableSetOf<String>()
 
+    /** Phase 7 (research D2): suppresses the completion marker on the NEXT `TrackTransition` —
+     *  set whenever a transition is about to be user- or error-initiated (never a natural finish)
+     *  so [PlaybackState.completionTick] only advances at the two natural boundaries. */
+    private var suppressCompletionOnNextTransition = false
+
     // ---------------------------------------------------------------- Play / pause / stop
 
     /** FR-001 (per-verse play): build the queue starting at [verseId] and play. Phase 4 adds an
@@ -258,6 +263,8 @@ class PlaybackController(
      * currently in the window.
      */
     private fun moveToVerse(target: PlaybackCursor) {
+        // User-initiated (next()/previous()): the transition this triggers is not a completion.
+        suppressCompletionOnNextTransition = true
         val existingIndex = window.indexOfFirst { it.cursor.verseIndex == target.verseIndex }
         if (existingIndex >= 0) {
             engine.seekToTrack(existingIndex)
@@ -302,6 +309,9 @@ class PlaybackController(
         val range = activeRange()
         val cur = _state.value.cursor
         if (cur != null && cur.verseIndex !in range) {
+            // Relocation (research D7): the resulting transition is a settings-driven jump, not a
+            // natural completion.
+            suppressCompletionOnNextTransition = true
             val target = PlaybackCursor(range.first, 1, 1)
             window = buildWindow(target)
             engine.setQueue(window.map { it.track }, 0)
@@ -417,7 +427,18 @@ class PlaybackController(
                         // Resolve defensively BEFORE trimming: a stale/out-of-range engine index
                         // must be ignored, never crash (never index `window` with `[]` here).
                         val entry = window.getOrNull(event.newIndex) ?: return@collectLatest
+                        // Phase 7 (research D2): capture the OUTGOING verse before applyCursor()
+                        // overwrites activeVerseId with the new one.
+                        val completed = _state.value.activeVerseId
                         applyCursor(entry.cursor)
+                        if (suppressCompletionOnNextTransition) {
+                            suppressCompletionOnNextTransition = false
+                        } else if (completed != null) {
+                            _state.value = _state.value.copy(
+                                lastCompletedVerseId = completed,
+                                completionTick = _state.value.completionTick + 1,
+                            )
+                        }
                         refillWindow()
                     }
                     is AudioEngineEvent.QueueEnded -> {
@@ -428,6 +449,8 @@ class PlaybackController(
                             activeDisplayNumber = null,
                             positionMs = 0,
                             notice = PlaybackNotice.ReachedEnd,
+                            lastCompletedVerseId = if (s.activeVerseId != null) s.activeVerseId else s.lastCompletedVerseId,
+                            completionTick = if (s.activeVerseId != null) s.completionTick + 1 else s.completionTick,
                         )
                         releaseWakeLock()
                     }
@@ -468,6 +491,8 @@ class PlaybackController(
                 releaseWakeLock()
             }
             is PlanStep.Advance -> {
+                // An error skip is not a completion (research D2/practice-signal-contract.md §1).
+                suppressCompletionOnNextTransition = true
                 val nextCursor = step.cursor
                 // Same two-path choice as moveToVerse (T028): only `seekToTrack` into an index that
                 // still exists in the CURRENT window, then let refillWindow() do the trim/drop/rebuild
