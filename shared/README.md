@@ -2,9 +2,9 @@
 
 The Kotlin Multiplatform shared library consumed by `:androidApp` and `iosApp`.
 
-## Phase 0 foundation
+## Phase 1 foundation
 
-Phase 0 adds the offline content foundation: a pure-Kotlin domain model
+Phase 1 adds the offline content foundation: a pure-Kotlin domain model
 (`Matn`, `Chapter`, `Verse`, `AudioAsset`) plus a SQLDelight local store and
 repository interfaces/implementations. There is no UI, playback, or networking in
 this phase; everything lives under `com.giraffe.matn` in `commonMain` with thin
@@ -34,7 +34,7 @@ targets.
 ./gradlew :shared:iosSimulatorArm64Test
 ```
 
-The Phase 0 tests run entirely against an in-memory SQLDelight driver — no
+The Phase 1 tests run entirely against an in-memory SQLDelight driver — no
 device, emulator, network, or real audio files are required.
 
 ### Platform wiring (Koin)

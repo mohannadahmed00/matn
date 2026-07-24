@@ -66,7 +66,7 @@ These are unresolved and MUST be settled before the affected phase is implemente
 1. **Duplicates need a canonical pick.** *Matn Details* has 2 variants and *Reading & Playback*
    has 3. The titles suggest `472161bb…` (Refined) and `ac354abd…` (Updated) are the latest, but
    **this has not been visually confirmed** — no one has fetched the designs yet. Confirm before
-   building Phase 1 / Phase 2 UI, and delete or clearly retire the superseded screens in Stitch.
+   building Phase 2 / Phase 3 UI, and delete or clearly retire the superseded screens in Stitch.
 
 2. **`Upload Matn (Timestamp Map)` (`f55899af78974175b345f3c3cd048387`) contradicts a locked
    architectural decision.** The constitution and `PRODUCT-SPEC.md` lock the audio model to *one
@@ -78,9 +78,9 @@ These are unresolved and MUST be settled before the affected phase is implemente
    Content intake is a production-side concern in `PRODUCT-SPEC.md`, not a v1 app phase. Either
    add a roadmap phase for it or treat it as out of scope for v1.
 
-4. **Phase 4 has no dedicated screen.** *Continue Learning* is a card on Home / Library rather
-   than its own design. Phase 4 UI work should derive from the Home screen's card region.
+4. **Phase 5 has no dedicated screen.** *Continue Learning* is a card on Home / Library rather
+   than its own design. Phase 5 UI work should derive from the Home screen's card region.
 
-5. **No dark-mode variants exist.** Principle VII makes dark mode contractual and Phase 8 owns it,
+5. **No dark-mode variants exist.** Principle VII makes dark mode contractual and Phase 9 owns it,
    but the Stitch set is light-theme only. Dark tokens will need to be derived rather than
    imported.
