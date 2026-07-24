@@ -80,7 +80,7 @@ Decoding is total and never throws: unparseable or out-of-range input falls back
 | Version | Contents |
 |---|---|
 | 1 | Phase 0/1 schema as it stands today (implicit; no migration files exist) |
-| 2 | `1.sqm` — `CREATE TABLE matn_session` + its index |
+| 2 | `1.sqm` — `CREATE TABLE matn_session` (no extra index; `matn_id` is the PRIMARY KEY) |
 
 `Content.sq` carries the table for fresh installs (`Schema.create`); `1.sqm` carries it for existing
 installs (`Schema.migrate`). See research D3 for why this is introduced now.

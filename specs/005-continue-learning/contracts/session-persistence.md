@@ -14,7 +14,7 @@ interface SessionStateRepository {
     /** Null when no row exists. MUST NOT throw on unreadable/undecodable rows — returns null. */
     suspend fun getSession(matnId: String): SavedMatnSession?
 
-    /** Upsert. Failures surface as Resource.Error(AppError.Storage), never a thrown exception. */
+    /** Upsert. Failures surface as Resource.Failure(AppError.Storage), never a thrown exception. */
     suspend fun putSession(session: SavedMatnSession): Resource<Unit>
 
     /** Null when unset or when the referenced matn no longer exists. */
@@ -34,7 +34,7 @@ interface SessionStateRepository {
 
 | # | Rule | Req |
 |---|---|---|
-| P1 | No method throws. Decode failures degrade to `null`; write failures return `Resource.Error`. | FR-011, FR-029 |
+| P1 | No method throws. Decode failures degrade to `null`; write failures return `Resource.Failure`. | FR-011, FR-029 |
 | P2 | `clearLastListenedMatnId` MUST NOT delete or modify any `matn_session` row. | FR-017a |
 | P3 | `putSession` is an upsert keyed by `matn_id` — never duplicates a matn. | FR-001 |
 | P4 | `observeContinueLearning` emits `null` (not an error) when state is absent or unhonourable. | FR-015, FR-025 |
