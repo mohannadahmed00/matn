@@ -32,7 +32,12 @@ import org.jetbrains.compose.resources.stringResource
  * [summary] and [onClick].
  */
 @Composable
-fun MatnCard(summary: MatnSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun MatnCard(
+    summary: MatnSummary,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    progressFraction: Float? = null,
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -70,6 +75,14 @@ fun MatnCard(summary: MatnSummary, onClick: () -> Unit, modifier: Modifier = Mod
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = MatnSpacing.unit / 2),
         )
+        // Phase 7 (FR-006): a compact progress affordance — same visual language as
+        // MatnProgressBar, condensed for card width (design-notes.md gap #1).
+        if (progressFraction != null) {
+            com.giraffe.matn.presentation.common.MatnProgressBar(
+                fraction = progressFraction,
+                modifier = Modifier.padding(top = MatnSpacing.unit / 2),
+            )
+        }
     }
 }
 
@@ -94,6 +107,20 @@ private fun MatnCardPreview() {
     MatnTheme {
         Box(modifier = Modifier.width(180.dp).padding(MatnSpacing.unit)) {
             MatnCard(summary = previewSummary("m1", "الأجرومية", 4, 31_300), onClick = {})
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun MatnCardWithProgressPreview() {
+    MatnTheme {
+        Box(modifier = Modifier.width(180.dp).padding(MatnSpacing.unit)) {
+            MatnCard(
+                summary = previewSummary("m1", "الأجرومية", 4, 31_300),
+                onClick = {},
+                progressFraction = 0.6f,
+            )
         }
     }
 }

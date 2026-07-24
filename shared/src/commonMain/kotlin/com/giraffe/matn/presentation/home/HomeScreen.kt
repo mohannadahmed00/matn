@@ -130,7 +130,11 @@ fun HomeContent(
                         }
                     }
                     items(items = state.items, key = { it.matn.id }) { summary ->
-                        MatnCard(summary = summary, onClick = { onOpenMatn(summary.matn.id) })
+                        MatnCard(
+                            summary = summary,
+                            onClick = { onOpenMatn(summary.matn.id) },
+                            progressFraction = state.progressByMatn[summary.matn.id],
+                        )
                     }
                 }
             }

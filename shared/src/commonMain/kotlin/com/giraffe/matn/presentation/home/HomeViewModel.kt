@@ -5,6 +5,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.ContinueLearningEntry
+import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.MatnSummary
 import com.giraffe.matn.domain.model.ResumeTarget
 import com.giraffe.matn.domain.repository.RepetitionSettingsStore
@@ -42,6 +43,9 @@ class HomeViewModel(
     private val dismissContinueLearning: UseCase<Unit, Unit> = NoOpDismiss,
     private val playbackController: PlaybackController? = null,
     private val settingsStore: RepetitionSettingsStore? = null,
+    /** Phase 7 (US1 FR-006): per-matn progress for the library cards. Optional/defaulted so
+     *  existing call sites and tests keep compiling. */
+    private val observeLibraryProgress: FlowUseCase<Unit, List<MatnProgress>>? = null,
 ) : BaseViewModel<HomeUiState>(HomeUiState()) {
 
     private val _navigation = Channel<String>(Channel.BUFFERED)
@@ -68,6 +72,12 @@ class HomeViewModel(
                 setState { it.copy(continueLearning = entry) }
             }
             .launchIn(viewModelScope)
+
+        observeLibraryProgress?.invoke(Unit)
+            ?.onEach { progressList ->
+                setState { it.copy(progressByMatn = progressList.associate { p -> p.matnId to p.fraction }) }
+            }
+            ?.launchIn(viewModelScope)
     }
 
     /** Resume tap. Resolves the saved target, warms the settings store with the resolved drill

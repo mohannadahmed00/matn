@@ -34,17 +34,22 @@ import com.giraffe.matn.domain.usecase.DismissContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
 import com.giraffe.matn.domain.usecase.GetNoteUseCase
+import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
 import com.giraffe.matn.domain.usecase.ObserveBookmarksUseCase
 import com.giraffe.matn.domain.usecase.ObserveContinueLearningUseCase
+import com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
+import com.giraffe.matn.domain.usecase.ObserveMatnProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveNotesUseCase
 import com.giraffe.matn.domain.usecase.ObserveVerseAnnotationsUseCase
+import com.giraffe.matn.domain.usecase.ObserveVerseMemorizationUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
 import com.giraffe.matn.domain.usecase.ResolveResumeTargetUseCase
 import com.giraffe.matn.domain.usecase.SaveNoteUseCase
 import com.giraffe.matn.domain.usecase.SearchLibraryUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.ToggleBookmarkUseCase
+import com.giraffe.matn.domain.usecase.ToggleVerseMemorizedUseCase
 import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.playback.SessionStateRecorder
 import com.giraffe.matn.presentation.player.PlayerBarViewModel
@@ -117,4 +122,9 @@ fun contentModule() = module {
             newId = { Uuid.random().toString() },
         )
     }
+    factory { ToggleVerseMemorizedUseCase(get()) }
+    factory { MarkChapterMemorizedUseCase(get()) }
+    factory { ObserveVerseMemorizationUseCase(get()) }
+    factory { ObserveMatnProgressUseCase(get()) }
+    factory { ObserveLibraryProgressUseCase(get()) }
 }
