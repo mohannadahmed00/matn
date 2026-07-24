@@ -424,6 +424,79 @@ class PlaybackControllerTest {
         assertEquals(PauseReason.USER, ctrl.state.value.pauseReason)
     }
 
+    // ---- Phase 7 (T032a): natural-completion marker ----------------------
+
+    @Test
+    fun `a scripted TrackTransition increments completionTick and names the outgoing verse`() = runTest {
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        val tickBefore = ctrl.state.value.completionTick
+        engine.emit(AudioEngineEvent.TrackTransition(1)) // v1 -> v2 finished naturally
+
+        assertEquals(tickBefore + 1, ctrl.state.value.completionTick)
+        assertEquals("v1", ctrl.state.value.lastCompletedVerseId)
+    }
+
+    @Test
+    fun `QueueEnded increments the tick and names the final active verse`() = runTest {
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        engine.emit(AudioEngineEvent.TrackTransition(2))
+        val tickBefore = ctrl.state.value.completionTick
+        engine.emit(AudioEngineEvent.QueueEnded)
+
+        assertEquals(tickBefore + 1, ctrl.state.value.completionTick)
+        assertEquals("v3", ctrl.state.value.lastCompletedVerseId)
+    }
+
+    @Test
+    fun `next followed by a TrackTransition leaves the completion tick unchanged`() = runTest {
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        val tickBefore = ctrl.state.value.completionTick
+        ctrl.next()
+        engine.emit(AudioEngineEvent.TrackTransition(1))
+
+        assertEquals(tickBefore, ctrl.state.value.completionTick)
+    }
+
+    @Test
+    fun `an error skip leaves the completion tick unchanged`() = runTest {
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        val tickBefore = ctrl.state.value.completionTick
+        engine.emit(AudioEngineEvent.TrackError(0)) // skips v1 -> PlanStep.Advance to v2
+
+        assertEquals(tickBefore, ctrl.state.value.completionTick)
+    }
+
+    @Test
+    fun `pause seekTo and setSpeed never touch the completion marker`() = runTest {
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        engine.emit(AudioEngineEvent.TrackTransition(1)) // one real completion to compare against
+        val tick = ctrl.state.value.completionTick
+        val lastCompleted = ctrl.state.value.lastCompletedVerseId
+
+        ctrl.pause()
+        assertEquals(tick, ctrl.state.value.completionTick)
+        assertEquals(lastCompleted, ctrl.state.value.lastCompletedVerseId)
+
+        ctrl.resume()
+        ctrl.seekTo(1_000)
+        assertEquals(tick, ctrl.state.value.completionTick)
+        assertEquals(lastCompleted, ctrl.state.value.lastCompletedVerseId)
+
+        ctrl.setSpeed(PlaybackSpeed.X0_75)
+        assertEquals(tick, ctrl.state.value.completionTick)
+        assertEquals(lastCompleted, ctrl.state.value.lastCompletedVerseId)
+    }
+
     // ---- fake use case ---------------------------------------------------
 
     /** Fake queue use case: returns a canned [Resource], resolving `startVerseId` to a startIndex. */

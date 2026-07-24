@@ -1,0 +1,19 @@
+-- Phase 7 (schema v3 -> v4): additive memorization/daily_practice tables. Named for the version it
+-- migrates FROM (SQLDelight convention), so this is `3.sqm`, bumping `ContentDatabase.Schema.version`
+-- to 4. The CREATE TABLE text below MUST stay byte-identical to Content.sq's `memorization`/
+-- `daily_practice` definitions — MigrationV3Test is the guard that proves the upgrade path
+-- (research.md D6/D7).
+
+CREATE TABLE memorization (
+    id           TEXT NOT NULL PRIMARY KEY,
+    verse_id     TEXT NOT NULL UNIQUE REFERENCES verse(id) ON DELETE CASCADE,
+    memorized_at INTEGER NOT NULL
+);
+
+CREATE TABLE daily_practice (
+    id           TEXT NOT NULL PRIMARY KEY,
+    day_epoch    INTEGER NOT NULL,
+    verse_id     TEXT NOT NULL REFERENCES verse(id) ON DELETE CASCADE,
+    practiced_at INTEGER NOT NULL,
+    UNIQUE (day_epoch, verse_id)
+);

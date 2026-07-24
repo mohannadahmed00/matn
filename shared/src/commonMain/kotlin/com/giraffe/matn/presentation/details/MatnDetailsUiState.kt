@@ -3,6 +3,7 @@ package com.giraffe.matn.presentation.details
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.LoopRange
+import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.VerseAnnotations
 
@@ -38,6 +39,11 @@ data class MatnDetailsUiState(
     val annotations: Map<String, VerseAnnotations> = emptyMap(),
     /** Phase 6 (US3): the note-editor bottom sheet's state, or `null` when closed. */
     val noteEditor: NoteEditorState? = null,
+    /** Phase 7 (FR-002): memorized verse ids for this matn — feeds the carousel indicator. */
+    val memorizedVerseIds: Set<String> = emptySet(),
+    /** Phase 7 (FR-006/FR-008): the latest progress emission, held independently of [header] so
+     *  neither arrival order (progress vs. details load) loses data — see [MatnDetailsViewModel]. */
+    val progress: MatnProgress? = null,
 )
 
 /**
@@ -61,6 +67,9 @@ data class MatnHeader(
     val description: String,
     val verseCount: Int,
     val totalDurationMs: Long,
+    /** Phase 7 (FR-006): memorized-verse count and fraction, derived from [MatnDetailsUiState.progress]. */
+    val memorizedCount: Int = 0,
+    val progressFraction: Float = 0f,
 )
 
 data class VerseRow(

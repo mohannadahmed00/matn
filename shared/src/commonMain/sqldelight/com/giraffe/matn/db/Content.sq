@@ -262,3 +262,73 @@ SELECT note.verse_id AS verse_id
 FROM note
 JOIN verse ON verse.id = note.verse_id
 WHERE verse.matn_id = ?;
+
+-- Phase 7 (FR-001…FR-005): explicit per-verse recall self-report. `id` is a UUID minted at
+-- creation (Constitution VI); UNIQUE(verse_id) enforces one status per verse and doubles as the
+-- lookup index. CASCADE from verse (text identity), never audio_asset, so removing downloaded
+-- audio can never erase progress (FR-004).
+CREATE TABLE memorization (
+    id           TEXT NOT NULL PRIMARY KEY,
+    verse_id     TEXT NOT NULL UNIQUE REFERENCES verse(id) ON DELETE CASCADE,
+    memorized_at INTEGER NOT NULL
+);
+
+-- Phase 7 (FR-010…FR-014): append-only record of distinct verses practiced per LOCAL day.
+-- UNIQUE(day_epoch, verse_id) enforces at-most-once-per-verse-per-day; rows are never deleted
+-- by un-marking a verse (FR-014).
+CREATE TABLE daily_practice (
+    id           TEXT NOT NULL PRIMARY KEY,
+    day_epoch    INTEGER NOT NULL,
+    verse_id     TEXT NOT NULL REFERENCES verse(id) ON DELETE CASCADE,
+    practiced_at INTEGER NOT NULL,
+    UNIQUE (day_epoch, verse_id)
+);
+
+-- Phase 7: memorization queries (progress-contract.md § Repository interfaces).
+
+selectMemorizationByVerse:
+SELECT * FROM memorization WHERE verse_id = ?;
+
+insertMemorization:
+INSERT OR IGNORE INTO memorization(id, verse_id, memorized_at) VALUES (?, ?, ?);
+
+deleteMemorizationByVerse:
+DELETE FROM memorization WHERE verse_id = ?;
+
+selectMemorizedVerseIdsByMatn:
+SELECT memorization.verse_id AS verse_id
+FROM memorization
+JOIN verse ON verse.id = memorization.verse_id
+WHERE verse.matn_id = ?;
+
+-- Phase 7 (FR-006/FR-008, research D4): the ONE progress aggregate. LEFT JOINs keep a
+-- zero-verse matn present with total 0 / memorized 0 (no divide-by-zero downstream).
+selectAllMatnProgress:
+SELECT
+    matn.id AS matn_id,
+    COUNT(verse.id) AS total_verses,
+    COUNT(memorization.verse_id) AS memorized_verses
+FROM matn
+LEFT JOIN verse ON verse.matn_id = matn.id
+LEFT JOIN memorization ON memorization.verse_id = verse.id
+GROUP BY matn.id
+ORDER BY matn.title;
+
+selectMatnProgressById:
+SELECT
+    matn.id AS matn_id,
+    COUNT(verse.id) AS total_verses,
+    COUNT(memorization.verse_id) AS memorized_verses
+FROM matn
+LEFT JOIN verse ON verse.matn_id = matn.id
+LEFT JOIN memorization ON memorization.verse_id = verse.id
+WHERE matn.id = ?
+GROUP BY matn.id;
+
+-- Phase 7: daily practice (append-only; OR IGNORE absorbs same-day duplicates, FR-010).
+
+insertDailyPractice:
+INSERT OR IGNORE INTO daily_practice(id, day_epoch, verse_id, practiced_at) VALUES (?, ?, ?, ?);
+
+selectDailyPracticeCount:
+SELECT COUNT(*) AS practiced_count FROM daily_practice WHERE day_epoch = ?;

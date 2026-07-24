@@ -22,6 +22,12 @@ data class PlaybackState(
     val settings: RepetitionSettings = RepetitionSettings(),
     val cursor: PlaybackCursor? = null,
     val loopRangeVerseIds: Set<String> = emptySet(),
+    /** Phase 7 (practice-signal-contract.md §1): the id of the verse that just finished playing
+     *  naturally (never set by user transport or an error skip), paired with a monotonically
+     *  increasing [completionTick] so repeat consumers can tell successive completions of the
+     *  SAME verse apart. Purely additive — read only by [com.giraffe.matn.playback.PracticeSignalRecorder]. */
+    val lastCompletedVerseId: String? = null,
+    val completionTick: Long = 0,
 ) {
     val isPlaying: Boolean get() = status == PlaybackStatus.PLAYING
     val hasSession: Boolean get() = status != PlaybackStatus.IDLE

@@ -13,8 +13,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.giraffe.matn.presentation.theme.MatnTheme
 
 /**
  * Bookmark/note indicator + action glyphs for the reading carousel (US2/US3, FR-011/FR-016) —
@@ -79,4 +81,46 @@ fun NoteGlyph(color: Color, filled: Boolean, modifier: Modifier = Modifier, size
             drawLine(color, Offset(lineX0, h * 0.70f), Offset(w * 0.55f, h * 0.70f), strokeWidth = w * 0.06f)
         }
     }
+}
+
+/**
+ * A check-in-circle shape for the "memorized" indicator/action (Phase 7, FR-002). Deliberately a
+ * distinct shape from [BookmarkGlyph] (ribbon) and [NoteGlyph] (page) — not a recolor of either —
+ * so it reads as visually distinct even to a colorblind reader. [filled] = memorized (solid);
+ * unfilled = outline-only toggle action.
+ */
+@Composable
+fun MemorizedGlyph(color: Color, filled: Boolean, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
+    Canvas(modifier.size(size).desc(contentDescription)) {
+        val w = this.size.width
+        val h = this.size.height
+        val center = Offset(w * 0.5f, h * 0.5f)
+        val radius = w * 0.42f
+        val check = Path().apply {
+            moveTo(w * 0.30f, h * 0.52f)
+            lineTo(w * 0.44f, h * 0.66f)
+            lineTo(w * 0.72f, h * 0.36f)
+        }
+        if (filled) {
+            drawCircle(color, radius = radius, center = center)
+            drawPath(check, Color.White, style = Stroke(width = w * 0.09f, cap = StrokeCap.Round))
+        } else {
+            drawCircle(color, radius = radius, center = center, style = Stroke(width = w * 0.07f))
+            drawPath(check, color, style = Stroke(width = w * 0.07f, cap = StrokeCap.Round))
+        }
+    }
+}
+
+// --------------------------------------------------------------------------- Previews
+
+@Preview
+@Composable
+private fun MemorizedGlyphFilledPreview() {
+    MatnTheme { MemorizedGlyph(color = androidx.compose.material3.MaterialTheme.colorScheme.secondary, filled = true) }
+}
+
+@Preview
+@Composable
+private fun MemorizedGlyphOutlinePreview() {
+    MatnTheme { MemorizedGlyph(color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, filled = false) }
 }

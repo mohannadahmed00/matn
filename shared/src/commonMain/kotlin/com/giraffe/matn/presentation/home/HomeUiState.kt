@@ -16,6 +16,9 @@ import com.giraffe.matn.domain.model.MatnSummary
  *    MUST NOT gate the grid (SC-005/T043a).
  *  * [dailyGoal] (specs/010-design-system-adoption) is the top-bar progress ring's state. It
  *    stays at its default (placeholder) value until specs/007 wires up real goal tracking.
+ *  * [progressByMatn] (Phase 7, FR-006) is the per-matn memorized fraction for the library card
+ *    affordance, keyed by matn id. Collected independently — like [continueLearning] — so it
+ *    never gates [isLoading]; a matn absent from the map simply renders no progress affordance.
  */
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -24,4 +27,5 @@ data class HomeUiState(
     val error: AppError? = null,
     val continueLearning: ContinueLearningEntry? = null,
     val dailyGoal: DailyGoalUiState = DailyGoalUiState(),
+    val progressByMatn: Map<String, Float> = emptyMap(),
 )

@@ -1,13 +1,13 @@
 package com.giraffe.matn.presentation.home
 
 /**
- * UI-state for the Home screen's daily-goal progress ring
- * (specs/010-design-system-adoption/data-model.md § DailyGoalUiState). [isPlaceholder] is always
- * `true` until specs/007 (Progress & Daily Goals) implements real tracking — FR-010: show a
- * clearly-placeholder state rather than a fabricated number. No repository/use case backs this
- * yet; [HomeViewModel] supplies a constant placeholder.
+ * UI-state for the Home screen's daily-goal progress ring (Phase 7, data-model.md §2.2/§5). Backed
+ * by [com.giraffe.matn.domain.usecase.ObserveDailyProgressUseCase] via [HomeViewModel] — real
+ * practiced/goal tracking, no placeholder.
  */
 data class DailyGoalUiState(
-    val isPlaceholder: Boolean = true,
-    val progressFraction: Float = 0f,
+    val practiced: Int = 0,
+    val goal: Int = 10,
+    val fraction: Float = 0f,
+    val isComplete: Boolean = false,
 )
