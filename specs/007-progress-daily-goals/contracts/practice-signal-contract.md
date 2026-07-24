@@ -32,8 +32,12 @@ existing consumer (Principle VII — no new mutation site in playback logic).
 ## 2. `PracticeSignalRecorder` (NEW, pure observer)
 
 Built like `SessionStateRecorder`: constructed with `PlaybackController.state`, a
-`ProgressRepository`, an injected `today: () -> Long`, and a `CoroutineScope`; started once from DI
+`ProgressRepository`, and a `CoroutineScope` — exactly three parameters; started once from DI
 (`initMatnKoin`). It never calls back into the controller.
+
+**The recorder does not know about days.** `today()` is owned solely by `ProgressRepository`
+(research D1/D9) and applied inside `recordPractice`, so the recorder holds no clock, no time zone,
+and no day state. Anything day-related is tested at the repository level, not here.
 
 **Behavior**: subscribe to `state`; on each **new** `completionTick`, evaluate the recall-mode
 predicate against the current `settings`; if it holds, call
@@ -57,8 +61,10 @@ so re-hearing a verse across passes or sessions in the same day counts once (SC-
 
 ## 3. Edge behavior
 
-- **Day rollover mid-session**: `recordPractice` uses `today()` at credit time, so a verse completed
-  after local midnight is attributed to the new day (spec edge "Day rollover mid-session").
+- **Day rollover mid-session**: the repository's `recordPractice` reads `today()` at credit time, so a
+  verse completed after local midnight is attributed to the new day. Making the *displayed* count
+  reset at that boundary is the repository's job too — see progress-contract.md
+  § `observeTodayPracticeCount` and research D9. The recorder needs no rollover logic.
 - **Same verse, many passes**: a `Vr = 5` drill fires up to 5 completion ticks for the verse; the
   first credits, the rest are `OR IGNORE` no-ops.
 - **User skips before the end**: `next()` produces no completion tick → no credit (matches
@@ -74,6 +80,9 @@ so re-hearing a verse across passes or sessions in the same day counts once (SC-
 3. A–B loop session: completing a verse in the loop credits it.
 4. Same verse completed twice in one day → one row (dedup).
 5. User `next()` (no natural completion) → no credit.
-6. Day rollover: a completion after `today()` advances lands under the new day.
+6. `QueueEnded` in a recall session credits the final active verse.
 7. Recorder never mutates `PlaybackController` (assert state/calls unchanged), mirroring
    `SessionStateRecorderTest`.
+
+Day-rollover behavior is **not** tested here — it belongs to progress-contract.md § Test
+obligations (the repository owns `today()`).

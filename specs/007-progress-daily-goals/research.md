@@ -160,6 +160,38 @@ preview in isolation (Principle II).
 **Alternatives**: Inlining the ring separately on Home and Goals — rejected: a direct Principle VIII
 violation and a drift risk (two rings that render the same data differently).
 
+## D9 — Day-boundary re-evaluation while the app stays open
+
+**Decision**: `observeTodayPracticeCount()` must **not** bind `today()` once at subscription. It is
+built as a **day flow** that re-reads `today()` on a poll interval, de-duplicated, driving the count
+query via `flatMapLatest`:
+
+```
+flow { while (true) { emit(today()); delay(dayCheckIntervalMs) } }
+    .distinctUntilChanged()
+    .flatMapLatest { day -> selectDailyPracticeCount(day).asFlow().mapToOne(...).map { it.toInt() } }
+```
+
+`dayCheckIntervalMs` is a constructor parameter defaulting to `60_000` (one minute); tests inject a
+small value and drive it with `runTest`'s virtual clock. The same rule applies to any future
+day-scoped read.
+
+**Rationale**: without this, a session left open past local midnight keeps querying yesterday's
+`day_epoch`. The failure is not merely "stale until the next launch": recording a practice under the
+*new* day invalidates the `daily_practice` table, so SQLDelight re-runs the query — but still with
+the old parameter, so the ring re-emits **yesterday's** count and looks authoritative. That directly
+breaks FR-013 and the spec's "Day rollover mid-session" edge case. A one-minute poll costs
+essentially nothing (an integer comparison, no I/O, on a `Dispatchers.Default` flow) and bounds the
+visible error at the boundary to under a minute. Re-reading `today()` also absorbs the spec's
+"Device clock / time-zone change" edge case for free.
+
+**Alternatives**: (a) Re-subscribe on app foreground via a platform lifecycle hook — rejected: needs
+`expect`/`actual` plumbing in both platform shells (the plan commits to *no* platform code) and still
+misses a device left open on the Home screen at midnight. (b) Schedule an exact timer to the next
+local midnight — rejected: more moving parts than a poll, and it must be re-armed after clock or
+time-zone changes, which the poll handles for free. (c) Accept staleness until the next app launch —
+rejected: it makes the ring silently wrong, which is worse than an unimplemented feature.
+
 ## Resolved unknowns
 
 - Local-day source → D1 (`kotlinx-datetime` behind injected `today`).
@@ -169,6 +201,7 @@ violation and a drift risk (two rings that render the same data differently).
 - Goal persistence + default + bounds → D5.
 - Migration path and identity → D6/D7.
 - UI reuse → D8.
+- Day-boundary reset while the app is open (and clock/TZ changes) → D9.
 
 No open [NEEDS CLARIFICATION] remain; the three spec clarifications (practice signal, append-only
 count, default goal) are encoded above.

@@ -116,12 +116,15 @@ interface ProgressRepository {
 
     // Daily practice record (append-only)
     suspend fun recordPractice(verseId: String): Resource<Unit>   // credits today() once; OR IGNORE
-    fun observeTodayPracticeCount(): Flow<Int>                    // count WHERE day_epoch = today()
+    fun observeTodayPracticeCount(): Flow<Int>                    // re-keys on today(); see D9
 }
 ```
-Implementation injects `today: () -> Long` and `clock: () -> Long` and `newId: () -> String`
-(the established `BookmarkRepositoryImpl` constructor shape). `setVerseMemorized(true)` also calls
-the practice-credit path (research D3); `setVerseMemorized(false)` deletes only the memorization row.
+Implementation injects `today: () -> Long`, `clock: () -> Long`, `newId: () -> String` (the
+established `BookmarkRepositoryImpl` constructor shape) and `dayCheckIntervalMs: Long = 60_000`
+(research D9). `setVerseMemorized(true)` also calls the practice-credit path (research D3);
+`setVerseMemorized(false)` deletes only the memorization row. `observeTodayPracticeCount()` must
+re-evaluate `today()` on the poll interval rather than capturing it at subscription, so the count
+resets at local midnight even while a collector stays open (D9).
 
 ### 3.2 `DailyGoalRepository`
 
@@ -160,8 +163,9 @@ interface DailyGoalRepository {
 - **Memorized(verse)**: absent → present (`setVerseMemorized(true)`: insert row + credit today);
   present → absent (`setVerseMemorized(false)`: delete row, daily_practice untouched).
 - **Daily count**: `0` at the first read of a new `day_epoch`; monotonically non-decreasing within a
-  day (each distinct practiced verse `+1`, dedup by UNIQUE); resets implicitly when `today()`
-  advances (FR-013). Never decremented (FR-014).
+  day (each distinct practiced verse `+1`, dedup by UNIQUE); resets when `today()` advances (FR-013)
+  — including mid-session, because the observing flow re-reads `today()` on a poll and re-keys the
+  query via `flatMapLatest` (research D9). Never decremented (FR-014).
 - **Goal**: default `10` → any `≥1` via `setGoal`; persists across restart (SC-004).
 
 ## 7. Invariants

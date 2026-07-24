@@ -22,10 +22,12 @@ Green means the contracts hold. Key suites and what they prove:
 
 | Suite | Proves | Spec |
 |-------|--------|------|
-| `data/ProgressRepositoryTest` | toggle on/off; chapter bulk (no double count); aggregate for mixed/zero/full متون; audio-removal keeps progress; daily dedup; day rollover; **un-mark does not drop the day count** | FR-002/003/004/007/008/010/014 |
+| `data/ProgressRepositoryTest` | toggle on/off; chapter bulk (no double count); aggregate for mixed/zero/full متون; audio-removal keeps progress; daily dedup; day rollover **including while a collector stays subscribed** (D9); clock/TZ change; rapid toggling settles; restart persistence; **un-mark does not drop the day count** | FR-002/003/004/007/008/010/013/014, SC-004 |
+| `data/ProgressPerformanceTest` | ≥1,000 verses: marking a verse re-emits progress within budget | SC-001 |
 | `data/DailyGoalRepositoryTest` | default 10; set/get; `setGoal(0)`→1 | FR-009 |
 | `data/MigrationV3Test` | v3 data (متون/bookmarks/notes/sessions) survives v3→v4; new tables usable | (migration) |
-| `playback/PracticeSignalRecorderTest` | recall-mode completion credits once/day; **Normal mode credits nothing**; A–B loop credits; skip via `next()` no credit; day rollover; recorder never mutates the controller | FR-011/SC-006 |
+| `playback/PracticeSignalRecorderTest` | recall-mode completion credits; **Normal mode credits nothing**; A–B loop credits; skip via `next()` no credit; `QueueEnded` credits the final verse; recorder never mutates the controller | FR-011/SC-006 |
+| `playback/PlaybackControllerTest` (extended) | completion tick increments on a natural transition and on `QueueEnded`; suppressed for `next()`/`previous()` and error skips | FR-011 |
 | `domain/ObserveDailyProgressUseCaseTest` | fraction + `isComplete` under/at/over goal | FR-012 |
 | `domain/MarkChapterMemorizedUseCaseTest` | bulk credits each newly-memorized verse once | FR-003 |
 | `presentation/GoalsViewModelTest` | loading→populated; zero state; goal edit persists | FR-015/017 |
@@ -48,6 +50,11 @@ Green means the contracts hold. Key suites and what they prove:
    Practice in **Normal continuous mode** → ring does **not** advance.
 5. **Reset (SC-005 / FR-013)**: advance the device's local date (or use the injected `today` in a
    test) → the ring resets to empty; memorized % and the goal are unchanged.
+5a. **Rollover while the app stays open (FR-013 / research D9)**: with the app open on Home showing a
+   non-zero ring, change the device date forward one day **without backgrounding or restarting the
+   app**. Within about a minute the ring must fall to 0/goal on its own. Then practice a verse and
+   confirm the ring reads 1/goal — not yesterday's count + 1. This is the specific defect D9 exists
+   to prevent; do not skip it.
 6. **Goal edit (US3)**: change the goal on the Goals tab → return to Home; the ring rescales to the
    new goal.
 7. **Placeholder gone (SC-007)**: the Goals tab shows real content or a purposeful zero state — the
@@ -56,6 +63,18 @@ Green means the contracts hold. Key suites and what they prove:
    count are all intact.
 9. **Performance (SC-001)**: on the ≥1,000-verse library, marking a verse updates the % within ~1 s
    with no visible freeze.
+10. **RTL rendering (FR-019 / Constitution VII)**: with the app in Arabic/RTL, check every surface
+    this feature adds — the memorized glyph and its action row on the verse card, the details-header
+    progress bar, the library-card progress affordance, the Home ring, the Goals dashboard (ring,
+    goal editor/stepper, per-matn rows), and the Goals zero state. Verify: text right-aligned,
+    progress bars filling from the right, the goal stepper's increment/decrement not mirrored into
+    the wrong order, and no clipped or overlapping labels. Compare against the Phase 6 RTL pass
+    (`specs/006-search-bookmarks-notes/tasks.md` T051, item B14) for the expected level of scrutiny.
+11. **Goal discoverability (SC-008)**: hand the build to someone who has not seen this feature and
+    ask them to change their daily goal, giving no further instruction. SC-008 is met if they reach
+    the goal editor with at most one wrong tap. If no such person is available, record SC-008 as
+    **deferred — requires a human unfamiliar with the feature**, rather than silently claiming it
+    passed (the honest-reporting precedent from `specs/006-search-bookmarks-notes/tasks.md` T051).
 
 ## Design-fidelity gate (Principle VIII)
 

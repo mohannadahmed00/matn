@@ -49,7 +49,8 @@ reactive aggregate round-trip). SC-005 — the ring reflects goal completion wit
 round-trip. Progress aggregate is O(verses) per emission over a low-thousands corpus.
 
 **Constraints**: Offline-first (zero network); recall-based progress fully decoupled from raw
-playback frequency (FR-007/FR-011); "today" is the device's local calendar day (FR-013);
+playback frequency (FR-007/FR-011); "today" is the device's local calendar day, **re-evaluated on a
+poll so the count resets at midnight even while the app stays open** (FR-013, research D9);
 append-only daily record — un-marking never decrements the day's count (FR-014); progress % agrees
 across all three surfaces (SC-002); all new surfaces native RTL with Phase 10 tokens.
 
@@ -163,7 +164,8 @@ shared/src/commonMain/
         ├── common/
         │   ├── DailyGoalRing.kt            # NEW — shared stateless ring (Home + Goals)
         │   ├── MatnProgressBar.kt          # NEW — shared stateless progress bar/row (details + Goals)
-        │   └── AnnotationGlyphs.kt         # MODIFY — add MemorizedGlyph (distinct hand-drawn shape)
+        │   ├── AnnotationGlyphs.kt         # MODIFY — add MemorizedGlyph (distinct hand-drawn shape)
+        │   └── MatnCard.kt                 # MODIFY — show per-matn progress on the card
         ├── navigation/
         │   ├── MatnNavHost.kt              # MODIFY — GOALS route → real GoalsScreen (was ComingSoon)
         │   └── NavigationTab.kt            # MODIFY — doc comment: GOALS now has a real screen
@@ -176,7 +178,6 @@ shared/src/commonMain/
         │   ├── HomeUiState.kt              # MODIFY — add per-matn progress for cards
         │   ├── HomeViewModel.kt            # MODIFY — collect daily progress + library progress
         │   └── HomeScreen.kt               # MODIFY — render real ring (Stitch 618643f8… ring region)
-        ├── common/MatnCard.kt              # MODIFY — show per-matn progress on the card
         ├── details/
         │   ├── MatnDetailsUiState.kt       # MODIFY — header progress + per-verse memorized flags
         │   ├── MatnDetailsViewModel.kt     # MODIFY — collect progress; toggle-memorized + chapter intents
@@ -185,10 +186,13 @@ shared/src/commonMain/
 
 shared/src/commonTest/kotlin/com/giraffe/matn/
 ├── data/
-│   ├── ProgressRepositoryTest.kt          # NEW — toggle, chapter bulk, aggregate, zero-verse, audio-removal, daily dedup/append-only, today count
+│   ├── ProgressRepositoryTest.kt          # NEW — toggle, chapter bulk, aggregate, zero-verse, audio-removal, daily dedup/append-only, mid-session rollover (D9), rapid toggle, restart persistence
+│   ├── ProgressPerformanceTest.kt         # NEW — SC-001 guard (≥1,000 verses, mark → progress emission)
 │   ├── DailyGoalRepositoryTest.kt         # NEW — default 10, set/get, ≥1 bound
 │   └── MigrationV3Test.kt                  # NEW — v3 data survives v3→v4 migration
-├── playback/PracticeSignalRecorderTest.kt # NEW — recall-mode credit once/day; Normal none; dedup; day rollover
+├── playback/
+│   ├── PracticeSignalRecorderTest.kt      # NEW — recall-mode credit; Normal none; dedup; QueueEnded; no controller mutation
+│   └── PlaybackControllerTest.kt          # MODIFY — completion-marker tick set on natural transition, suppressed on next()/error-skip
 ├── domain/
 │   ├── ObserveDailyProgressUseCaseTest.kt # NEW — fraction/isComplete combine
 │   └── MarkChapterMemorizedUseCaseTest.kt # NEW — bulk credits each newly-memorized verse once
