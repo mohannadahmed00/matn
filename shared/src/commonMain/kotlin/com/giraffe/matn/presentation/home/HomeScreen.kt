@@ -17,6 +17,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
 import com.giraffe.matn.domain.model.StructureKind
+import com.giraffe.matn.presentation.common.ContinueLearningCard
 import com.giraffe.matn.presentation.common.CoverImage
 import com.giraffe.matn.presentation.common.formatDuration
 import com.giraffe.matn.presentation.theme.MatnTheme
@@ -40,11 +42,22 @@ import androidx.compose.ui.tooling.preview.Preview
  * Home / library screen (US2) — **stateful** entry. Hoists the [HomeViewModel]'s state and
  * delegates rendering to the stateless [HomeContent], so the render layer stays a pure function
  * of [HomeUiState] (Principle II) and is previewable/screenshot-testable without a ViewModel.
+ *
+ * Phase 4: also collects the ViewModel's one-shot [HomeViewModel.navigation] events and forwards
+ * them to [onOpenMatn], keeping navigation out of the ViewModel (Principle II).
  */
 @Composable
 fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    HomeContent(state = state, onOpenMatn = onOpenMatn)
+    LaunchedEffect(viewModel) {
+        viewModel.navigation.collect { matnId -> onOpenMatn(matnId) }
+    }
+    HomeContent(
+        state = state,
+        onOpenMatn = onOpenMatn,
+        onResume = viewModel::onResumeClicked,
+        onDismiss = viewModel::onDismissClicked,
+    )
 }
 
 /**
@@ -55,7 +68,12 @@ fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit) {
  * throughout (provided by [MatnTheme]). No network (FR-018/SC-006).
  */
 @Composable
-fun HomeContent(state: HomeUiState, onOpenMatn: (String) -> Unit) {
+fun HomeContent(
+    state: HomeUiState,
+    onOpenMatn: (String) -> Unit,
+    onResume: () -> Unit = {},
+    onDismiss: () -> Unit = {},
+) {
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.isLoading -> CircularProgressIndicator(
@@ -71,15 +89,30 @@ fun HomeContent(state: HomeUiState, onOpenMatn: (String) -> Unit) {
                     .padding(24.dp),
             )
 
-            else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(items = state.items, key = { it.matn.id }) { summary ->
-                    MatnCard(summary = summary, onClick = { onOpenMatn(summary.matn.id) })
+            else -> Column(modifier = Modifier.fillMaxSize()) {
+                // Phase 4 (FR-015): render the Continue Learning card above the grid when an
+                // entry exists, and render **nothing at all** — no placeholder, no reserved
+                // space — when it is null.
+                state.continueLearning?.let { entry ->
+                    ContinueLearningCard(
+                        entry = entry,
+                        onResume = onResume,
+                        onDismiss = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                    )
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(items = state.items, key = { it.matn.id }) { summary ->
+                        MatnCard(summary = summary, onClick = { onOpenMatn(summary.matn.id) })
+                    }
                 }
             }
         }

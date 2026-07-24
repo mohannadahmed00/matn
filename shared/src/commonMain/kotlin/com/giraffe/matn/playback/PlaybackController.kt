@@ -75,17 +75,19 @@ class PlaybackController(
 
     // ---------------------------------------------------------------- Play / pause / stop
 
-    /** FR-001 (per-verse play): build the queue starting at [verseId] and play. */
-    fun playFromVerse(matnId: String, verseId: String) {
-        startSession(matnId, startVerseId = verseId)
+    /** FR-001 (per-verse play): build the queue starting at [verseId] and play. Phase 4 adds an
+     *  optional [startPositionMs] so Continue Learning resumes mid-verse (FR-022/E2). Defaulted so
+     *  every existing caller and test stays source-compatible. */
+    fun playFromVerse(matnId: String, verseId: String, startPositionMs: Long = 0) {
+        startSession(matnId, startVerseId = verseId, startPositionMs = startPositionMs)
     }
 
     /** FR-001 (global play): build the queue from index 0 (or last-selected; Phase 4) and play. */
     fun playFromStart(matnId: String) {
-        startSession(matnId, startVerseId = null)
+        startSession(matnId, startVerseId = null, startPositionMs = 0)
     }
 
-    private fun startSession(matnId: String, startVerseId: String?) {
+    private fun startSession(matnId: String, startVerseId: String?, startPositionMs: Long = 0) {
         // Settings flush rule (T024): capture what was configured while IDLE *before* the reset
         // below wipes state back to defaults, so "configure the drill, then press play" works.
         val pendingSettings = _state.value.settings
@@ -118,13 +120,23 @@ class PlaybackController(
                         settingsStore.get(matnId)
                     }
                     settingsStore.put(matnId, settings)
-                    _state.value = _state.value.copy(settings = settings)
+                    // Phase 4 (FR-020/T035a): recompute the highlighted loop range when a session
+                    // starts. Without this a restored loop restricts playback but its verses are
+                    // not visibly marked — a latent Phase-3 bug that Phase-4 resume makes universal.
+                    _state.value = _state.value.copy(
+                        settings = settings,
+                        loopRangeVerseIds = loopRangeVerseIds(settings),
+                    )
 
                     val startCursor = PlaybackCursor(q.startIndex, 1, 1)
                     window = buildWindow(startCursor)
                     engine.setQueue(window.map { it.track }, 0)
                     applyCursor(startCursor)
                     engine.setSpeed(_state.value.speed.multiplier)
+                    // Phase 4 (FR-022/E2): resume mid-verse. Only seek when a non-zero position is
+                    // requested — a 0-position resume from a substituted verse (R4/R5) starts clean,
+                    // and the default keeps the existing play-from-start path untouched.
+                    if (startPositionMs > 0) engine.seekTo(startPositionMs)
                     engine.play()
                 }
                 is Resource.Failure -> {
@@ -349,7 +361,19 @@ class PlaybackController(
 
     /** Handle an [AudioEngineEvent.InterruptionBegan] per policy D5 / FR-019. */
     private fun onInterruptionBegan(event: AudioEngineEvent.InterruptionBegan) {
-        if (_state.value.status != PlaybackStatus.PLAYING) return
+        // Phase 4 (FR-022a/T031a): a *non-transient* focus denial may arrive mid-session-start,
+        // while status is still LOADING (the engine refuses to play with handleAudioFocus = true
+        // and emits InterruptionBegan). The guard below must honour it rather than silently
+        // dropping it — otherwise a resume during an active call would report PLAYING while no
+        // audio is playing (contractual interruption behaviour, Principle VII). Transient
+        // interruptions during LOADING are still ignored — they are expected to end before start
+        // completes and the existing auto-resume path owns them.
+        val s = _state.value
+        if (event.transient) {
+            if (s.status != PlaybackStatus.PLAYING) return
+        } else if (s.status != PlaybackStatus.PLAYING && s.status != PlaybackStatus.LOADING) {
+            return
+        }
         val reason = if (event.transient) {
             PauseReason.TRANSIENT_INTERRUPTION
         } else {

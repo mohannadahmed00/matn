@@ -28,4 +28,8 @@
     <string name="mode_normal">Normal</string>
     <string name="mode_memorization">Memorization</string>
     <string name="mode_ab_loop">A–B Loop</string>
+    <string name="continue_learning_title">Continue learning</string>
+    <string name="continue_learning_verse">Verse %1$d</string>
+    <string name="continue_learning_resume">Resume now</string>
+    <string name="continue_learning_dismiss">Dismiss</string>
 </resources>

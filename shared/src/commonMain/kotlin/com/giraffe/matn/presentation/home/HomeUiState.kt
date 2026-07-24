@@ -1,6 +1,7 @@
 package com.giraffe.matn.presentation.home
 
 import com.giraffe.matn.core.AppError
+import com.giraffe.matn.domain.model.ContinueLearningEntry
 import com.giraffe.matn.domain.model.MatnSummary
 
 /**
@@ -10,10 +11,14 @@ import com.giraffe.matn.domain.model.MatnSummary
  *  * [items] holds one [MatnSummary] per matn (cover/title/author/count/duration) for the grid.
  *  * [isEmpty] is true only when the store has zero متون → render the localized empty state
  *    (FR-004/SC-008), not a blank/error screen.
+ *  * [continueLearning] is the Phase-4 Home offer. `null` renders **nothing at all** — no
+ *    placeholder, no reserved space (FR-015). It stays null until its own collector resolves and
+ *    MUST NOT gate the grid (SC-005/T043a).
  */
 data class HomeUiState(
     val isLoading: Boolean = true,
     val items: List<MatnSummary> = emptyList(),
     val isEmpty: Boolean = false,
     val error: AppError? = null,
+    val continueLearning: ContinueLearningEntry? = null,
 )

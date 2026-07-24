@@ -80,7 +80,7 @@ measures directly.
 
 **Purpose**: Establish a known-green baseline so any later failure is attributable to this phase.
 
-- [ ] T001 Run `./gradlew :shared:allTests` and confirm it passes **before** changing anything. Record the passing test count; T045 compares against it.
+- [X] T001 Run `./gradlew :shared:allTests` and confirm it passes **before** changing anything. Record the passing test count; T045 compares against it.
 
 **Checkpoint**: Baseline green.
 
@@ -92,7 +92,7 @@ measures directly.
 
 ### Schema & migration
 
-- [ ] T002 Add the `matn_session` table to `shared/src/commonMain/sqldelight/com/giraffe/matn/db/Content.sq`. Append this **exactly**, after the `app_setting` table and before the `CREATE INDEX` lines:
+- [X] T002 Add the `matn_session` table to `shared/src/commonMain/sqldelight/com/giraffe/matn/db/Content.sq`. Append this **exactly**, after the `app_setting` table and before the `CREATE INDEX` lines:
 
 ```sql
 -- Phase 4 (FR-001): one saved session row per matn. Deliberately stores NO mode (derived,
@@ -114,7 +114,7 @@ CREATE TABLE matn_session (
 
   No extra index — `matn_id` is the PRIMARY KEY and is already indexed.
 
-- [ ] T003 Append these queries to the end of the same `Content.sq` file:
+- [X] T003 Append these queries to the end of the same `Content.sq` file:
 
 ```sql
 selectSession:
@@ -138,15 +138,15 @@ DELETE FROM app_setting WHERE key = ?;
 
   `deleteSetting` is what dismiss uses (FR-017a) — it must delete **only** the key it is given.
 
-- [ ] T004 Create the migration file `shared/src/commonMain/sqldelight/com/giraffe/matn/db/1.sqm` containing **only** the same `CREATE TABLE matn_session (...)` statement from T002 (no comments needed, no queries). The filename `1.sqm` means "migrate schema version 1 → 2". This file is what reaches **already-installed** apps; `Content.sq` only reaches fresh installs. Both are required — see [research.md D3](./research.md).
+- [X] T004 Create the migration file `shared/src/commonMain/sqldelight/com/giraffe/matn/db/1.sqm` containing **only** the same `CREATE TABLE matn_session (...)` statement from T002 (no comments needed, no queries). The filename `1.sqm` means "migrate schema version 1 → 2". This file is what reaches **already-installed** apps; `Content.sq` only reaches fresh installs. Both are required — see [research.md D3](./research.md).
 
-- [ ] T005 Run `./gradlew :shared:generateCommonMainContentDatabaseInterface` (or `./gradlew :shared:build`) and confirm SQLDelight generates without error and that a `MatnSession` type now exists in the generated `com.giraffe.matn.db` package. If generation complains about migrations, do **not** add config flags blindly — re-read T004; the file must sit in the same folder as `Content.sq`.
+- [X] T005 Run `./gradlew :shared:generateCommonMainContentDatabaseInterface` (or `./gradlew :shared:build`) and confirm SQLDelight generates without error and that a `MatnSession` type now exists in the generated `com.giraffe.matn.db` package. If generation complains about migrations, do **not** add config flags blindly — re-read T004; the file must sit in the same folder as `Content.sq`.
 
-- [ ] T006 Create `shared/src/commonTest/kotlin/com/giraffe/matn/db/MigrationTest.kt`. Assert `ContentDatabase.Schema.version` is now `2`, and that after creating a fresh schema the `matn_session` table is queryable (a `selectSession("nope")` returns no row rather than throwing "no such table"). This is the only test that can catch the upgrade-path bug; fresh-install tests structurally cannot.
+- [X] T006 Create `shared/src/commonTest/kotlin/com/giraffe/matn/db/MigrationTest.kt`. Assert `ContentDatabase.Schema.version` is now `2`, and that after creating a fresh schema the `matn_session` table is queryable (a `selectSession("nope")` returns no row rather than throwing "no such table"). This is the only test that can catch the upgrade-path bug; fresh-install tests structurally cannot.
 
 ### Domain types
 
-- [ ] T007 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/SavedMatnSession.kt`:
+- [X] T007 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/SavedMatnSession.kt`:
 
 ```kotlin
 package com.giraffe.matn.domain.model
@@ -162,7 +162,7 @@ data class SavedMatnSession(
 )
 ```
 
-- [ ] T008 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/ResumeTarget.kt`:
+- [X] T008 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/ResumeTarget.kt`:
 
 ```kotlin
 package com.giraffe.matn.domain.model
@@ -180,7 +180,7 @@ sealed interface ResumeTarget {
 }
 ```
 
-- [ ] T009 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/ContinueLearningEntry.kt`:
+- [X] T009 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/ContinueLearningEntry.kt`:
 
 ```kotlin
 package com.giraffe.matn.domain.model
@@ -194,7 +194,7 @@ data class ContinueLearningEntry(
 )
 ```
 
-- [ ] T010 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/RepeatCountCodec.kt` — the storage encoding for `RepeatCount` (data-model.md §1.3). Decoding must be **total**: it never throws, and unknown input returns `RepeatCount.ONE`.
+- [X] T010 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/model/RepeatCountCodec.kt` — the storage encoding for `RepeatCount` (data-model.md §1.3). Decoding must be **total**: it never throws, and unknown input returns `RepeatCount.ONE`.
 
 ```kotlin
 package com.giraffe.matn.domain.model
@@ -215,34 +215,34 @@ fun decodeRepeatCount(raw: String?): RepeatCount = when {
 }
 ```
 
-- [ ] T011 [P] Create `shared/src/commonTest/kotlin/com/giraffe/matn/domain/RepeatCountCodecTest.kt`. Cover: `Unlimited` → `"UNLIMITED"` → `Unlimited`; `Finite(7)` round trip; `null` → `ONE`; `"garbage"` → `ONE`; `"0"` → clamped to `Finite(1)`; `"999"` → clamped to `Finite(99)`. **Explicitly assert `decodeRepeatCount("UNLIMITED") != RepeatCount.of(1)`** — this is the FR-007 guard.
+- [X] T011 [P] Create `shared/src/commonTest/kotlin/com/giraffe/matn/domain/RepeatCountCodecTest.kt`. Cover: `Unlimited` → `"UNLIMITED"` → `Unlimited`; `Finite(7)` round trip; `null` → `ONE`; `"garbage"` → `ONE`; `"0"` → clamped to `Finite(1)`; `"999"` → clamped to `Finite(99)`. **Explicitly assert `decodeRepeatCount("UNLIMITED") != RepeatCount.of(1)`** — this is the FR-007 guard.
 
 ### Persistence
 
-- [ ] T012 Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/repository/SessionStateRepository.kt` — the interface exactly as specified in [contracts §1](./contracts/session-persistence.md). Six members: `getSession`, `putSession`, `getLastListenedMatnId`, `setLastListenedMatnId`, `clearLastListenedMatnId`, `observeContinueLearning`.
+- [X] T012 Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/repository/SessionStateRepository.kt` — the interface exactly as specified in [contracts §1](./contracts/session-persistence.md). Six members: `getSession`, `putSession`, `getLastListenedMatnId`, `setLastListenedMatnId`, `clearLastListenedMatnId`, `observeContinueLearning`.
 
-- [ ] T013 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/SessionStateRepositoryImpl.kt`. Constructor takes `db: ContentDatabase`. Follow `ReadingPreferencesRepositoryImpl` exactly for style.
+- [X] T013 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/SessionStateRepositoryImpl.kt`. Constructor takes `db: ContentDatabase`. Follow `ReadingPreferencesRepositoryImpl` exactly for style.
   - Setting key constant: `private const val KEY_LAST_LISTENED_MATN_ID = "last_listened_matn_id"`.
   - All writes wrapped in `storageCall { }` (rule 7).
   - `getSession` maps the row → `SavedMatnSession`, rebuilding `RepetitionSettings` via `decodeRepeatCount` and rebuilding `LoopRange` **only when both** `loop_start_verse_id` and `loop_end_verse_id` are non-null (otherwise `null`).
   - `observeContinueLearning()` observes the setting row, then resolves pointer → session → matn title. Emit `null` (never an error) when the pointer is absent, the session row is missing, or the matn no longer exists (P4, FR-015, FR-025).
   - `clearLastListenedMatnId()` calls `deleteSetting(KEY_LAST_LISTENED_MATN_ID)` and **nothing else** (P2, FR-017a).
 
-- [ ] T014 Create `shared/src/commonTest/kotlin/com/giraffe/matn/data/SessionStateRepositoryTest.kt` against `newTestDatabase()`. Assert P1–P5 from the contract. The two that matter most:
+- [X] T014 Create `shared/src/commonTest/kotlin/com/giraffe/matn/data/SessionStateRepositoryTest.kt` against `newTestDatabase()`. Assert P1–P5 from the contract. The two that matter most:
   - **`Unlimited` survives a full DB round trip** as `Unlimited` (S4).
   - **`clearLastListenedMatnId()` leaves every `matn_session` row readable** (P2). This is the test that stops a future refactor turning dismissal into data loss.
   - Also: `getSession` on an unknown matn returns `null` without throwing; a session with no loop returns `settings.loopRange == null`.
 
-- [ ] T015 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/PersistentRepetitionSettingsStore.kt` implementing the **existing, unchanged** `RepetitionSettingsStore` interface.
+- [X] T015 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/PersistentRepetitionSettingsStore.kt` implementing the **existing, unchanged** `RepetitionSettingsStore` interface.
   - **Do not change the interface.** Phase 3 promised substitution "without touching a single caller"; `get`/`put` stay synchronous.
   - Hold an in-memory cache map so `get` can answer synchronously; `put` updates the cache and launches a write on an injected `CoroutineScope`.
   - `get` on an unknown matn returns `RepetitionSettings()` — never null, never throws (S1).
   - Provide a `suspend fun warmCache(matnId: String)` (or load-on-first-touch) so settings saved in a previous app run are available; call it from the resume path in T033.
   - **Keep `InMemoryRepetitionSettingsStore.kt`** — existing tests use it.
 
-- [ ] T016 Create `shared/src/commonTest/kotlin/com/giraffe/matn/data/PersistentRepetitionSettingsStoreTest.kt`. Assert S1–S5: defaults for unknown matn; per-matn isolation (matn A's put never affects matn B); `Unlimited` round trip; a `put` with no prior row creates one (FR-002b).
+- [X] T016 Create `shared/src/commonTest/kotlin/com/giraffe/matn/data/PersistentRepetitionSettingsStoreTest.kt`. Assert S1–S5: defaults for unknown matn; per-matn isolation (matn A's put never affects matn B); `Unlimited` round trip; a `put` with no prior row creates one (FR-002b).
 
-- [ ] T017 Wire DI in `shared/src/commonMain/kotlin/com/giraffe/matn/di/ContentModule.kt`:
+- [X] T017 Wire DI in `shared/src/commonMain/kotlin/com/giraffe/matn/di/ContentModule.kt`:
   - Add `single<SessionStateRepository> { SessionStateRepositoryImpl(get()) }`.
   - **Replace** line 55's `single<RepetitionSettingsStore> { InMemoryRepetitionSettingsStore() }` with the persistent implementation.
   - Leave the use-case bindings for now; **T028** adds them after T025–T027 create those files.
@@ -262,7 +262,7 @@ tapping it lands on that verse and audio resumes mid-verse. Fully offline.
 
 ### The pure resolver
 
-- [ ] T018 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/session/VerseRef.kt`:
+- [X] T018 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/session/VerseRef.kt`:
 
 ```kotlin
 package com.giraffe.matn.domain.session
@@ -271,7 +271,7 @@ package com.giraffe.matn.domain.session
 data class VerseRef(val id: String, val displayNumber: Int)
 ```
 
-- [ ] T019 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/session/ResumeTargetResolver.kt` implementing **all** of rules R1–R9 in [data-model.md §3](./data-model.md). Signature:
+- [X] T019 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/session/ResumeTargetResolver.kt` implementing **all** of rules R1–R9 in [data-model.md §3](./data-model.md). Signature:
 
 ```kotlin
 object ResumeTargetResolver {
@@ -295,11 +295,11 @@ object ResumeTargetResolver {
 
   **Pure function only** — no coroutines, no I/O, no repository, no logging.
 
-- [ ] T020 [US1] Create `shared/src/commonTest/kotlin/com/giraffe/matn/domain/session/ResumeTargetResolverTest.kt` as a **table test with no fakes**. One case per row of the contract table in [contracts §4](./contracts/session-persistence.md): verse present · verse gone with predecessor · first verse deleted (falls forward) · matn emptied · loop endpoint gone · resolved verse outside its loop · `Unlimited` preserved · null session. Assert `substituted` and `positionMs == 0` on every substitution case.
+- [X] T020 [US1] Create `shared/src/commonTest/kotlin/com/giraffe/matn/domain/session/ResumeTargetResolverTest.kt` as a **table test with no fakes**. One case per row of the contract table in [contracts §4](./contracts/session-persistence.md): verse present · verse gone with predecessor · first verse deleted (falls forward) · matn emptied · loop endpoint gone · resolved verse outside its loop · `Unlimited` preserved · null session. Assert `substituted` and `positionMs == 0` on every substitution case.
 
 ### Writing state
 
-- [ ] T021 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/playback/DurableSnapshot.kt` — the projection that decides what is worth persisting:
+- [X] T021 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/playback/DurableSnapshot.kt` — the projection that decides what is worth persisting:
 
 ```kotlin
 package com.giraffe.matn.playback
@@ -326,7 +326,7 @@ fun PlaybackState.toDurableSnapshot(): DurableSnapshot? {
 }
 ```
 
-- [ ] T022 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/playback/SessionStateRecorder.kt` per [contracts §3](./contracts/session-persistence.md). Constructor: `(state: StateFlow<PlaybackState>, repository: SessionStateRepository, scope: CoroutineScope)`. **No clock** (rule 6).
+- [X] T022 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/playback/SessionStateRecorder.kt` per [contracts §3](./contracts/session-persistence.md). Constructor: `(state: StateFlow<PlaybackState>, repository: SessionStateRepository, scope: CoroutineScope)`. **No clock** (rule 6).
   - `start()` launches **two** collectors on `scope`:
     - **Structural**: `state.map { it.toDurableSnapshot() }.distinctUntilChanged { a, b -> a?.matnId == b?.matnId && a?.verseId == b?.verseId && a?.settings == b?.settings }` → write immediately (W1).
     - **Position**: the same snapshot flow, throttled to at most one write per `THROTTLE_MS` (use `sample(THROTTLE_MS)`), `private const val THROTTLE_MS = 5_000L` (W2).
@@ -334,29 +334,29 @@ fun PlaybackState.toDurableSnapshot(): DurableSnapshot? {
   - `suspend fun flush()` writes the current snapshot immediately; idempotent and a no-op when the snapshot is null (W6).
   - **Swallow write failures** — log at most; never rethrow, never surface to UI (W7, FR-011).
 
-- [ ] T023 [US1] Create `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionStateRecorderTest.kt`. Drive a `MutableStateFlow<PlaybackState>` against a fake `SessionStateRepository` that records calls. Use `runTest` + the virtual-time scheduler for the throttle — **no real delays, no clock**. Assert W1–W7, plus these three specific rows:
+- [X] T023 [US1] Create `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionStateRecorderTest.kt`. Drive a `MutableStateFlow<PlaybackState>` against a fake `SessionStateRepository` that records calls. Use `runTest` + the virtual-time scheduler for the throttle — **no real delays, no clock**. Assert W1–W7, plus these three specific rows:
   - **W3 (the important one)**: a state differing only in `status`, `speed`, `notice`, `pauseReason`, or `cursor` produces **zero** writes. This is the guard against throttling regressing into per-tick I/O.
   - **FR-016 — the entry tracks the newest position**: emit a snapshot at verse 5, then one at verse 9; assert the stored session ends at verse 9, not verse 5. Resuming and listening further must move the entry forward.
   - **SC-009b — browsing never moves the pointer**: emit a `PlaybackState` with `matnId` set but `activeVerseId == null` (a matn opened but never played); assert **zero** writes and **no** `setLastListenedMatnId` call. This is the automated counterpart to quickstart B3 and the direct guard on FR-002a.
 
 ### Reading state back
 
-- [ ] T024 [US1] Add `suspend fun getVersesByMatn(matnId: String): Resource<List<Verse>>` to `shared/src/commonMain/kotlin/com/giraffe/matn/domain/repository/VerseRepository.kt` and implement it in `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/VerseRepositoryImpl.kt`.
+- [X] T024 [US1] Add `suspend fun getVersesByMatn(matnId: String): Resource<List<Verse>>` to `shared/src/commonMain/kotlin/com/giraffe/matn/domain/repository/VerseRepository.kt` and implement it in `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/VerseRepositoryImpl.kt`.
   - **Copy the existing `getVersesByChapter` method exactly** — same `storageCall` wrapper, same mapper — swapping the query for the **already-existing** `selectVersesByMatn`. **Do not add a new `.sq` query**; it is already in `Content.sq`.
   - The caller (T026) maps `Verse` → `VerseRef(id, displayNumber)`. Both fields already exist on `Verse`.
   - Rationale: the interface currently exposes only `observeVerses` (a Flow), and the resolver needs a one-shot read.
 
-- [ ] T025 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/ObserveContinueLearningUseCase.kt` implementing `FlowUseCase<Unit, ContinueLearningEntry?>`. Delegates to `repository.observeContinueLearning()`. No logic beyond delegation.
+- [X] T025 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/ObserveContinueLearningUseCase.kt` implementing `FlowUseCase<Unit, ContinueLearningEntry?>`. Delegates to `repository.observeContinueLearning()`. No logic beyond delegation.
 
-- [ ] T026 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/ResolveResumeTargetUseCase.kt` implementing `UseCase<String, ResumeTarget>` (param = matnId). Fetches the session and the verse refs, calls `ResumeTargetResolver.resolve(...)`, returns `Resource.Success(target)`. **All branching lives in the resolver** — this use case contains no `if` about missing verses.
+- [X] T026 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/ResolveResumeTargetUseCase.kt` implementing `UseCase<String, ResumeTarget>` (param = matnId). Fetches the session and the verse refs, calls `ResumeTargetResolver.resolve(...)`, returns `Resource.Success(target)`. **All branching lives in the resolver** — this use case contains no `if` about missing verses.
 
-- [ ] T027 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/DismissContinueLearningUseCase.kt` implementing `UseCase<Unit, Unit>`. Calls `repository.clearLastListenedMatnId()` and nothing else (FR-017a).
+- [X] T027 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/DismissContinueLearningUseCase.kt` implementing `UseCase<Unit, Unit>`. Calls `repository.clearLastListenedMatnId()` and nothing else (FR-017a).
 
-- [ ] T028 [US1] Return to `di/ContentModule.kt` and add the three `factory` bindings for T025–T027.
+- [X] T028 [US1] Return to `di/ContentModule.kt` and add the three `factory` bindings for T025–T027.
 
 ### UI
 
-- [ ] T029 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/common/ContinueLearningCard.kt` as a **reusable, stateless, parameterized** composable (Constitution Principle VIII):
+- [X] T029 [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/common/ContinueLearningCard.kt` as a **reusable, stateless, parameterized** composable (Constitution Principle VIII):
 
 ```kotlin
 @Composable
@@ -373,26 +373,26 @@ fun ContinueLearningCard(
   - Implement it from the **Home / Library** Stitch design's Continue Learning region, screen id `618643f891144557b5a4ddf4bbad0c03`, registered in `docs/DESIGN-SOURCE.md`. Fetch it with the `stitch` MCP server. **Do not invent a layout.** If the design is unavailable, stop and ask rather than guessing.
   - Live in `presentation/common/` (shared), **not** inline in `HomeScreen.kt`.
 
-- [ ] T030 [US1] Add `@Preview`s to `ContinueLearningCard.kt` driven by hand-built sample state, no ViewModel (Principle II, blocking review item): a normal entry, and a very long matn title to prove truncation. Follow `presentation/common/CoverImage.kt` for preview style.
+- [X] T030 [US1] Add `@Preview`s to `ContinueLearningCard.kt` driven by hand-built sample state, no ViewModel (Principle II, blocking review item): a normal entry, and a very long matn title to prove truncation. Follow `presentation/common/CoverImage.kt` for preview style.
 
-- [ ] T031 [US1] Add the resume position parameter to `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt`. **This is the only permitted change to this file.**
+- [X] T031 [US1] Add the resume position parameter to `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt`. **This is the only permitted change to this file.**
   - Change line 79 to `fun playFromVerse(matnId: String, verseId: String, startPositionMs: Long = 0)` and pass it into `startSession`.
   - Change `private fun startSession(matnId: String, startVerseId: String?)` to take `startPositionMs: Long = 0`.
   - Inside `startSession`, in the `is Resource.Success` branch **only**, after the existing `applyCursor(startCursor)` and before `engine.play()`, add:
     `if (startPositionMs > 0) engine.seekTo(startPositionMs)`
   - The default of `0` keeps **every** existing caller and test source-compatible. Do not change `playFromStart`, `pause`, `resume`, `stop`, `next`, `previous`, `seekTo`, `setSpeed`, or any repetition method.
 
-- [ ] T031a [US1] Gate the automatic resume start on audio focus, in `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` (**sanctioned by Rule 2**). This implements **FR-022a**, which Constitution Principle VII makes contractual: *"pause and allow resume, never silently die."*
+- [X] T031a [US1] Gate the automatic resume start on audio focus, in `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` (**sanctioned by Rule 2**). This implements **FR-022a**, which Constitution Principle VII makes contractual: *"pause and allow resume, never silently die."*
   - **Why this is needed**: T031 makes resume start audio automatically. If another app already holds audio focus (an active call), starting playback must not play over it and must not fail silently — the session must restore fully but sit **paused**.
   - Phase 2 configures `handleAudioFocus = true` on the Media3 player, so the engine will refuse to actually play without focus. The gap is that `PlaybackState` would still report `PLAYING`, so the UI would lie about what the user hears.
   - Note `onInterruptionBegan` (line ~351) begins with `if (_state.value.status != PlaybackStatus.PLAYING) return`. A focus denial arriving during session start can therefore be dropped. Ensure a denial that arrives while status is `LOADING` or during start is still honoured — the resulting state must be `PAUSED` with `pauseReason = NON_TRANSIENT_INTERRUPTION`, not `PLAYING`.
   - **Do not** add a second focus-handling path. Reuse the existing `PauseReason` / interruption machinery (research D7).
 
-- [ ] T031b [US1] Add a focus-denial test to `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionResumeFocusTest.kt` (**new file — do not edit the existing `PlaybackControllerTest.kt`**). Using `FakeAudioEngine`, simulate a resume that begins while an interruption is active, and assert final state is `PAUSED` with `pauseReason == NON_TRANSIENT_INTERRUPTION`, that the matn, verse, position, and settings all restored correctly, and that `engine` is not left playing (FR-022a, E3).
+- [X] T031b [US1] Add a focus-denial test to `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionResumeFocusTest.kt` (**new file — do not edit the existing `PlaybackControllerTest.kt`**). Using `FakeAudioEngine`, simulate a resume that begins while an interruption is active, and assert final state is `PAUSED` with `pauseReason == NON_TRANSIENT_INTERRUPTION`, that the matn, verse, position, and settings all restored correctly, and that `engine` is not left playing (FR-022a, E3).
 
-- [ ] T032 [US1] Extend `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeUiState.kt` with **one** nullable field: `val continueLearning: ContinueLearningEntry? = null`. Do not alter or reorder the existing four fields.
+- [X] T032 [US1] Extend `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeUiState.kt` with **one** nullable field: `val continueLearning: ContinueLearningEntry? = null`. Do not alter or reorder the existing four fields.
 
-- [ ] T033 [US1] Extend `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeViewModel.kt`:
+- [X] T033 [US1] Extend `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeViewModel.kt`:
   - Take `observeContinueLearning`, `resolveResumeTarget`, `dismissContinueLearning`, and the `PlaybackController` as constructor parameters.
   - Collect `observeContinueLearning` in `init` (same `onEach { setState { ... } }.launchIn(viewModelScope)` shape as the existing library collector) and map into `continueLearning`.
   - Add `fun onResumeClicked()`: resolve the target; on `Resolved`, warm the settings-store cache for that matn (T015), then call `playbackController.playFromVerse(matnId, verseId, positionMs)` and navigate to the reading screen. On `None`, do nothing visible.
@@ -400,7 +400,7 @@ fun ContinueLearningCard(
   - **SC-005 — the continue-learning collector MUST be independent of the library collector.** It is its own `.onEach { }.launchIn(viewModelScope)`, and it MUST NOT gate `isLoading`. Never `combine`, `zip`, or otherwise await it before the grid renders: the library must paint as soon as its own first emission arrives, whether or not the entry has resolved. `continueLearning` simply stays `null` until it does, and `null` renders nothing (FR-015).
   - **No business logic in the ViewModel** — it forwards to use cases (Principle II).
 
-- [ ] T034 [US1] Wire the card into `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeScreen.kt`. Render `ContinueLearningCard` **above** the library grid when `state.continueLearning != null`; render **nothing at all** when it is null — no placeholder, no empty card, no reserved space (FR-015). Keep the stateless-content / thin-holder split the file already uses.
+- [X] T034 [US1] Wire the card into `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeScreen.kt`. Render `ContinueLearningCard` **above** the library grid when `state.continueLearning != null`; render **nothing at all** when it is null — no placeholder, no empty card, no reserved space (FR-015). Keep the stateless-content / thin-holder split the file already uses.
 
 **Checkpoint**: US1 is independently testable — listen, force-close, reopen, tap, land mid-verse.
 
@@ -418,21 +418,21 @@ confirm each restores its own.
 **Note**: Most of this behavior arrives via the T015/T017 store swap. These tasks make it *true on
 the resume path* and prove it.
 
-- [ ] T035 [US2] Ensure the resume path applies the resolved `settings`, in `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeViewModel.kt` (`onResumeClicked`, added in T033). The settings from `ResumeTarget.Resolved` must be in the store **before** `playFromVerse` runs — `PlaybackController.startSession` reads `settingsStore.get(matnId)` at line 118, so a cold cache would silently yield defaults. Warm the cache (T015) or `put` the resolved settings first. **This ordering is the single most likely bug in the phase.**
+- [X] T035 [US2] Ensure the resume path applies the resolved `settings`, in `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/home/HomeViewModel.kt` (`onResumeClicked`, added in T033). The settings from `ResumeTarget.Resolved` must be in the store **before** `playFromVerse` runs — `PlaybackController.startSession` reads `settingsStore.get(matnId)` at line 118, so a cold cache would silently yield defaults. Warm the cache (T015) or `put` the resolved settings first. **This ordering is the single most likely bug in the phase.**
 
-- [ ] T035a [US2] Recompute `loopRangeVerseIds` when a session starts, in `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` (**sanctioned by Rule 2**). This implements the second half of **FR-020** — *"its verses are visually marked as the range."*
+- [X] T035a [US2] Recompute `loopRangeVerseIds` when a session starts, in `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` (**sanctioned by Rule 2**). This implements the second half of **FR-020** — *"its verses are visually marked as the range."*
   - **The bug**: `loopRangeVerseIds` is assigned in exactly one place — line 285, inside `updateSettings()`. `startSession` copies settings at line 121 (`_state.value.copy(settings = settings)`) but **never** recomputes `loopRangeVerseIds`, so it stays `emptySet()`.
   - **Consequence**: a restored A–B loop *restricts* playback correctly but its verses are **not highlighted**. Resume looks like it worked; the range is invisible. Easy to mistake for cosmetic — it is FR-020 unmet.
   - **Fix**: at line 121, change the copy to also set `loopRangeVerseIds = loopRangeVerseIds(settings)`, reusing the existing private helper at line 305. One line. Do not touch `updateSettings`.
   - **This is a latent Phase 3 bug**, not one Phase 4 introduces — re-opening a matn mid-run already hits the same path. Phase 4 makes it universal, because now every launch restores a loop from storage.
 
-- [ ] T035b [US2] Add an assertion to `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionResumeFocusTest.kt` (or a sibling new test file): starting a session for a matn whose stored settings contain a `LoopRange` yields a non-empty `state.loopRangeVerseIds` containing exactly the verse IDs inside the inclusive range. Without this, T035a can silently regress.
+- [X] T035b [US2] Add an assertion to `shared/src/commonTest/kotlin/com/giraffe/matn/playback/SessionResumeFocusTest.kt` (or a sibling new test file): starting a session for a matn whose stored settings contain a `LoopRange` yields a non-empty `state.loopRangeVerseIds` containing exactly the verse IDs inside the inclusive range. Without this, T035a can silently regress.
 
-- [ ] T036 [US2] Confirm opening a matn **directly** (not via Continue Learning) also restores its saved settings (FR-023). This should require no new code — `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` already calls `settingsStore.get(matnId)` in `startSession`. Verify the cache in `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/PersistentRepetitionSettingsStore.kt` is populated for a matn opened in a *later app run*; if it is not, fix that file (T015), **not** `PlaybackController`.
+- [X] T036 [US2] Confirm opening a matn **directly** (not via Continue Learning) also restores its saved settings (FR-023). This should require no new code — `shared/src/commonMain/kotlin/com/giraffe/matn/playback/PlaybackController.kt` already calls `settingsStore.get(matnId)` in `startSession`. Verify the cache in `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/PersistentRepetitionSettingsStore.kt` is populated for a matn opened in a *later app run*; if it is not, fix that file (T015), **not** `PlaybackController`.
 
-- [ ] T037 [US2] Create `shared/src/commonTest/kotlin/com/giraffe/matn/data/SettingsRestorePathTest.kt`. Simulate: put settings for matn A, discard the in-memory cache (construct a fresh store over the same database — this stands in for an app restart), then `get(matnA)`. Assert the saved counters and loop range return, and that `get(matnB)` still returns defaults (SC-009 zero cross-matn leakage).
+- [X] T037 [US2] Create `shared/src/commonTest/kotlin/com/giraffe/matn/data/SettingsRestorePathTest.kt`. Simulate: put settings for matn A, discard the in-memory cache (construct a fresh store over the same database — this stands in for an app restart), then `get(matnA)`. Assert the saved counters and loop range return, and that `get(matnB)` still returns defaults (SC-009 zero cross-matn leakage).
 
-- [ ] T038 [US2] Verify the restored mode is **derived**, not stored. Add to `shared/src/commonTest/kotlin/com/giraffe/matn/data/SettingsRestorePathTest.kt`: a session restored with `verseRepeat = 7` reports `settings.mode == PlaybackMode.MEMORIZATION`, and one restored with a loop range reports `A_B_LOOP`. Then confirm by inspection that `shared/src/commonMain/sqldelight/com/giraffe/matn/db/Content.sq` contains no `mode` column anywhere (FR-005).
+- [X] T038 [US2] Verify the restored mode is **derived**, not stored. Add to `shared/src/commonTest/kotlin/com/giraffe/matn/data/SettingsRestorePathTest.kt`: a session restored with `verseRepeat = 7` reports `settings.mode == PlaybackMode.MEMORIZATION`, and one restored with a loop range reports `A_B_LOOP`. Then confirm by inspection that `shared/src/commonMain/sqldelight/com/giraffe/matn/db/Content.sq` contains no `mode` column anywhere (FR-005).
 
 **Checkpoint**: US1 + US2 both work independently.
 
@@ -446,16 +446,16 @@ showing a broken entry or crashing.
 **Independent test**: Force-close mid-session and confirm the saved place is intact; then invalidate
 the saved target and confirm the app opens cleanly with no broken entry.
 
-- [ ] T039 [US3] Call `SessionStateRecorder.flush()` when the app is backgrounded, so an abrupt kill loses at most the current verse's partial position (FR-009, FR-010).
+- [X] T039 [US3] Call `SessionStateRecorder.flush()` when the app is backgrounded, so an abrupt kill loses at most the current verse's partial position (FR-009, FR-010).
   - **There is no existing backgrounding hook** — this was verified; you are adding the first one. On Android, hook `onStop` in `androidApp/src/main/kotlin/com/giraffe/matn/MainActivity.kt`. On iOS, hook the equivalent scene/app-lifecycle callback in `iosApp`.
   - Also flush on pause and stop.
   - Each hook body is **one call to `flush()` and nothing else** — no business logic in platform shells (Principle IV).
 
-- [ ] T040 [US3] Wire `SessionStateRecorder.start()` at app startup. Add it to `di/ContentModule.kt` as a `single` and start it where Koin is initialized (`di/MatnKoinStarter.kt`). It must observe the same `PlaybackController` singleton the UI uses — not a new instance.
+- [X] T040 [US3] Wire `SessionStateRecorder.start()` at app startup. Add it to `di/ContentModule.kt` as a `single` and start it where Koin is initialized (`di/MatnKoinStarter.kt`). It must observe the same `PlaybackController` singleton the UI uses — not a new instance.
 
-- [ ] T041 [US3] Confirm FR-025 (missing matn) is handled at **two** levels: `ON DELETE CASCADE` removes the orphaned session row, and `observeContinueLearning` emits `null` when the matn is absent. Add a test to `SessionStateRepositoryTest.kt` that deletes a matn and asserts both the session row is gone and the observed entry is `null` — not an error, not a crash.
+- [X] T041 [US3] Confirm FR-025 (missing matn) is handled at **two** levels: `ON DELETE CASCADE` removes the orphaned session row, and `observeContinueLearning` emits `null` when the matn is absent. Add a test to `SessionStateRepositoryTest.kt` that deletes a matn and asserts both the session row is gone and the observed entry is `null` — not an error, not a crash.
 
-- [ ] T042 [US3] Add a corrupt-state test to `SessionStateRepositoryTest.kt`: write a row with an unparseable `verse_repeat` value directly via SQL, then read it back. Assert `getSession` returns a session with `RepeatCount.ONE` rather than throwing (FR-029, P1). The app must never fail to launch because of bad stored data.
+- [X] T042 [US3] Add a corrupt-state test to `SessionStateRepositoryTest.kt`: write a row with an unparseable `verse_repeat` value directly via SQL, then read it back. Assert `getSession` returns a session with `RepeatCount.ONE` rather than throwing (FR-029, P1). The app must never fail to launch because of bad stored data.
 
 **Checkpoint**: All three stories work; failure modes degrade quietly.
 
@@ -463,13 +463,13 @@ the saved target and confirm the app opens cleanly with no broken entry.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T043 [P] Verify Principle VIII compliance in `ContinueLearningCard.kt`: no hard-coded hex colors, no magic `.dp`/`.sp` literals, component is stateless and parameterized, previews present, and it lives in `presentation/common/` rather than inline in the screen. This is a blocking review item.
+- [X] T043 [P] Verify Principle VIII compliance in `ContinueLearningCard.kt`: no hard-coded hex colors, no magic `.dp`/`.sp` literals, component is stateless and parameterized, previews present, and it lives in `presentation/common/` rather than inline in the screen. This is a blocking review item.
 
-- [ ] T043a [P] Verify **SC-005** (Continue Learning adds ≤200 ms to Home load) structurally rather than by stopwatch. In `shared/src/commonTest/kotlin/com/giraffe/matn/presentation/HomeLoadIndependenceTest.kt` (new file), construct `HomeViewModel` with a library flow that emits immediately and a continue-learning flow that **never emits**. Assert `isLoading` still becomes `false` and `items` populate. If the grid can render while the entry never resolves at all, the entry cannot be adding measurable latency — which is the property SC-005 actually cares about. Pair with the device observation in [quickstart.md §B1](./quickstart.md).
+- [X] T043a [P] Verify **SC-005** (Continue Learning adds ≤200 ms to Home load) structurally rather than by stopwatch. In `shared/src/commonTest/kotlin/com/giraffe/matn/presentation/HomeLoadIndependenceTest.kt` (new file), construct `HomeViewModel` with a library flow that emits immediately and a continue-learning flow that **never emits**. Assert `isLoading` still becomes `false` and `items` populate. If the grid can render while the entry never resolves at all, the entry cannot be adding measurable latency — which is the property SC-005 actually cares about. Pair with the device observation in [quickstart.md §B1](./quickstart.md).
 
-- [ ] T044 [P] Confirm no new dependency was added: `git diff gradle/libs.versions.toml shared/build.gradle.kts` must be **empty** (except the SQLDelight migration folder, if any config proved necessary in T005).
+- [X] T044 [P] Confirm no new dependency was added: `git diff gradle/libs.versions.toml shared/build.gradle.kts` must be **empty** (except the SQLDelight migration folder, if any config proved necessary in T005).
 
-- [ ] T045 Run `./gradlew :shared:allTests`. Confirm the Phase 0–3 test count from T001 still passes with **zero edits to any pre-existing test file** (`git diff --stat` over existing test files must be empty). A pre-existing test needing an edit means an unintended behavior change — a blocking review failure.
+- [X] T045 Run `./gradlew :shared:allTests`. Confirm the Phase 0–3 test count from T001 still passes with **zero edits to any pre-existing test file** (`git diff --stat` over existing test files must be empty). A pre-existing test needing an edit means an unintended behavior change — a blocking review failure.
 
 - [ ] T046 Execute the device validation in [quickstart.md §B](./quickstart.md) — B1–B8 on Android, B1/B2/B6 on iOS. **B8 (upgrade in place) is mandatory**: install the pre-Phase-4 build, then install this build over it without uninstalling. A crash there means the T004 migration is wrong, and no fresh-install test can catch it.
 
