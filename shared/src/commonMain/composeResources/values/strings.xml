@@ -71,4 +71,15 @@
     <string name="goals_progress_section_title">تقدم المتون</string>
     <string name="goals_empty_title">ابدأ رحلة الحفظ</string>
     <string name="goals_empty_message">لم تُحفظ أبيات بعد — افتح متنًا وابدأ الحفظ لتظهر أهدافك هنا</string>
+    <string name="content_not_installed_desc">غير مثبت</string>
+    <string name="content_installing_desc">جارٍ التثبيت</string>
+    <string name="content_installed_desc">تم التثبيت</string>
+    <string name="content_nothing_to_install">لا يوجد صوت لتثبيته</string>
+    <string name="content_waiting_network">بانتظار اتصال مناسب</string>
+    <string name="content_waiting_confirmation">بانتظار التأكيد</string>
+    <string name="content_action_install">تثبيت</string>
+    <string name="content_action_cancel">إلغاء التثبيت</string>
+    <string name="content_action_remove">إزالة</string>
+    <string name="install_prompt_message">يلزم تثبيت هذا المتن قبل تشغيله</string>
+    <string name="install_prompt_dismiss">ليس الآن</string>
 </resources>
