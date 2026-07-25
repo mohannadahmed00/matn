@@ -25,6 +25,7 @@ private const val KEY_THEME_MODE = "theme_mode"
  *    mirrored to the platform launch-window store by the `AppViewModel` (it needs the system-dark
  *    flag, which lives in the presentation layer — see T041).
  */
+@org.koin.core.annotation.Single(binds = [AppearancePreferencesRepository::class])
 class AppearancePreferencesRepositoryImpl(
     private val db: ContentDatabase,
 ) : AppearancePreferencesRepository {

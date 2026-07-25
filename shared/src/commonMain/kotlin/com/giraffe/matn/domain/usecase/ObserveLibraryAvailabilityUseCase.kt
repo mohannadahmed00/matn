@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
  * T034 (FR-002) — streams every matn's availability in one emission for the Home/Library grid.
  * Pure delegation to [ContentPackRepository.observeLibraryAvailability] (content-delivery-contract.md §4).
  */
+@org.koin.core.annotation.Factory
 class ObserveLibraryAvailabilityUseCase(
     private val repository: ContentPackRepository,
 ) : FlowUseCase<Unit, Map<String, ContentAvailability>> {

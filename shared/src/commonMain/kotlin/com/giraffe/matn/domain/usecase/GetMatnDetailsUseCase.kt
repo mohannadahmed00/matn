@@ -24,6 +24,7 @@ import com.giraffe.matn.domain.repository.MatnRepository
  * second round trip. [contentPackRepo] is optional/defaulted so existing call sites and tests
  * keep compiling.
  */
+@org.koin.core.annotation.Factory
 class GetMatnDetailsUseCase(
     private val matnRepo: MatnRepository,
     private val contentPackRepo: ContentPackRepository? = null,

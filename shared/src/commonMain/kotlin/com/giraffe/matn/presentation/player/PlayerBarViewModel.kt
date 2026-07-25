@@ -11,6 +11,7 @@ import com.giraffe.matn.presentation.base.BaseViewModel
  * Owns no state of its own; it maps `PlaybackState` → [PlayerBarUiState] (data-model.md §5.2)
  * and emits intents (`onPlayPause`, `onStop`, `onNext`, `onPrevious`, `onSeek`, `onSpeedSelected`).
  */
+@org.koin.core.annotation.Factory
 class PlayerBarViewModel(
     private val controller: PlaybackController,
 ) : BaseViewModel<PlayerBarUiState>(PlayerBarUiState()) {

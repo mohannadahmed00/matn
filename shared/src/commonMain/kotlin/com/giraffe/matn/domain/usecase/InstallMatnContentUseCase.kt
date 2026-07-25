@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
  * 4. Otherwise delegate to the repository/engine, whose failure (e.g. no connectivity) passes
  *    through unchanged — there is no separate network-state API in this contract (FR-015).
  */
+@org.koin.core.annotation.Factory
 class InstallMatnContentUseCase(
     private val repository: ContentPackRepository,
     private val storage: DeviceStorage,

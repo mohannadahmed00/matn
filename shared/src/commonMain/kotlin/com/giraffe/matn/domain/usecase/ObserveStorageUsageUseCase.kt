@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
  * delegation to [ContentPackRepository.observeStorageUsage] — all ordering and totalling logic
  * lives in the repository (content-delivery-contract.md §4).
  */
+@org.koin.core.annotation.Factory
 class ObserveStorageUsageUseCase(
     private val repository: ContentPackRepository,
 ) : FlowUseCase<Unit, StorageUsage> {

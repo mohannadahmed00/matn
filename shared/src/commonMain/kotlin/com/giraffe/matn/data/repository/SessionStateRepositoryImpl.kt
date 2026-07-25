@@ -36,6 +36,7 @@ private const val KEY_LAST_LISTENED_MATN_ID = "last_listened_matn_id"
  *   exists (P4, FR-015, FR-025) — never an error.
  * - `clearLastListenedMatnId` calls `deleteSetting(...)` and nothing else (P2, FR-017a).
  */
+@org.koin.core.annotation.Single(binds = [SessionStateRepository::class])
 class SessionStateRepositoryImpl(
     private val db: ContentDatabase,
 ) : SessionStateRepository {

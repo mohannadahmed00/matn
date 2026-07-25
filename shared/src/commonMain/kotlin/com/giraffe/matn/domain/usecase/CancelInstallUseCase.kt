@@ -8,6 +8,7 @@ import com.giraffe.matn.domain.repository.ContentPackRepository
  * T035 (FR-005/FR-006) — best-effort abort of an in-flight install. Pure delegation to
  * [ContentPackRepository.cancel] (content-delivery-contract.md §4).
  */
+@org.koin.core.annotation.Factory
 class CancelInstallUseCase(
     private val repository: ContentPackRepository,
 ) : UseCase<String, Unit> {

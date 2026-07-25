@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
  * Verse `arabicText` is passed through **verbatim** — no normalization, trimming, or
  * transformation — so diacritics stay byte-identical end-to-end (FR-008/SC-002).
  */
+@org.koin.core.annotation.Factory
 class ObserveVersesUseCase(
     private val repo: VerseRepository,
 ) : FlowUseCase<String, List<Verse>> {

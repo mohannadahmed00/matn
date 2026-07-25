@@ -7,6 +7,7 @@ import com.giraffe.matn.domain.repository.OnboardingRepository
 /**
  * Marks onboarding completed (or skipped — same state, FR-018). Persists immediately (Principle VI).
  */
+@org.koin.core.annotation.Factory
 class CompleteOnboardingUseCase(
     private val repo: OnboardingRepository,
 ) : UseCase<Unit, Unit> {

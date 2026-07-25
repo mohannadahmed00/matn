@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
  * rendering a play affordance so the install prompt replaces it (FR-011). The starter matn is
  * always `Installed`, so this gate always passes for it (FR-014).
  */
+@org.koin.core.annotation.Factory
 class EnsureMatnPlayableUseCase(
     private val repository: ContentPackRepository,
 ) : UseCase<String, Unit> {

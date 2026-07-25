@@ -5,6 +5,7 @@ import com.giraffe.matn.domain.model.BookmarkEntry
 import com.giraffe.matn.domain.repository.BookmarkRepository
 import kotlinx.coroutines.flow.Flow
 
+@org.koin.core.annotation.Factory
 class ObserveBookmarksUseCase(private val repo: BookmarkRepository) : FlowUseCase<Unit, List<BookmarkEntry>> {
     override fun invoke(params: Unit): Flow<List<BookmarkEntry>> = repo.observeAll()
 }

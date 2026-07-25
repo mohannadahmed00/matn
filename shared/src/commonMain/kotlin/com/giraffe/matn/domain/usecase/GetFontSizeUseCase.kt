@@ -6,6 +6,7 @@ import com.giraffe.matn.domain.repository.ReadingPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 
 /** Streams the global reading font-size preference (FR-016/FR-017). */
+@org.koin.core.annotation.Factory
 class GetFontSizeUseCase(
     private val repo: ReadingPreferencesRepository,
 ) : FlowUseCase<Unit, ReadingFontSize> {

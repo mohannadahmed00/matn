@@ -91,6 +91,13 @@ kotlin {
     }
 }
 
+koinCompiler {
+    // GetMatnDetailsUseCase.contentPackRepo has a `= null` default but must still be
+    // autowired (matches pre-migration DSL behavior) — global off since no annotated
+    // class here relies on a real skip.
+    skipDefaultValues = false
+}
+
 sqldelight {
     databases {
         create("ContentDatabase") {

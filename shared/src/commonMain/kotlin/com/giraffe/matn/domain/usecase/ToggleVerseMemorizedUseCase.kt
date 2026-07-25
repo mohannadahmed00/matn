@@ -4,6 +4,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.repository.ProgressRepository
 
+@org.koin.core.annotation.Factory
 class ToggleVerseMemorizedUseCase(private val repo: ProgressRepository) : UseCase<ToggleVerseMemorizedUseCase.Params, Unit> {
     data class Params(val verseId: String, val memorized: Boolean)
 

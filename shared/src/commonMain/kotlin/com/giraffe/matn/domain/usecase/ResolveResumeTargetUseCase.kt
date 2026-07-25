@@ -11,6 +11,7 @@ import com.giraffe.matn.domain.session.VerseRef
 /** Resolves what tapping Continue Learning for a matn should do (contracts §5). Fetches the saved
  *  session and the matn's current ordered verses, then delegates every branching decision to the
  *  pure [ResumeTargetResolver] — this use case contains no `if` about missing verses. */
+@org.koin.core.annotation.Factory
 class ResolveResumeTargetUseCase(
     private val sessionState: SessionStateRepository,
     private val verses: VerseRepository,

@@ -24,6 +24,7 @@ import matn.shared.generated.resources.Res
  * (Constitution VII). This impl is faked in tests (`FakeAudioSourceResolver`) — the only other
  * audio-source implementation in the repo is the unit-test fake.
  */
+@org.koin.core.annotation.Single(binds = [AudioSourceResolver::class])
 class AudioSourceResolverImpl(
     private val contentPackRepository: ContentPackRepository,
 ) : AudioSourceResolver {

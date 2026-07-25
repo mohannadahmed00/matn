@@ -30,6 +30,7 @@ import kotlinx.coroutines.sync.withLock
  * a no-op returning `Reclaimed(0)`, and a remove racing an in-flight install of the same matn
  * **wins** (cancel first, then remove).
  */
+@org.koin.core.annotation.Single(binds = [ContentPackRepository::class])
 class ContentPackRepositoryImpl(
     private val db: ContentDatabase,
     private val engine: ContentDeliveryEngine,

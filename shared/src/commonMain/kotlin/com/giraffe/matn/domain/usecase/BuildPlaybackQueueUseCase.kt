@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.first
  *
  * No coroutine launched inside (Principle III); returns `Resource` per the Phase 0/1 convention.
  */
+@org.koin.core.annotation.Factory
 open class BuildPlaybackQueueUseCase(
     private val verseRepository: VerseRepository,
     private val audioRepository: AudioAssetRepository,

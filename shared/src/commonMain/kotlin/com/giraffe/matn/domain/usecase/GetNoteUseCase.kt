@@ -5,6 +5,7 @@ import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.repository.NoteRepository
 
+@org.koin.core.annotation.Factory
 class GetNoteUseCase(private val repo: NoteRepository) : UseCase<String, Note?> {
     override suspend fun invoke(params: String): Resource<Note?> = repo.get(params)
 }
