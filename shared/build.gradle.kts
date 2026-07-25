@@ -10,6 +10,8 @@ plugins {
 }
 
 kotlin {
+    jvm()
+
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -19,7 +21,7 @@ kotlin {
             isStatic = true
         }
     }
-    
+
     android {
        namespace = "com.giraffe.matn.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -53,6 +55,9 @@ kotlin {
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native.driver)
+        }
+        jvmMain.dependencies {
+            implementation(libs.sqldelight.sqlite.driver)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
