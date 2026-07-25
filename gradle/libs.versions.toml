@@ -16,7 +16,8 @@ material3 = "1.11.0-alpha07"
 sqldelight = "2.0.2"
 coroutines = "1.9.0"
 serialization = "1.7.3"
-koin = "4.0.0"
+koin = "4.2.1"
+koinCompilerPlugin = "1.0.2"
 navigationCompose = "2.9.2"
 media3 = "1.4.1"
 kotlinxDatetime = "0.7.1"
@@ -54,6 +55,7 @@ kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
+koin-annotations = { module = "io.insert-koin:koin-annotations", version.ref = "koin" }
 navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
@@ -71,3 +73,4 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+koinCompiler = { id = "io.insert-koin.compiler.plugin", version.ref = "koinCompilerPlugin" }
