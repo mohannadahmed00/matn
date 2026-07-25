@@ -4,7 +4,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,7 +34,10 @@ import com.giraffe.matn.presentation.theme.widthClassFor
 @Composable
 @Preview
 fun App() {
-    val s  = isSystemInDarkTheme()
+    // isSystemInDarkTheme() is @Composable and can only be read here, in App()'s own composable
+    // scope — AppViewModel's systemIsDark param is a plain () -> Boolean, so it captures this
+    // value rather than calling the @Composable function itself.
+    val systemIsDark = isSystemInDarkTheme()
     val koin = MatnKoinHolder.koin
     val viewModel: AppViewModel = viewModel {
         AppViewModel(
@@ -43,7 +45,7 @@ fun App() {
             observeThemeMode = koin.get<ObserveThemeModeUseCase>(),
             motionPreferences = koin.get<MotionPreferences>(),
             appearanceMirror = koin.get<AppearanceMirror>(),
-            systemIsDark = { s },
+            systemIsDark = { systemIsDark },
         )
     }
     val state by viewModel.state.collectAsState()
