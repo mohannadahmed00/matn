@@ -2,6 +2,7 @@ package com.giraffe.matn.playback
 
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.core.Resource
+import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.data.repository.InMemoryRepetitionSettingsStore
 import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.AudioEngineEvent
@@ -50,6 +51,10 @@ class PlaybackController(
     private val buildQueue: BuildPlaybackQueueUseCase,
     private val wakeLock: WakeLock,
     private val settingsStore: RepetitionSettingsStore = InMemoryRepetitionSettingsStore(),
+    /** Phase 8 (FR-011/FR-012, research D9): the single playback gate, consulted once per session
+     *  start. Optional/defaulted so existing call sites and tests keep compiling (same pattern as
+     *  the Phase 7 progress use cases below). Null ⇒ no gate (every matn plays). */
+    private val ensureMatnPlayable: UseCase<String, Unit>? = null,
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow(PlaybackState())
@@ -108,6 +113,15 @@ class PlaybackController(
             speed = _state.value.speed, // retain across sessions
         )
         scope.launch {
+            // Phase 8 (FR-011/FR-012, research D9): the single playback gate. Consulted once, here,
+            // never inside moveToVerse/applyCursor/the transition path (Constitution VII).
+            if (ensureMatnPlayable?.invoke(matnId) is Resource.Failure) {
+                _state.value = PlaybackState(
+                    status = PlaybackStatus.IDLE,
+                    notice = PlaybackNotice.ContentNotInstalled(matnId),
+                )
+                return@launch
+            }
             val params = BuildPlaybackQueueUseCase.Params(matnId, startVerseId)
             when (val result = buildQueue.invoke(params)) {
                 is Resource.Success -> {

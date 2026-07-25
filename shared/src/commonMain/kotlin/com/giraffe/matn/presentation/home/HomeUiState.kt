@@ -1,6 +1,7 @@
 package com.giraffe.matn.presentation.home
 
 import com.giraffe.matn.core.AppError
+import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.ContinueLearningEntry
 import com.giraffe.matn.domain.model.MatnSummary
 
@@ -19,6 +20,10 @@ import com.giraffe.matn.domain.model.MatnSummary
  *  * [progressByMatn] (Phase 7, FR-006) is the per-matn memorized fraction for the library card
  *    affordance, keyed by matn id. Collected independently — like [continueLearning] — so it
  *    never gates [isLoading]; a matn absent from the map simply renders no progress affordance.
+ *  * [availability] (Phase 8, FR-002) is the per-matn content-delivery state, keyed by matn id.
+ *    Collected independently — like [progressByMatn] — so it never gates [isLoading]; a matn
+ *    absent from the map renders no availability badge yet (storage-ui-contract.md §5:
+ *    re-collection on resume, never a cached snapshot).
  */
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -28,4 +33,12 @@ data class HomeUiState(
     val continueLearning: ContinueLearningEntry? = null,
     val dailyGoal: DailyGoalUiState = DailyGoalUiState(),
     val progressByMatn: Map<String, Float> = emptyMap(),
-)
+    val availability: Map<String, ContentAvailability> = emptyMap(),
+) {
+    /** Phase 8 (FR-022): whether the Continue Learning entry's matn is installed, joining
+     *  [continueLearning] with [availability] — drives
+     *  [com.giraffe.matn.presentation.common.ContinueLearningCard]'s reinstall offer. `true` when
+     *  there is no entry (nothing to gate). */
+    val isContinueLearningContentInstalled: Boolean
+        get() = continueLearning?.let { entry -> availability[entry.matnId] is ContentAvailability.Installed } ?: true
+}

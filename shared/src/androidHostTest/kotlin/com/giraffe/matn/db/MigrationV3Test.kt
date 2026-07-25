@@ -16,8 +16,8 @@ import kotlin.test.assertNull
 class MigrationV3Test {
 
     @Test
-    fun schema_version_is_four() {
-        assertEquals(4L, ContentDatabase.Schema.version)
+    fun schema_version_is_five() {
+        assertEquals(5L, ContentDatabase.Schema.version)
     }
 
     private fun buildV3Driver(): JdbcSqliteDriver {

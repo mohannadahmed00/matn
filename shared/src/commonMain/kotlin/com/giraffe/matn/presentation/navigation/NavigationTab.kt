@@ -15,8 +15,9 @@ import org.jetbrains.compose.resources.StringResource
 
 /**
  * The four persistent bottom-nav destinations (specs/010-design-system-adoption User Story 3;
- * `docs/PRODUCT-SPEC.md` § Navigation & App Shell). [LIBRARY], [NOTES] (Phase 6), and [GOALS]
- * (Phase 7) have real screens; [SETTINGS] routes to the shared [ComingSoonScreen] until Phase 8/9.
+ * `docs/PRODUCT-SPEC.md` § Navigation & App Shell). All four now route to real screens:
+ * [LIBRARY], [NOTES] (Phase 6), [GOALS] (Phase 7), and [SETTINGS] (Phase 8 US3) — storage
+ * management, the last tab to leave the shared "coming soon" placeholder.
  */
 enum class NavigationTab(val route: String, val labelRes: StringResource) {
     LIBRARY(Routes.HOME, Res.string.nav_library),

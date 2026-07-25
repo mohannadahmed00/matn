@@ -92,6 +92,7 @@ internal fun LibrarySummaryRow.toMatnSummary(): MatnSummary? {
         // SQLDelight types COALESCE(SUM(duration_ms), 0) as Double, so convert back to the
         // millisecond Long the domain uses.
         totalDurationMs = total_duration_ms.toLong(),
+        declaredSizeBytes = declared_size_bytes,
     )
 }
 

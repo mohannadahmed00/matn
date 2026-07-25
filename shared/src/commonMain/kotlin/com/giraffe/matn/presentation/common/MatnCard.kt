@@ -1,8 +1,10 @@
 package com.giraffe.matn.presentation.common
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
 import com.giraffe.matn.domain.model.StructureKind
@@ -37,6 +40,11 @@ fun MatnCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     progressFraction: Float? = null,
+    /** Phase 8 (FR-002/FR-003): content-delivery availability rendered in the card's existing
+     *  trailing status-icon slot (design-notes.md T046). `null` renders nothing — a matn whose
+     *  availability hasn't resolved yet stays silent rather than showing a wrong state. */
+    availability: ContentAvailability? = null,
+    declaredSizeBytes: Long = 0L,
 ) {
     Column(
         modifier = modifier
@@ -69,12 +77,21 @@ fun MatnCard(
         )
         val totals = stringResource(Res.string.verses_count, summary.verseCount) +
             " · " + formatDuration(summary.totalDurationMs)
-        Text(
-            text = totals,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = MatnSpacing.unit / 2),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit / 2),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = totals,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // design-notes.md T046: reuses the fetched card's trailing status-icon slot.
+            if (availability != null) {
+                ContentAvailabilityBadge(availability = availability, declaredSizeBytes = declaredSizeBytes)
+            }
+        }
         // Phase 7 (FR-006): a compact progress affordance — same visual language as
         // MatnProgressBar, condensed for card width (design-notes.md gap #1).
         if (progressFraction != null) {
@@ -120,6 +137,21 @@ private fun MatnCardWithProgressPreview() {
                 summary = previewSummary("m1", "الأجرومية", 4, 31_300),
                 onClick = {},
                 progressFraction = 0.6f,
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun MatnCardNotInstalledPreview() {
+    MatnTheme {
+        Box(modifier = Modifier.width(180.dp).padding(MatnSpacing.unit)) {
+            MatnCard(
+                summary = previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
+                onClick = {},
+                availability = com.giraffe.matn.domain.model.ContentAvailability.NotInstalled(),
+                declaredSizeBytes = 2_400_000,
             )
         }
     }

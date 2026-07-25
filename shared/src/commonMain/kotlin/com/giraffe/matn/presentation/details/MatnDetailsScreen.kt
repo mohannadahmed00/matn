@@ -44,10 +44,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.core.AppError
+import com.giraffe.matn.domain.error.DeliveryError
+import com.giraffe.matn.domain.model.ContentAvailability
+import com.giraffe.matn.domain.model.DeliveryFailure
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.presentation.common.ContentActionButton
 import com.giraffe.matn.presentation.common.CoverImage
 import com.giraffe.matn.presentation.common.MatnProgressBar
 import com.giraffe.matn.presentation.common.PlayGlyph
+import com.giraffe.matn.presentation.common.formatBytes
 import com.giraffe.matn.presentation.common.formatDuration
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
@@ -56,6 +61,10 @@ import com.giraffe.matn.presentation.theme.toSp
 import com.giraffe.matn.presentation.theme.verseFontFamily
 import kotlinx.coroutines.launch
 import matn.shared.generated.resources.Res
+import matn.shared.generated.resources.content_error_cancelled
+import matn.shared.generated.resources.content_error_insufficient_storage
+import matn.shared.generated.resources.content_error_no_connectivity
+import matn.shared.generated.resources.content_error_unknown
 import matn.shared.generated.resources.error_matn_not_found
 import matn.shared.generated.resources.error_storage
 import matn.shared.generated.resources.font_large
@@ -91,6 +100,11 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.ma
         onDismissNoteEditor = viewModel::onDismissNoteEditor,
         onToggleMemorized = viewModel::onToggleMemorized,
         onMarkChapterMemorized = viewModel::onMarkChapterMemorized,
+        onInstall = viewModel::onInstall,
+        onCancelInstall = viewModel::onCancelInstall,
+        onRemoveRequested = viewModel::onRemoveRequested,
+        onConfirmRemoval = viewModel::onConfirmRemoval,
+        onDismissRemoval = viewModel::onDismissRemoval,
         playerBar = playerBar,
     )
 }
@@ -121,6 +135,11 @@ fun MatnDetailsContent(
     onDismissNoteEditor: () -> Unit = {},
     onToggleMemorized: (String) -> Unit = {},
     onMarkChapterMemorized: (String, Boolean) -> Unit = { _, _ -> },
+    onInstall: () -> Unit = {},
+    onCancelInstall: () -> Unit = {},
+    onRemoveRequested: () -> Unit = {},
+    onConfirmRemoval: () -> Unit = {},
+    onDismissRemoval: () -> Unit = {},
     playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
     // specs/010-design-system-adoption User Story 2: the repetition-setup sheet's open/closed
@@ -128,6 +147,18 @@ fun MatnDetailsContent(
     // the same kind of ephemeral, non-persisted interaction state) — nothing is written to a
     // ViewModel until the sheet's own "start" action fires.
     var repetitionSheetOpen by remember { mutableStateOf(false) }
+    // Phase 8 (FR-011, SC-007): a play tap against a not-installed matn opens the install prompt
+    // instead of silently failing — the per-verse play button is the one play affordance this
+    // screen renders that PlaybackController.startSession's gate (T041) cannot pre-empt visibly,
+    // since nothing currently surfaces PlaybackState.notice to the user.
+    var installPromptOpen by remember { mutableStateOf(false) }
+    val isPlayable = state.isStarter || state.availability is ContentAvailability.Installed
+    val guardedVersePlayClicked: (String) -> Unit = { verseId ->
+        if (isPlayable) onVersePlayClicked(verseId) else installPromptOpen = true
+    }
+    val guardedGlobalPlayClicked: () -> Unit = {
+        if (isPlayable) onGlobalPlayClicked() else installPromptOpen = true
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.isLoading -> CircularProgressIndicator(
@@ -172,9 +203,12 @@ fun MatnDetailsContent(
                     VerseList(
                         state = state,
                         onFontSizeChanged = onFontSizeChanged,
-                        onVersePlayClicked = onVersePlayClicked,
-                        onGlobalPlayClicked = onGlobalPlayClicked,
+                        onVersePlayClicked = guardedVersePlayClicked,
+                        onGlobalPlayClicked = guardedGlobalPlayClicked,
                         onMarkChapterMemorized = onMarkChapterMemorized,
+                        onInstall = onInstall,
+                        onCancelInstall = onCancelInstall,
+                        onRemoveRequested = onRemoveRequested,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -196,6 +230,33 @@ fun MatnDetailsContent(
                 onSetLoopEnd = onSetLoopEnd,
                 onClearLoop = onClearLoop,
                 onStartPlayback = onGlobalPlayClicked,
+            )
+        }
+        if (state.pendingRemovalConfirmation && state.header != null) {
+            val occupiedBytes = (state.availability as? ContentAvailability.Installed)?.occupiedBytes
+                ?: state.declaredSizeBytes
+            com.giraffe.matn.presentation.common.ConfirmRemovalDialog(
+                matnTitle = state.header.title,
+                bytes = occupiedBytes,
+                // Phase 8 simplification (documented in the PR description per T079): the actual
+                // RemovalOutcome variant is only known after removal completes and this contract
+                // exposes no platform-capability signal ahead of time, so the confirmation copy
+                // uses the immediate-reclaim wording; the honest platform-specific outcome is
+                // rendered from state.lastRemovalOutcome after removal (Settings, T066/T067).
+                isReleasedPendingSystemReclaim = false,
+                onConfirm = onConfirmRemoval,
+                onDismiss = onDismissRemoval,
+            )
+        }
+        if (installPromptOpen && state.header != null) {
+            com.giraffe.matn.presentation.common.InstallPromptSheet(
+                matnTitle = state.header.title,
+                declaredSizeBytes = state.declaredSizeBytes,
+                onInstall = {
+                    installPromptOpen = false
+                    onInstall()
+                },
+                onDismiss = { installPromptOpen = false },
             )
         }
         val noteEditor = state.noteEditor
@@ -226,6 +287,9 @@ private fun VerseList(
     onVersePlayClicked: (String) -> Unit = {},
     onGlobalPlayClicked: () -> Unit = {},
     onMarkChapterMemorized: (String, Boolean) -> Unit = { _, _ -> },
+    onInstall: () -> Unit = {},
+    onCancelInstall: () -> Unit = {},
+    onRemoveRequested: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -267,6 +331,13 @@ private fun VerseList(
                     fontSize = state.fontSize,
                     onFontSizeChanged = onFontSizeChanged,
                     onGlobalPlayClicked = onGlobalPlayClicked,
+                    availability = state.availability,
+                    declaredSizeBytes = state.declaredSizeBytes,
+                    isStarter = state.isStarter,
+                    installError = state.installError,
+                    onInstall = onInstall,
+                    onCancelInstall = onCancelInstall,
+                    onRemoveRequested = onRemoveRequested,
                 )
             }
         }
@@ -317,6 +388,13 @@ private fun Frontispiece(
     fontSize: ReadingFontSize,
     onFontSizeChanged: (ReadingFontSize) -> Unit,
     onGlobalPlayClicked: () -> Unit = {},
+    availability: ContentAvailability? = null,
+    declaredSizeBytes: Long = 0L,
+    isStarter: Boolean = false,
+    installError: DeliveryError? = null,
+    onInstall: () -> Unit = {},
+    onCancelInstall: () -> Unit = {},
+    onRemoveRequested: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -327,13 +405,44 @@ private fun Frontispiece(
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             FontSizeChooser(fontSize = fontSize, onFontSizeChanged = onFontSizeChanged)
             Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = onGlobalPlayClicked) {
-                PlayGlyph(
-                    color = MaterialTheme.colorScheme.primary,
-                    size = 22.dp,
-                    contentDescription = stringResource(Res.string.player_play),
+            // design-notes.md T049: layers the install/cancel action onto the header's existing
+            // Play affordance slot. Installed (or the starter, which is always Installed) keeps
+            // the Play button unchanged; otherwise the install/cancel action takes its place —
+            // there is nothing to play yet (FR-011).
+            if (isStarter || availability is ContentAvailability.Installed) {
+                IconButton(onClick = onGlobalPlayClicked) {
+                    PlayGlyph(
+                        color = MaterialTheme.colorScheme.primary,
+                        size = 22.dp,
+                        contentDescription = stringResource(Res.string.player_play),
+                    )
+                }
+            } else if (availability != null) {
+                ContentActionButton(
+                    availability = availability,
+                    isStarter = false,
+                    onInstall = onInstall,
+                    onCancel = onCancelInstall,
+                    onRemove = onRemoveRequested,
                 )
             }
+        }
+        if (installError is DeliveryError.DeliveryFailed) {
+            Text(
+                text = installErrorMessage(installError.failure),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit / 2),
+            )
+        }
+        if (!isStarter && availability is ContentAvailability.NotInstalled && declaredSizeBytes > 0L) {
+            Text(
+                text = formatBytes(declaredSizeBytes),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = MatnSpacing.unit / 2),
+            )
         }
         CoverImage(
             coverImageRef = header.coverImageRef,
@@ -466,6 +575,19 @@ private fun errorMessage(error: AppError?): String = when (error) {
     is AppError.Storage -> stringResource(Res.string.error_storage)
     null -> ""
     else -> stringResource(Res.string.error_storage)
+}
+
+/** Phase 8 (FR-007/FR-015): localizes the reason an install attempt was refused, mirroring
+ *  [errorMessage]. `InsufficientStorage` states both the required and available bytes. */
+@Composable
+private fun installErrorMessage(failure: DeliveryFailure): String = when (failure) {
+    DeliveryFailure.NoConnectivity -> stringResource(Res.string.content_error_no_connectivity)
+    is DeliveryFailure.InsufficientStorage ->
+        stringResource(Res.string.content_error_insufficient_storage) +
+            " (" + formatBytes(failure.requiredBytes) + " / " + formatBytes(failure.availableBytes) + ")"
+    DeliveryFailure.Cancelled -> stringResource(Res.string.content_error_cancelled)
+    DeliveryFailure.Evicted -> "" // renders as plain "not installed", never an error (spec)
+    is DeliveryFailure.Unknown -> stringResource(Res.string.content_error_unknown)
 }
 
 /**

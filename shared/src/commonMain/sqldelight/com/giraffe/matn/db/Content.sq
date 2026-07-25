@@ -1,3 +1,15 @@
+-- Phase 8 (FR-001): one content_pack row per matn, mapping matn → delivery pack. The pack_id is
+-- authored/stable and is both the Android asset-pack module name and the iOS ODR tag (data-model
+-- §1.1). declared_size_bytes is the measured, always-available offline figure (SC-002); is_starter
+-- marks the bundled matn that is never fetched/removed (FR-027/FR-029). No availability column —
+-- availability is read through to the platform every time (research D5).
+CREATE TABLE content_pack (
+    matn_id              TEXT NOT NULL PRIMARY KEY REFERENCES matn(id) ON DELETE CASCADE,
+    pack_id              TEXT NOT NULL UNIQUE,
+    declared_size_bytes  INTEGER NOT NULL,
+    is_starter           INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE matn (
     id             TEXT NOT NULL PRIMARY KEY,
     title          TEXT NOT NULL,
@@ -105,9 +117,11 @@ SELECT
     matn.cover_image_ref AS cover_image_ref,
     matn.structure_kind AS structure_kind,
     COUNT(verse.id) AS verse_count,
-    COALESCE(SUM(verse.duration_ms), 0) AS total_duration_ms
+    COALESCE(SUM(verse.duration_ms), 0) AS total_duration_ms,
+    COALESCE(content_pack.declared_size_bytes, 0) AS declared_size_bytes
 FROM matn
 LEFT JOIN verse ON verse.matn_id = matn.id
+LEFT JOIN content_pack ON content_pack.matn_id = matn.id
 GROUP BY matn.id
 ORDER BY matn.title;
 
@@ -332,3 +346,14 @@ INSERT OR IGNORE INTO daily_practice(id, day_epoch, verse_id, practiced_at) VALU
 
 selectDailyPracticeCount:
 SELECT COUNT(*) AS practiced_count FROM daily_practice WHERE day_epoch = ?;
+
+-- Phase 8: content_pack catalog queries (content-delivery-contract.md §3).
+
+selectAllContentPacks:
+SELECT * FROM content_pack;
+
+selectContentPackByMatn:
+SELECT * FROM content_pack WHERE matn_id = ?;
+
+insertContentPack:
+INSERT OR REPLACE INTO content_pack VALUES (?, ?, ?, ?);

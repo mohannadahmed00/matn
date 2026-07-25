@@ -1,14 +1,20 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.4.1 → 1.4.2
-Rationale: docs/ROADMAP.md added Phase 10 — Design System Adoption, a cross-cutting retrofit of
-Phases 1–5's UI (specs/010-design-system-adoption) that also resolved the Stitch design-set
-duplicates and the previously-undocumented bottom-navigation shell (now in docs/PRODUCT-SPEC.md §
-Navigation & App Shell). The "Phased, Incremental Delivery" subsection is updated to reference
-Phase 10 and its dependency note. No principle, rule, or gate changed — wording only, hence PATCH.
+Version change: 1.4.2 → 1.5.0
+Rationale: Phase 8 (Storage & Downloads) resolved its content source to platform on-demand asset
+delivery, which requires connectivity to *acquire* content. Principle VI's blanket "the app MUST
+function fully with no network" did not distinguish using the student's own library from fetching
+new content, so the phase's plan could only record the conflict in Complexity Tracking rather than
+resolve it (specs/008-storage-downloads/plan.md; /speckit-analyze finding D1). This amendment scopes
+the offline guarantee to content already on the device and adds two binding conditions on
+acquisition: a bundled starter matn, and full offline usability once acquired. Guidance is
+materially expanded and a MUST is narrowed but no existing code becomes non-compliant, hence MINOR.
 
 History:
+  - 1.5.0 (2026-07-25): Principle VI — offline guarantee scoped to content already on the device;
+    acquiring new content may require connectivity, conditional on a bundled starter matn and full
+    offline usability thereafter. Resolves the Phase 8 deviation.
   - 1.4.2 (2026-07-24): "Phased, Incremental Delivery" references the new Phase 10 (Design System
     Adoption) and its dependency note. No semantic change.
   - 1.4.1 (2026-07-24): Phase-number references in "Phased, Incremental Delivery" updated to match
@@ -26,6 +32,8 @@ History:
     Technology & Architecture Constraints, Development Workflow & Quality Gates, Governance.
 
 Modified principles:
+  - VI. Offline-First & Future-Proof Data — offline guarantee scoped to on-device content;
+    connectivity permitted for acquisition under two conditions. (1.5.0)
   - II. MVVM Presentation (NON-NEGOTIABLE) — added: stateless "content" + thin stateful holder
     split; mandatory @Preview coverage for state-rendering composables. (1.3.0)
 Added sections:
@@ -158,14 +166,24 @@ Data models MUST be designed on day one for the v2 online/sync roadmap.
 
 - Every persisted entity (matn, verse, bookmark, note, progress record) MUST carry a stable
   `UUID` identity independent of display order or local row IDs.
-- Local persistence is the source of truth for v1; the app MUST function fully with no network.
+- Local persistence is the source of truth; the app MUST function fully with no network **for all
+  content already on the device** — reading, playback, repetition, progress, bookmarks, notes, and
+  resume never require connectivity, and no personal data may depend on a network round-trip.
+- **Acquiring new content MAY require connectivity** (Phase 8 on-demand delivery), on two
+  conditions: the app MUST ship with at least one complete, immediately playable matn so a
+  network-less first launch is still a working app; and content already acquired MUST remain fully
+  usable offline thereafter.
 - State required by "Continue Learning" (last matn/verse, millisecond position, repetition
   settings, active A–B loop range) MUST be persisted on every verse transition or config change.
 - Schemas MUST avoid assumptions that block later remote accounts, cross-device sync,
   multi-reciter audio mapping, or shared community content.
 
 **Rationale**: Retrofitting stable IDs and sync-safe schemas later is expensive and error-prone;
-structuring for it now is nearly free.
+structuring for it now is nearly free. The offline guarantee is about the student's *own* library —
+what they have must always work, on a plane, in a masjid basement, with no signal. Bundling the
+entire catalog into the binary was never what that guarantee meant, and forcing it would make the
+app grow without bound as the library does; requiring a bundled starter matn preserves the property
+that actually matters — the app is never a useless shell — while letting the catalog scale.
 
 ### VII. Experience Fidelity: Audio, RTL & Accessibility
 
@@ -309,4 +327,4 @@ specified in `docs/PRODUCT-SPEC.md`).
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.4.2 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-24
+**Version**: 1.5.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-25

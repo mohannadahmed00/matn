@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Matn - Library</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#dcd9d9",
+                    "on-tertiary-fixed": "#1c1c18",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#696863",
+                    "surface": "#fcf9f8",
+                    "surface-variant": "#e4e2e1",
+                    "on-tertiary-fixed-variant": "#474742",
+                    "surface-container-low": "#f6f3f2",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#506353",
+                    "on-tertiary-container": "#ebe8e1",
+                    "secondary-fixed-dim": "#d8c4a2",
+                    "outline": "#737872",
+                    "surface-container-high": "#eae7e7",
+                    "secondary": "#6b5c41",
+                    "on-secondary": "#ffffff",
+                    "inverse-on-surface": "#f3f0f0",
+                    "tertiary": "#51504b",
+                    "primary": "#425546",
+                    "surface-container": "#f0eded",
+                    "on-background": "#1b1c1c",
+                    "primary-fixed-dim": "#b7ccb9",
+                    "on-secondary-fixed": "#241a05",
+                    "inverse-primary": "#b7ccb9",
+                    "inverse-surface": "#303030",
+                    "on-surface": "#1b1c1c",
+                    "secondary-container": "#f2ddba",
+                    "outline-variant": "#c3c8c1",
+                    "surface-container-highest": "#e4e2e1",
+                    "background": "#fcf9f8",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#e5e2db",
+                    "on-secondary-container": "#706145",
+                    "tertiary-fixed-dim": "#c9c6c0",
+                    "primary-container": "#5a6d5d",
+                    "on-secondary-fixed-variant": "#52452b",
+                    "surface-bright": "#fcf9f8",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed-variant": "#394b3c",
+                    "secondary-fixed": "#f5e0bd",
+                    "on-surface-variant": "#434843",
+                    "on-primary-fixed": "#0e1f13",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#d9eeda",
+                    "on-error-container": "#93000a",
+                    "primary-fixed": "#d3e8d4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "64px",
+                    "container-max": "1024px",
+                    "gutter": "24px",
+                    "unit": "8px",
+                    "margin-mobile": "20px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["\"Source Serif 4\""],
+                    "headline-lg-mobile": ["\"Source Serif 4\""],
+                    "label-sm": ["Plus Jakarta Sans"],
+                    "body-ar": ["Amiri"],
+                    "body-md": ["\"Source Serif 4\""],
+                    "display-ar": ["Amiri"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-ar": ["24px", {"lineHeight": "2.2", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-ar": ["40px", {"lineHeight": "1.6", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fcf9f8; /* background */
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-header {
+            backdrop-filter: blur(12px);
+            background-color: rgba(252, 249, 248, 0.85);
+        }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .card-shadow {
+            box-shadow: 0 4px 20px -2px rgba(66, 85, 70, 0.05);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-on-surface">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 left-0 w-full z-50 glass-header border-b border-outline-variant/30">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16 max-w-screen-2xl mx-auto">
+<button class="w-10 h-10 flex items-center justify-center text-primary hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-display-ar text-display-ar text-primary text-[28px] md:text-display-ar leading-none">متن</h1>
+<button class="w-10 h-10 flex items-center justify-center text-primary hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-32 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto">
+<!-- Welcome & Goal Section -->
+<section class="flex flex-col md:flex-row gap-gutter mb-12 items-center">
+<div class="flex-1 text-right w-full">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">السلام عليكم، يا باحث العلم</h2>
+<p class="text-on-surface-variant font-body-md">نور الله دربك بطلب العلم النافع.</p>
+</div>
+<!-- Daily Goal Progress Ring -->
+<div class="bg-surface-container-low rounded-xl p-6 flex items-center gap-6 card-shadow border border-outline-variant/20 w-full md:w-auto">
+<div class="relative w-20 h-20">
+<svg class="w-full h-full">
+<circle class="text-primary/10" cx="40" cy="40" fill="transparent" r="34" stroke="currentColor" stroke-width="6"></circle>
+<circle class="text-primary progress-ring-circle" cx="40" cy="40" fill="transparent" r="34" stroke="currentColor" stroke-dasharray="213.6" stroke-dashoffset="64" stroke-linecap="round" stroke-width="6"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="font-label-sm text-primary">70%</span>
+</div>
+</div>
+<div class="text-right">
+<h3 class="font-label-sm text-on-surface tracking-wider uppercase">هدف اليوم</h3>
+<p class="text-body-md text-on-surface-variant">تم حفظ <span class="font-bold text-primary">7 أبيات</span> من 10</p>
+</div>
+</div>
+</section>
+<!-- Continue Learning - Hero Card -->
+<section class="mb-12">
+<div class="relative overflow-hidden bg-primary-container rounded-xl p-8 md:p-10 text-on-primary-container card-shadow group cursor-pointer hover:bg-primary-container/90 transition-all">
+<!-- Background decorative element -->
+<div class="absolute -left-10 -top-10 w-48 h-48 bg-primary/20 rounded-full blur-3xl group-hover:scale-110 transition-transform"></div>
+<div class="relative z-10 flex flex-col md:flex-row justify-between items-end md:items-center gap-6">
+<div class="text-right space-y-4">
+<span class="bg-primary/20 text-on-primary-container px-3 py-1 rounded-full font-label-sm">متابعة التعلم</span>
+<div>
+<h3 class="font-body-ar text-[32px] font-bold leading-tight mb-1">متن الجزرية</h3>
+<p class="font-body-md opacity-90">الإمام ابن الجزري • البيت 15</p>
+</div>
+<div class="flex items-center gap-4 pt-2">
+<button class="bg-on-primary-container text-primary-container px-8 py-3 rounded-full font-label-sm hover:scale-105 active:scale-95 transition-transform flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                                استكمال الآن
+                            </button>
+</div>
+</div>
+<div class="w-full md:w-48 h-2 bg-on-primary-container/20 rounded-full overflow-hidden">
+<div class="w-[15%] h-full bg-on-primary-container"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Library Grid Header -->
+<div class="flex justify-between items-center mb-8">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">المكتبة الخاصة بك</h3>
+<button class="text-primary font-label-sm flex items-center gap-1 hover:gap-2 transition-all">
+                عرض الكل
+                <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+</button>
+</div>
+<!-- Matn Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Card 1: Al-Aqidah al-Wasitiyyah -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden border border-outline-variant/30 card-shadow hover:-translate-y-1 transition-all duration-300 group">
+<div class="h-40 overflow-hidden relative">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500" data-alt="A serene landscape of rolling hills bathed in soft morning light, rendered in a minimalist painterly style with muted sage and ivory tones. The lighting is ethereal and high-key, creating a sense of tranquility and sacredness consistent with a modern light-mode educational UI." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAFmEQ1rEnAeBsaZ51s69QAXIs-tCvtYdaQoE2zRUv_zeRSDx1uW56mdV4TN673t6RXNxRPJFlmEuwAQJIRCLGCwRJ4288LdlV6cWnvcaxnK7QHAQaT0_PeCJWBccKV1LPS_6Z-739yQEO-aGVHKUyzLZiuyUXml8fOuAocR-EuFFe07gWM8hwC99Wzc7vHCyo75htiMuQR7XBf3E0z14ls9RgW-z-U7TwTmXN4VJTTjXP4RRvJf6E5')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+<div class="absolute bottom-3 right-3">
+<span class="bg-white/90 backdrop-blur text-primary text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-widest">محفوظ</span>
+</div>
+</div>
+<div class="p-5 text-right">
+<h4 class="font-body-ar text-xl font-bold text-on-surface mb-1">العقيدة الواسطية</h4>
+<p class="text-on-surface-variant text-sm mb-4">شيخ الإسلام ابن تيمية</p>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 text-on-tertiary-fixed-variant">
+<span class="material-symbols-outlined text-[18px]">list_alt</span>
+<span class="font-label-sm">240 بيت</span>
+</div>
+<button class="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined">cloud_done</span>
+</button>
+</div>
+</div>
+<div class="h-1 bg-surface-container w-full">
+<div class="h-full bg-primary/30 w-1/4"></div>
+</div>
+</div>
+<!-- Card 2: Al-Urjuzah al-Mi'iyyah -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden border border-outline-variant/30 card-shadow hover:-translate-y-1 transition-all duration-300 group">
+<div class="h-40 overflow-hidden relative">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500" data-alt="A minimalist abstract art piece with organic overlapping circular shapes in warm beige, soft terracotta, and sage green colors. The texture resembles fine handmade paper with soft-focus edges and subtle shadows, maintaining an elevated and tranquil aesthetic for a spiritual study app." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDlRV_hKP6mfkp_-fqKpfNWIS1lGTz7j6APR7NaIm0gjGMe1b2uflSC2XGgY-6VaU53p2_VMQtk6g6howIbYYmEgVtC67IfNBNpA3e7m8wcxz_QUq9Tjo1SVZJIhAcL6IM_23qRGwzlqcqdTtVpJYGCL9dMTLZNyxFv9nPLV6pO4MaDYKqEFr0ZLhai-pRDnQbRBqc7QyMfHQ18hJBINLHrkF6GT4RZbTqe9rU4IGWBLwHhuOyazqjT')"></div>
+</div>
+<div class="p-5 text-right">
+<h4 class="font-body-ar text-xl font-bold text-on-surface mb-1">الأرجوزة الميئية</h4>
+<p class="text-on-surface-variant text-sm mb-4">ابن أبي العز الحنفي</p>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 text-on-tertiary-fixed-variant">
+<span class="material-symbols-outlined text-[18px]">list_alt</span>
+<span class="font-label-sm">100 بيت</span>
+</div>
+<button class="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<div class="h-1 bg-surface-container w-full">
+<div class="h-full bg-primary/10 w-0"></div>
+</div>
+</div>
+<!-- Card 3: Matn al-Ghayah wa al-Taqrib -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden border border-outline-variant/30 card-shadow hover:-translate-y-1 transition-all duration-300 group">
+<div class="h-40 overflow-hidden relative">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500" data-alt="Close-up photography of a pristine white architectural interior with elegant curves and soft, diffuse natural light entering from above. The scene is minimal and airy, emphasizing clean lines and a peaceful, contemplative atmosphere in shades of cream and light grey, reflecting a modern minimalist design philosophy." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC7Uq3ayEXrjKsNc7bf_IM88aDLMl_UvahopuinzWsW1Dxizf_wABVseFddrG5A8W-f_1vKWYs7awXhPfhYUuW_G7M8viCXU7mY04vlXBBLhmn7GX4hTaM2qavDoaZIBckyRXCuXSzshnQAVomKhsMkmLX_6La_-OLSy9qla0_rL3WUMWA9Wg8VE7FtxyCyIur-kPmpHK4Vnr3MFrr7B3ZD4fKnSNcFapETnVKx8PDGJQC4IUJgezjs')"></div>
+</div>
+<div class="p-5 text-right">
+<h4 class="font-body-ar text-xl font-bold text-on-surface mb-1">متن الغاية والتقريب</h4>
+<p class="text-on-surface-variant text-sm mb-4">أبو شجاع الأصفهاني</p>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 text-on-tertiary-fixed-variant">
+<span class="material-symbols-outlined text-[18px]">list_alt</span>
+<span class="font-label-sm">520 بيت</span>
+</div>
+<button class="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined">cloud_done</span>
+</button>
+</div>
+</div>
+<div class="h-1 bg-surface-container w-full">
+<div class="h-full bg-primary/60 w-2/3"></div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-surface-container-low border-t border-outline-variant shadow-sm rounded-t-xl">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1 transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+<span class="font-label-sm text-label-sm mt-0.5">Library</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined">track_changes</span>
+<span class="font-label-sm text-label-sm mt-0.5">Goals</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-label-sm text-label-sm mt-0.5">Notes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-transform active:scale-90" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-label-sm mt-0.5">Settings</span>
+</a>
+</nav>
+<!-- Simple Interactivity -->
+<script>
+        document.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (el.tagName === 'A') e.preventDefault();
+                // Simple feedback effect
+                el.style.opacity = '0.7';
+                setTimeout(() => el.style.opacity = '1', 100);
+            });
+        });
+    </script>
+</body></html>

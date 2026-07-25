@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Theme Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#dcd9d9",
+                    "on-tertiary-fixed": "#1c1c18",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#696863",
+                    "surface": "#fcf9f8",
+                    "surface-variant": "#e4e2e1",
+                    "on-tertiary-fixed-variant": "#474742",
+                    "surface-container-low": "#f6f3f2",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#506353",
+                    "on-tertiary-container": "#ebe8e1",
+                    "secondary-fixed-dim": "#d8c4a2",
+                    "outline": "#737872",
+                    "surface-container-high": "#eae7e7",
+                    "secondary": "#6b5c41",
+                    "on-secondary": "#ffffff",
+                    "inverse-on-surface": "#f3f0f0",
+                    "tertiary": "#51504b",
+                    "primary": "#425546",
+                    "surface-container": "#f0eded",
+                    "on-background": "#1b1c1c",
+                    "primary-fixed-dim": "#b7ccb9",
+                    "on-secondary-fixed": "#241a05",
+                    "inverse-primary": "#b7ccb9",
+                    "inverse-surface": "#303030",
+                    "on-surface": "#1b1c1c",
+                    "secondary-container": "#f2ddba",
+                    "outline-variant": "#c3c8c1",
+                    "surface-container-highest": "#e4e2e1",
+                    "background": "#fcf9f8",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#e5e2db",
+                    "on-secondary-container": "#706145",
+                    "tertiary-fixed-dim": "#c9c6c0",
+                    "primary-container": "#5a6d5d",
+                    "on-secondary-fixed-variant": "#52452b",
+                    "surface-bright": "#fcf9f8",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed-variant": "#394b3c",
+                    "secondary-fixed": "#f5e0bd",
+                    "on-surface-variant": "#434843",
+                    "on-primary-fixed": "#0e1f13",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#d9eeda",
+                    "on-error-container": "#93000a",
+                    "primary-fixed": "#d3e8d4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "64px",
+                    "container-max": "1024px",
+                    "gutter": "24px",
+                    "unit": "8px",
+                    "margin-mobile": "20px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["\"Source Serif 4\""],
+                    "headline-lg-mobile": ["\"Source Serif 4\""],
+                    "label-sm": ["Plus Jakarta Sans"],
+                    "body-ar": ["Amiri"],
+                    "body-md": ["\"Source Serif 4\""],
+                    "display-ar": ["Amiri"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-ar": ["24px", {"lineHeight": "2.2", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-ar": ["40px", {"lineHeight": "1.6", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fcf9f8;
+            font-family: 'Source Serif 4', 'Amiri', serif;
+            overflow-x: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for focused reading */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c3c8c1;
+            border-radius: 10px;
+        }
+        /* Glassmorphism popover effect */
+        .glass-overlay {
+            backdrop-filter: blur(12px);
+            background: rgba(252, 249, 248, 0.85);
+        }
+        .active-verse {
+            background-color: rgba(66, 85, 70, 0.08);
+            border-right: 4px solid #425546;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- Top App Bar -->
+<header class="bg-surface sticky top-0 z-40 flex justify-between items-center w-full px-margin-mobile h-16">
+<button class="text-primary hover:bg-surface-container-low p-2 rounded-full transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-display-ar text-2xl text-primary font-bold">Matn</h1>
+<button class="text-primary hover:bg-surface-container-low p-2 rounded-full transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined">search</span>
+</button>
+</header>
+<!-- Main Reader Canvas -->
+<main class="max-w-[720px] mx-auto px-margin-mobile py-8 min-h-screen">
+<div class="mb-12 text-center">
+<h2 class="font-display-ar text-primary text-3xl mb-2">متن الجزرية</h2>
+<p class="font-body-md text-on-surface-variant italic">الإمام ابن الجزري</p>
+</div>
+<!-- Verse List -->
+<div class="space-y-4">
+<div class="p-6 transition-all duration-300">
+<p class="font-body-ar text-right text-on-surface leading-loose">يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ (مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي)</p>
+</div>
+<div class="p-6 transition-all duration-300 active-verse">
+<p class="font-body-ar text-right text-on-surface leading-loose">الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ (عَلَى نَبِيِّهِ وَمُصْطَفَاهُ)</p>
+</div>
+<div class="p-6 transition-all duration-300">
+<p class="font-body-ar text-right text-on-surface leading-loose">مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ (وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ)</p>
+</div>
+<div class="p-6 transition-all duration-300">
+<p class="font-body-ar text-right text-on-surface leading-loose">وَبَعْدُ: إِنَّ هَذِهِ مُقَدِّمَهْ (فِيمَا عَلَى قَارِئِهِ أَنْ يَعْلَمَهْ)</p>
+</div>
+<div class="p-6 transition-all duration-300">
+<p class="font-body-ar text-right text-on-surface leading-loose">إِذْ وَاجِبٌ عَلَيْهِمُ مُحَتَّمُ (قَبْلَ الشُّرُوعِ أَوَّلًا أَنْ يَعْلَمُوا)</p>
+</div>
+</div>
+</main>
+<!-- Bottom Sheet Scrim -->
+<div class="fixed inset-0 bg-on-background/20 z-50 transition-opacity opacity-100" id="repetition-scrim" onclick="toggleRepetitionSheet()"></div>
+<!-- Repetition Mode Bottom Sheet -->
+<div class="fixed bottom-0 left-0 right-0 z-50 glass-overlay rounded-t-[32px] shadow-2xl transition-transform duration-500 translate-y-0 max-w-[600px] mx-auto border-x border-t border-outline-variant/30" id="repetition-sheet">
+<!-- Handlebar -->
+<div class="w-full flex justify-center py-3">
+<div class="w-12 h-1.5 bg-outline-variant rounded-full"></div>
+</div>
+<div class="px-8 pb-10">
+<header class="flex items-center justify-between mb-8">
+<h3 class="font-headline-lg-mobile text-primary">إعدادات التكرار</h3>
+<button class="p-2 hover:bg-surface-variant/20 rounded-full" onclick="toggleRepetitionSheet()">
+<span class="material-symbols-outlined text-on-surface-variant">close</span>
+</button>
+</header>
+<div class="space-y-8">
+<!-- A-B Loop Section -->
+<div class="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">repeat_on</span>
+<div>
+<p class="font-body-md font-bold text-primary">وضعية A-B</p>
+<p class="text-xs text-on-surface-variant">تكرار مقطع محدد بدقة</p>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2 rounded-full font-label-sm shadow-md active:scale-95 transition-transform">
+                        تفعيل الحلقة
+                    </button>
+</div>
+<!-- Verse Range Selector -->
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-2">
+<label class="font-label-sm text-on-surface-variant px-1">بيت البداية</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 pr-4 pl-10 text-on-surface font-body-md focus:ring-2 focus:ring-primary/20" type="number" value="2"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">first_page</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-sm text-on-surface-variant px-1">بيت النهاية</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 pr-4 pl-10 text-on-surface font-body-md focus:ring-2 focus:ring-primary/20" type="number" value="5"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">last_page</span>
+</div>
+</div>
+</div>
+<!-- Repeat Counts -->
+<div class="space-y-6">
+<!-- Verse Repeat -->
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-center px-1">
+<label class="font-label-sm text-on-surface-variant">تكرار البيت الواحد</label>
+<div class="flex items-center gap-2">
+<span class="text-xs text-on-surface-variant">تكرار لا نهائي</span>
+<input class="w-5 h-5 rounded border-outline text-primary focus:ring-primary/30" type="checkbox"/>
+</div>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-low p-2 rounded-xl">
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-variant/30 text-primary transition-colors">
+<span class="material-symbols-outlined">remove</span>
+</button>
+<span class="flex-1 text-center font-headline-lg-mobile text-primary">07</span>
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-variant/30 text-primary transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+<!-- Matn Repeat -->
+<div class="flex flex-col gap-3">
+<label class="font-label-sm text-on-surface-variant px-1">تكرار المقطع كاملاً</label>
+<div class="flex items-center gap-4 bg-surface-container-low p-2 rounded-xl">
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-variant/30 text-primary transition-colors">
+<span class="material-symbols-outlined">remove</span>
+</button>
+<span class="flex-1 text-center font-headline-lg-mobile text-primary">03</span>
+<button class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-variant/30 text-primary transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<button class="w-full bg-primary-container text-on-primary-container font-headline-lg-mobile py-5 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-4">
+<span class="material-symbols-outlined">play_arrow</span>
+                    بدء التكرار المنتظم
+                </button>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar (Visual Placeholder for context) -->
+<nav class="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-4 py-3 pb-safe bg-surface-container-low shadow-sm md:hidden rounded-t-xl border-t border-outline-variant">
+<div class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1">
+<span class="material-symbols-outlined">auto_stories</span>
+<span class="font-label-sm">Library</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">track_changes</span>
+<span class="font-label-sm">Goals</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-label-sm">Notes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant" onclick="toggleRepetitionSheet()">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">laps</span>
+<span class="font-label-sm">Repeat</span>
+</div>
+</nav>
+<script>
+        function toggleRepetitionSheet() {
+            const sheet = document.getElementById('repetition-sheet');
+            const scrim = document.getElementById('repetition-scrim');
+            
+            if (sheet.classList.contains('translate-y-0')) {
+                sheet.classList.replace('translate-y-0', 'translate-y-full');
+                scrim.classList.replace('opacity-100', 'opacity-0');
+                setTimeout(() => scrim.classList.add('hidden'), 500);
+            } else {
+                scrim.classList.remove('hidden');
+                setTimeout(() => {
+                    sheet.classList.replace('translate-y-full', 'translate-y-0');
+                    scrim.classList.replace('opacity-0', 'opacity-100');
+                }, 10);
+            }
+        }
+
+        // Initialize with sheet open for the request
+        document.addEventListener('DOMContentLoaded', () => {
+            // No changes needed, already rendered as open in HTML classes
+        });
+    </script>
+</body></html>

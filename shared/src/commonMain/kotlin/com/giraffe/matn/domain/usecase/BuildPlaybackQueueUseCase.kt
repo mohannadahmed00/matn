@@ -50,7 +50,7 @@ open class BuildPlaybackQueueUseCase(
         val tracks = mutableListOf<AudioTrack>()
         for (verse in verses) {
             val asset = audioByVerse[verse.id] ?: continue
-            val uri = audioSourceResolver.resolve(asset.fileRef)
+            val uri = audioSourceResolver.resolve(params.matnId, asset.fileRef)
             tracks.add(
                 AudioTrack(
                     verseId = verse.id,

@@ -26,6 +26,7 @@ import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.continue_learning_dismiss
+import matn.shared.generated.resources.continue_learning_reinstall
 import matn.shared.generated.resources.continue_learning_resume
 import matn.shared.generated.resources.continue_learning_title
 import matn.shared.generated.resources.continue_learning_verse
@@ -53,14 +54,20 @@ fun ContinueLearningCard(
     onResume: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Phase 8 (FR-022): when this entry's matn is not installed, the card offers reinstall
+     *  instead of a resume that would fail the playback gate (T041). Defaults to `true` so
+     *  existing call sites and tests keep compiling. */
+    isContentInstalled: Boolean = true,
+    onReinstall: () -> Unit = onResume,
 ) {
+    val onPrimaryAction = if (isContentInstalled) onResume else onReinstall
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MatnShapes.xl,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Column(modifier = Modifier.clickable(onClick = onResume).padding(MatnSpacing.gutter)) {
+        Column(modifier = Modifier.clickable(onClick = onPrimaryAction).padding(MatnSpacing.gutter)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -109,9 +116,11 @@ fun ContinueLearningCard(
                 modifier = Modifier.padding(top = MatnSpacing.unit / 4),
             )
             // Resume pill — design: on-primary-container background, primary-container text,
-            // rounded-full, filled play glyph leading the label.
+            // rounded-full, filled play glyph leading the label. Phase 8 (FR-022): when the
+            // matn's content isn't installed, the same pill offers reinstall instead — a resume
+            // that would fail the playback gate is never offered as if it would work (SC-007).
             Surface(
-                modifier = Modifier.padding(top = MatnSpacing.unit * 2).clickable(onClick = onResume),
+                modifier = Modifier.padding(top = MatnSpacing.unit * 2).clickable(onClick = onPrimaryAction),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 contentColor = MaterialTheme.colorScheme.primaryContainer,
@@ -121,13 +130,21 @@ fun ContinueLearningCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit),
                 ) {
-                    // ▶ play glyph — no Material Icons dependency (rule 6); the manuscript design
-                    // language uses text glyphs throughout (cf. CoverImage's "م").
-                    Text(text = "▶", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = stringResource(Res.string.continue_learning_resume),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                    if (isContentInstalled) {
+                        // ▶ play glyph — no Material Icons dependency (rule 6); the manuscript
+                        // design language uses text glyphs throughout (cf. CoverImage's "م").
+                        Text(text = "▶", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            text = stringResource(Res.string.continue_learning_resume),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    } else {
+                        DownloadGlyph(color = MaterialTheme.colorScheme.primaryContainer, size = 16.dp)
+                        Text(
+                            text = stringResource(Res.string.continue_learning_reinstall),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
                 }
             }
         }
@@ -170,6 +187,21 @@ private fun ContinueLearningCardLongTitlePreview() {
                 ),
                 onResume = {},
                 onDismiss = {},
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun ContinueLearningCardNotInstalledPreview() {
+    MatnTheme {
+        Box(modifier = Modifier.padding(MatnSpacing.gutter)) {
+            ContinueLearningCard(
+                entry = sampleEntry("الأجرومية"),
+                onResume = {},
+                onDismiss = {},
+                isContentInstalled = false,
             )
         }
     }

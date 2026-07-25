@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Matn - Memorization Reader</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#dcd9d9",
+                    "on-tertiary-fixed": "#1c1c18",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#696863",
+                    "surface": "#fcf9f8",
+                    "surface-variant": "#e4e2e1",
+                    "on-tertiary-fixed-variant": "#474742",
+                    "surface-container-low": "#f6f3f2",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#506353",
+                    "on-tertiary-container": "#ebe8e1",
+                    "secondary-fixed-dim": "#d8c4a2",
+                    "outline": "#737872",
+                    "surface-container-high": "#eae7e7",
+                    "secondary": "#6b5c41",
+                    "on-secondary": "#ffffff",
+                    "inverse-on-surface": "#f3f0f0",
+                    "tertiary": "#51504b",
+                    "primary": "#425546",
+                    "surface-container": "#f0eded",
+                    "on-background": "#1b1c1c",
+                    "primary-fixed-dim": "#b7ccb9",
+                    "on-secondary-fixed": "#241a05",
+                    "inverse-primary": "#b7ccb9",
+                    "inverse-surface": "#303030",
+                    "on-surface": "#1b1c1c",
+                    "secondary-container": "#f2ddba",
+                    "outline-variant": "#c3c8c1",
+                    "surface-container-highest": "#e4e2e1",
+                    "background": "#fcf9f8",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#e5e2db",
+                    "on-secondary-container": "#706145",
+                    "tertiary-fixed-dim": "#c9c6c0",
+                    "primary-container": "#5a6d5d",
+                    "on-secondary-fixed-variant": "#52452b",
+                    "surface-bright": "#fcf9f8",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed-variant": "#394b3c",
+                    "secondary-fixed": "#f5e0bd",
+                    "on-surface-variant": "#434843",
+                    "on-primary-fixed": "#0e1f13",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#d9eeda",
+                    "on-error-container": "#93000a",
+                    "primary-fixed": "#d3e8d4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "64px",
+                    "container-max": "1024px",
+                    "gutter": "24px",
+                    "unit": "8px",
+                    "margin-mobile": "20px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["\"Source Serif 4\""],
+                    "headline-lg-mobile": ["\"Source Serif 4\""],
+                    "label-sm": ["Plus Jakarta Sans"],
+                    "body-ar": ["Amiri"],
+                    "body-md": ["\"Source Serif 4\""],
+                    "display-ar": ["Amiri"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-ar": ["24px", {"lineHeight": "2.2", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-ar": ["40px", {"lineHeight": "1.6", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fcf9f8;
+            color: #1b1c1c;
+            overflow-x: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .verse-highlight {
+            position: relative;
+        }
+        .verse-highlight::before {
+            content: '';
+            position: absolute;
+            right: -24px;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #425546;
+            border-radius: 9999px;
+            box-shadow: 0 0 15px rgba(66, 85, 70, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e4e2e1;
+            border-radius: 10px;
+        }
+        .reading-gradient {
+            background: linear-gradient(to bottom, transparent 0%, rgba(252, 249, 248, 0) 80%, rgba(252, 249, 248, 1) 100%);
+            pointer-events: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-body-md antialiased">
+<!-- Top Navigation Bar (Shared Component Context) -->
+<header class="bg-surface fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile h-16">
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+<h1 class="font-display-ar text-headline-lg-mobile text-primary">المتن</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="bookmark">bookmark</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Main Content: Reading Canvas -->
+<main class="min-h-screen pt-24 pb-48 px-margin-mobile">
+<div class="max-w-[720px] mx-auto relative">
+<!-- Contextual Metadata -->
+<div class="text-center mb-12 opacity-60">
+<p class="font-headline-lg-mobile text-primary tracking-wide">الآجرومية في علم العربية</p>
+<p class="text-label-sm mt-1">باب الإعراب</p>
+</div>
+<!-- Verse List (Centered Single Column) -->
+<div class="space-y-12">
+<!-- Previous Verse -->
+<div class="text-center transition-opacity duration-700 opacity-40">
+<p class="font-body-ar text-body-ar text-on-surface leading-loose">
+                        قَالَ اِبْنُ آجُرُّومٍ: اَلْكَلامُ هُوَ اَللَّفْظُ اَلْمُرَكَّبُ اَلْمُفِيدُ بِالْوَضْعِ.
+                    </p>
+</div>
+<!-- Active Verse (Focal Point) -->
+<div class="relative py-8 px-6 bg-primary-container/5 rounded-2xl transition-all duration-500 ease-out">
+<!-- Vertical Indicator Anchor -->
+<div class="verse-highlight">
+<p class="font-body-ar text-[32px] md:text-[40px] text-on-surface text-center leading-[2.4] font-bold">
+                            وَأَقْسَامُهُ ثَلاثَةٌ: اِسْمٌ، وَفِعْلٌ، وَحَرْفٌ جَاءَ لِمَعْنًى.
+                        </p>
+</div>
+<!-- Ambient Glow -->
+<div class="absolute inset-0 bg-primary/5 blur-3xl -z-10 rounded-full opacity-50"></div>
+</div>
+<!-- Upcoming Verses -->
+<div class="text-center transition-opacity duration-700 opacity-40">
+<p class="font-body-ar text-body-ar text-on-surface leading-loose">
+                        فَالِاسْمُ يُعْرَفُ: بِالْخَفْضِ، وَالتَّنْوِينِ، وَدُخُولِ اَلْأَلِفِ وَاللَّامِ.
+                    </p>
+</div>
+<div class="text-center transition-opacity duration-700 opacity-30">
+<p class="font-body-ar text-body-ar text-on-surface leading-loose">
+                        وَحُرُوفِ اَلْخَفْضِ وَهِيَ: مِنْ، وَإِلَى، وَعَنْ، وَعَلَى، وَفِي، وَرُبَّ، وَالْبَاءُ، وَالْكَافُ، وَاللَّامُ.
+                    </p>
+</div>
+<div class="text-center transition-opacity duration-700 opacity-20">
+<p class="font-body-ar text-body-ar text-on-surface leading-loose">
+                        وَحُرُوفِ اَلْقَسَمِ وَهِيَ: اَلْوَاوُ، وَالْبَاءُ، وَالتَّاءُ.
+                    </p>
+</div>
+</div>
+</div>
+</main>
+<!-- Persistent Playback Controller -->
+<footer class="fixed bottom-0 left-0 w-full z-50 bg-surface-container-low/95 backdrop-blur-md shadow-sm border-t border-outline-variant/30 px-6 py-6 pb-safe transition-transform duration-300 transform translate-y-0" id="playback-bar">
+<div class="max-w-screen-md mx-auto space-y-6">
+<!-- Scrubber / Progress bar -->
+<div class="relative w-full h-1 bg-primary/10 rounded-full overflow-hidden">
+<div class="absolute top-0 right-0 h-full bg-primary transition-all duration-300" style="width: 35%;"></div>
+<div class="absolute top-0 right-[35%] w-3 h-3 bg-primary border-2 border-surface rounded-full -translate-y-1/3 transform translate-x-1/2"></div>
+</div>
+<!-- Controls Row -->
+<div class="flex items-center justify-between">
+<!-- Secondary Controls Left -->
+<div class="flex items-center gap-4">
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="repeat">repeat</span>
+<span class="text-[10px] font-label-sm mt-0.5">Settings</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors px-3 py-1 bg-surface-container-high rounded-full text-label-sm font-semibold">
+                        1.0x
+                    </button>
+</div>
+<!-- Primary Playback -->
+<div class="flex items-center gap-8">
+<button class="text-on-surface-variant hover:text-primary transition-all active:scale-90">
+<span class="material-symbols-outlined text-[28px]" data-icon="skip_next">skip_next</span>
+</button>
+<button class="w-14 h-14 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all" id="play-pause-btn">
+<span class="material-symbols-outlined text-[36px]" data-icon="pause" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-all active:scale-90">
+<span class="material-symbols-outlined text-[28px]" data-icon="skip_previous">skip_previous</span>
+</button>
+</div>
+<!-- Secondary Controls Right -->
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[24px]" data-icon="playlist_play">playlist_play</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="volume_up">volume_up</span>
+</button>
+</div>
+</div>
+<!-- Repetition Settings (Hidden by default, can be toggled) -->
+<div class="hidden flex justify-center gap-4 pt-2 border-t border-outline-variant/10">
+<span class="text-label-sm text-primary font-bold">Repetition: 7x</span>
+<span class="text-label-sm text-on-surface-variant">Interval: 2s</span>
+</div>
+</div>
+</footer>
+<!-- Decorative Subtle Textures -->
+<div class="fixed inset-0 pointer-events-none opacity-[0.03] mix-blend-multiply z-[-1]" data-alt="A high-resolution texture of aged, cream-colored parchment paper with very subtle grain and natural variations. The surface feels tactile and traditional, perfectly evoking a scholarly, timeless atmosphere consistent with a minimalist and tranquil digital study environment." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA-OH7PkCX6hZiyqOXncNomX2WGGQLIyEhNBXtCTHSrPISyPxWjniFRC-CUuh8ZJ5j_OHonIfB9idbV-IJK_Imz3E6U0iN5TAamdyATkSXQnYSdl4nhuQvCwU_QxSBBDu_0gy5teEwwQiHxRN7cImcqAfardKTz2IPdOjeOHaOe24vgCh8H4sTWeAoBo6LDw_vei51C6_sjEIRvAGS07FRqfuuP0eRO8MkvZ4S0_9J2vsVAsm25DlQx')"></div>
+<script>
+        // Micro-interactions for the playback button
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const icon = playPauseBtn.querySelector('span');
+        let isPlaying = true;
+
+        playPauseBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                icon.innerText = 'pause';
+                icon.style.fontVariationSettings = "'FILL' 1";
+            } else {
+                icon.innerText = 'play_arrow';
+                icon.style.fontVariationSettings = "'FILL' 1";
+            }
+        });
+
+        // Simple scroll behavior to dim/hide parts of UI for focus
+        let lastScrollTop = 0;
+        const playbackBar = document.getElementById('playback-bar');
+
+        window.addEventListener('scroll', () => {
+            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            if (scrollTop > lastScrollTop) {
+                // Scrolling down - could add logic here for more immersion
+            } else {
+                // Scrolling up
+            }
+            lastScrollTop = scrollTop;
+        });
+
+        // Simulate verse highlighting based on play progress
+        // (In a real app, this would be synced with audio timecodes)
+    </script>
+</body></html>

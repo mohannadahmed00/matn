@@ -51,4 +51,5 @@ android {
     buildFeatures {
         compose = true
     }
+    assetPacks += listOf(":packs:matn_structured_sample")
 }

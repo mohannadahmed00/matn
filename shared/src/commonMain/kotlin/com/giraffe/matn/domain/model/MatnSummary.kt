@@ -12,4 +12,8 @@ data class MatnSummary(
     val matn: Matn,
     val verseCount: Int,
     val totalDurationMs: Long,
+    /** Phase 8 (FR-002/FR-003): the catalog's declared install size — always available offline,
+     *  even before the delivery engine has been asked (data-model.md §1.1). `0L` for a matn with
+     *  no `content_pack` row (defensive default; every seeded matn has one, T021). */
+    val declaredSizeBytes: Long = 0L,
 )

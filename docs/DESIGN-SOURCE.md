@@ -128,8 +128,9 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
    Stitch.**~~ **Resolved 2026-07-24**: documented in `docs/PRODUCT-SPEC.md` § Navigation & App
    Shell and implemented in `specs/010-design-system-adoption` (User Story 3) — a persistent
    `NavigationBar` on every top-level screen. The Notes tab got its real screen in Phase 6; the
-   Goals tab got its real screen in Phase 7 (see issue 8 below) — only Settings still routes to the
-   shared "coming soon" placeholder.
+   Goals tab got its real screen in Phase 7 (see issue 8 below); **the Settings tab got its real
+   screen in Phase 8 (see issue 9 below)** — no tab routes to the shared "coming soon" placeholder
+   any more, and `ComingSoonScreen.kt` has been deleted as dead code.
 
 7. **Phase 6 (Search, Bookmarks & Notes) design questions — resolved 2026-07-24.** Three open
    questions in `specs/006-search-bookmarks-notes/contracts/ui-contract.md` were resolved by
@@ -165,6 +166,22 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
    - The ring's interior renders the practiced/goal figure (e.g. "4/10") rather than a bare
      percentage, per an explicit implementation-task instruction; the fetched design's caption
      line ("X out of Y verses") was folded into the same treatment rather than duplicated.
+
+9. **Phase 8 (Storage & Downloads) — implemented 2026-07-25.** *Home / Library* (`618643f8…`) and
+   *Matn Details (Refined)* (`472161bb…`) were re-fetched to place the content-delivery affordance —
+   see `specs/008-storage-downloads/design-notes.md` for the full write-up. Deviations from the
+   fetched design:
+   - **No Settings screen exists in the Stitch set at all.** The entire Settings screen (storage
+     header pair, size-ordered breakdown, "remove all downloaded content", every removal
+     confirmation state) is an original composition built from the Phase 10 token set — there was
+     no capture to retrofit, unlike Goals/Notes which had fetched screens to start from.
+   - **No install/progress/remove states were captured** for the Home card or the details header.
+     `ContentAvailabilityBadge`, `InstallProgressIndicator`, `ContentActionButton`,
+     `ConfirmRemovalDialog`, and `InstallPromptSheet` are all original compositions from the same
+     token set.
+   - The Home/Library card's fetched `cloud_done`/`download` status-icon slot **was** reused (not
+     invented) for the availability badge, and the Matn Details header's fetched `Play` button slot
+     **was** reused for the install/cancel/remove action — both per the existing captured regions.
 
 ## Phase 10 — Design System Adoption
 

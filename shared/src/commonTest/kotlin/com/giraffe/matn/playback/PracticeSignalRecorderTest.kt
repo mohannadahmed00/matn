@@ -1,4 +1,4 @@
-package com.giraffe.matn.playback
+﻿package com.giraffe.matn.playback
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.audio.AudioEngineEvent
@@ -33,7 +33,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * contracts/practice-signal-contract.md § 4 — drives a REAL [PlaybackController] + [FakeAudioEngine]
+ * contracts/practice-signal-contract.md Â§ 4 â€” drives a REAL [PlaybackController] + [FakeAudioEngine]
  * through scripted [AudioEngineEvent]s (same harness as [PlaybackControllerTest]) so the recall-mode
  * gate and the suppress-on-user-transport behavior are exercised against the actual production
  * logic, not a hand-fabricated state transition.
@@ -137,7 +137,7 @@ class PracticeSignalRecorderTest {
         engine.emit(AudioEngineEvent.TrackTransition(1)) // pass 1 -> pass 2: completes v1
         engine.emit(AudioEngineEvent.TrackTransition(1)) // pass 2 -> v2: completes v1 again
 
-        // The recorder calls recordPractice twice for the same verse — it never dedups itself;
+        // The recorder calls recordPractice twice for the same verse â€” it never dedups itself;
         // the DB's UNIQUE(day_epoch, verse_id) + OR IGNORE absorbs the duplicate (proven in T013).
         assertEquals(listOf("v1", "v1"), repo.recordedVerseIds)
     }
@@ -217,6 +217,6 @@ class PracticeSignalRecorderTest {
     }
 
     private object StubResolver : AudioSourceResolver {
-        override suspend fun resolve(fileRef: String): String = "file://audio/$fileRef"
+        override suspend fun resolve(matnId: String, fileRef: String): String = "file://audio/$fileRef"
     }
 }

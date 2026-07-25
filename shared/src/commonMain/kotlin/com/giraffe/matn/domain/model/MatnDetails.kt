@@ -10,4 +10,8 @@ data class MatnDetails(
     val matn: Matn,
     val chapters: List<Chapter>,
     val showTableOfContents: Boolean,
+    /** Phase 8 (FR-002/FR-003): the catalog's declared install size (data-model.md §1.1). */
+    val declaredSizeBytes: Long = 0L,
+    /** Phase 8 (FR-027): true for the bundled, non-removable starter matn. */
+    val isStarter: Boolean = false,
 )
