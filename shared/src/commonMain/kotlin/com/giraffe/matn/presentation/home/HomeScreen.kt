@@ -119,6 +119,11 @@ fun HomeContent(
                                 entry = entry,
                                 onResume = onResume,
                                 onDismiss = onDismiss,
+                                isContentInstalled = state.isContinueLearningContentInstalled,
+                                // Reinstalling happens from the matn's own details screen, where
+                                // the real install action lives (FR-022) — a resume that would
+                                // fail the playback gate is never offered here (SC-007).
+                                onReinstall = { onOpenMatn(entry.matnId) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(bottom = MatnSpacing.unit),

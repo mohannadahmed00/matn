@@ -11,6 +11,7 @@ import com.giraffe.matn.domain.model.MatnDetails
 import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.Verse
 import com.giraffe.matn.domain.model.VerseAnnotations
 import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
@@ -71,6 +72,8 @@ class MatnDetailsViewModel(
     private val observeContentAvailability: FlowUseCase<String, ContentAvailability>? = null,
     private val installMatnContent: UseCase<String, Unit>? = null,
     private val cancelInstall: UseCase<String, Unit>? = null,
+    /** Phase 8 (US2 FR-017/FR-018/FR-021): removal, gated behind explicit confirmation. */
+    private val removeMatnContent: UseCase<String, RemovalOutcome>? = null,
 ) : BaseViewModel<MatnDetailsUiState>(MatnDetailsUiState()) {
 
     // The two async inputs (details load + verse stream) are cached here and folded into UI
@@ -170,6 +173,29 @@ class MatnDetailsViewModel(
     fun onCancelInstall() {
         val useCase = cancelInstall ?: return
         viewModelScope.launch { useCase.invoke(matnId) }
+    }
+
+    /** FR-018: open the removal confirmation. Removal never fires without it. */
+    fun onRemoveRequested() {
+        setState { it.copy(pendingRemovalConfirmation = true) }
+    }
+
+    /** FR-018: dismiss without removing. */
+    fun onDismissRemoval() {
+        setState { it.copy(pendingRemovalConfirmation = false) }
+    }
+
+    /** FR-017/FR-021/FR-027: confirmed removal. [observeAvailability] re-emits and reflects the
+     *  new state; [MatnDetailsUiState.lastRemovalOutcome] carries the platform-honest outcome. */
+    fun onConfirmRemoval() {
+        val useCase = removeMatnContent ?: return
+        setState { it.copy(pendingRemovalConfirmation = false) }
+        runUseCase(
+            useCase = useCase,
+            params = matnId,
+            onSuccess = { outcome -> setState { it.copy(lastRemovalOutcome = outcome) } },
+            onError = {/* best-effort; availability stays whatever the repository last reported */ },
+        )
     }
 
     /** US2 FR-010: toggle the bookmark on [verseId] (typically the active verse). Best-effort —

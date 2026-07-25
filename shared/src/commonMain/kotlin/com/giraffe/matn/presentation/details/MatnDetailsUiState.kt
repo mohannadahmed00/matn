@@ -7,6 +7,7 @@ import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.LoopRange
 import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.VerseAnnotations
 
 /**
@@ -58,6 +59,13 @@ data class MatnDetailsUiState(
      *  required-vs-available bytes) — the screen maps this to a localized message, mirroring
      *  [errorMessage] for [error]. `null` when there is nothing to report. */
     val installError: DeliveryError? = null,
+    /** Phase 8 (FR-018, US2): true while [ConfirmRemovalDialog][com.giraffe.matn.presentation.common.ConfirmRemovalDialog]
+     *  is open. Removal never fires without this confirmation (spec edge case "Repeated taps on
+     *  install/remove"). */
+    val pendingRemovalConfirmation: Boolean = false,
+    /** Phase 8 (FR-017/FR-021): the most recent removal's outcome, so honest post-removal copy
+     *  can be shown (`Reclaimed` vs `ReleasedPendingSystemReclaim`). `null` before any removal. */
+    val lastRemovalOutcome: RemovalOutcome? = null,
 )
 
 /**

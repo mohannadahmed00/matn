@@ -29,6 +29,7 @@
     <string name="continue_learning_verse">Verse %1$d</string>
     <string name="continue_learning_resume">Resume now</string>
     <string name="continue_learning_dismiss">Dismiss</string>
+    <string name="continue_learning_reinstall">Reinstall</string>
     <string name="repetition_setup_title">Repetition Settings</string>
     <string name="repetition_setup_ab_toggle">A–B mode</string>
     <string name="repetition_setup_start_verse">Start verse</string>
@@ -86,4 +87,9 @@
     <string name="content_error_insufficient_storage">Not enough storage space</string>
     <string name="content_error_cancelled">Install cancelled</string>
     <string name="content_error_unknown">Couldn't complete the install</string>
+    <string name="confirm_removal_title">Remove %1$s?</string>
+    <string name="confirm_removal_message_reclaimed">%1$s will be freed from storage immediately.</string>
+    <string name="confirm_removal_message_pending">%1$s will be released; the system reclaims it when needed.</string>
+    <string name="confirm_removal_confirm">Remove</string>
+    <string name="confirm_removal_cancel">Cancel</string>
 </resources>

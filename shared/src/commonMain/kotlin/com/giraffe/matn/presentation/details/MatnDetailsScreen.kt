@@ -102,6 +102,9 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.ma
         onMarkChapterMemorized = viewModel::onMarkChapterMemorized,
         onInstall = viewModel::onInstall,
         onCancelInstall = viewModel::onCancelInstall,
+        onRemoveRequested = viewModel::onRemoveRequested,
+        onConfirmRemoval = viewModel::onConfirmRemoval,
+        onDismissRemoval = viewModel::onDismissRemoval,
         playerBar = playerBar,
     )
 }
@@ -134,6 +137,9 @@ fun MatnDetailsContent(
     onMarkChapterMemorized: (String, Boolean) -> Unit = { _, _ -> },
     onInstall: () -> Unit = {},
     onCancelInstall: () -> Unit = {},
+    onRemoveRequested: () -> Unit = {},
+    onConfirmRemoval: () -> Unit = {},
+    onDismissRemoval: () -> Unit = {},
     playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
     // specs/010-design-system-adoption User Story 2: the repetition-setup sheet's open/closed
@@ -202,6 +208,7 @@ fun MatnDetailsContent(
                         onMarkChapterMemorized = onMarkChapterMemorized,
                         onInstall = onInstall,
                         onCancelInstall = onCancelInstall,
+                        onRemoveRequested = onRemoveRequested,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -223,6 +230,22 @@ fun MatnDetailsContent(
                 onSetLoopEnd = onSetLoopEnd,
                 onClearLoop = onClearLoop,
                 onStartPlayback = onGlobalPlayClicked,
+            )
+        }
+        if (state.pendingRemovalConfirmation && state.header != null) {
+            val occupiedBytes = (state.availability as? ContentAvailability.Installed)?.occupiedBytes
+                ?: state.declaredSizeBytes
+            com.giraffe.matn.presentation.common.ConfirmRemovalDialog(
+                matnTitle = state.header.title,
+                bytes = occupiedBytes,
+                // Phase 8 simplification (documented in the PR description per T079): the actual
+                // RemovalOutcome variant is only known after removal completes and this contract
+                // exposes no platform-capability signal ahead of time, so the confirmation copy
+                // uses the immediate-reclaim wording; the honest platform-specific outcome is
+                // rendered from state.lastRemovalOutcome after removal (Settings, T066/T067).
+                isReleasedPendingSystemReclaim = false,
+                onConfirm = onConfirmRemoval,
+                onDismiss = onDismissRemoval,
             )
         }
         if (installPromptOpen && state.header != null) {
@@ -266,6 +289,7 @@ private fun VerseList(
     onMarkChapterMemorized: (String, Boolean) -> Unit = { _, _ -> },
     onInstall: () -> Unit = {},
     onCancelInstall: () -> Unit = {},
+    onRemoveRequested: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -313,6 +337,7 @@ private fun VerseList(
                     installError = state.installError,
                     onInstall = onInstall,
                     onCancelInstall = onCancelInstall,
+                    onRemoveRequested = onRemoveRequested,
                 )
             }
         }
@@ -369,6 +394,7 @@ private fun Frontispiece(
     installError: DeliveryError? = null,
     onInstall: () -> Unit = {},
     onCancelInstall: () -> Unit = {},
+    onRemoveRequested: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -397,7 +423,7 @@ private fun Frontispiece(
                     isStarter = false,
                     onInstall = onInstall,
                     onCancel = onCancelInstall,
-                    onRemove = {},
+                    onRemove = onRemoveRequested,
                 )
             }
         }

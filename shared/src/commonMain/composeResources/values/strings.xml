@@ -29,6 +29,7 @@
     <string name="continue_learning_verse">البيت %1$d</string>
     <string name="continue_learning_resume">استكمال الآن</string>
     <string name="continue_learning_dismiss">إخفاء</string>
+    <string name="continue_learning_reinstall">إعادة التثبيت</string>
     <string name="repetition_setup_title">إعدادات التكرار</string>
     <string name="repetition_setup_ab_toggle">وضعية A-B</string>
     <string name="repetition_setup_start_verse">بيت البداية</string>
@@ -86,4 +87,9 @@
     <string name="content_error_insufficient_storage">لا تتوفر مساحة تخزين كافية</string>
     <string name="content_error_cancelled">تم إلغاء التثبيت</string>
     <string name="content_error_unknown">تعذّر إكمال التثبيت</string>
+    <string name="confirm_removal_title">إزالة %1$s؟</string>
+    <string name="confirm_removal_message_reclaimed">سيتم تحرير %1$s من مساحة التخزين فورًا.</string>
+    <string name="confirm_removal_message_pending">سيتم تحرير %1$s، ويستعيدها النظام عند الحاجة إليها.</string>
+    <string name="confirm_removal_confirm">إزالة</string>
+    <string name="confirm_removal_cancel">إلغاء</string>
 </resources>

@@ -13,6 +13,7 @@ import com.giraffe.matn.domain.model.MatnDetails
 import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.domain.model.Verse
 import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
@@ -446,6 +447,7 @@ class MatnDetailsViewModelTest {
         availabilityFlow: Flow<ContentAvailability>? = null,
         installMatnContent: UseCase<String, Unit>? = null,
         cancelInstall: UseCase<String, Unit>? = null,
+        removeMatnContent: UseCase<String, RemovalOutcome>? = null,
     ): MatnDetailsViewModel {
         val versesState = MutableStateFlow(verses)
         return MatnDetailsViewModel(
@@ -468,6 +470,7 @@ class MatnDetailsViewModelTest {
             observeContentAvailability = availabilityFlow?.let { flow -> FakeFlowUseCase { flow } },
             installMatnContent = installMatnContent,
             cancelInstall = cancelInstall,
+            removeMatnContent = removeMatnContent,
         )
     }
 
@@ -593,6 +596,46 @@ class MatnDetailsViewModelTest {
         // observable consequence to prove the ViewModel's collector reflects it.
         availability.value = ContentAvailability.NotInstalled()
         assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability)
+    }
+
+    @Test
+    fun `T058 removal does not fire without confirmation`() = runTest {
+        var removeInvoked = false
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            availabilityFlow = flowOf(ContentAvailability.Installed(2_400_000)),
+            removeMatnContent = FakeUseCase {
+                removeInvoked = true
+                Resource.Success(RemovalOutcome.Reclaimed(2_400_000))
+            },
+        )
+        vm.onRemoveRequested()
+        assertTrue(vm.state.value.pendingRemovalConfirmation)
+        assertTrue(!removeInvoked, "removal must not fire before confirmation")
+
+        vm.onConfirmRemoval()
+        assertTrue(removeInvoked)
+        assertTrue(!vm.state.value.pendingRemovalConfirmation)
+        assertEquals(RemovalOutcome.Reclaimed(2_400_000), vm.state.value.lastRemovalOutcome)
+    }
+
+    @Test
+    fun `T058 dismissing the confirmation never removes`() = runTest {
+        var removeInvoked = false
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            availabilityFlow = flowOf(ContentAvailability.Installed(2_400_000)),
+            removeMatnContent = FakeUseCase {
+                removeInvoked = true
+                Resource.Success(RemovalOutcome.Reclaimed(2_400_000))
+            },
+        )
+        vm.onRemoveRequested()
+        vm.onDismissRemoval()
+        assertTrue(!vm.state.value.pendingRemovalConfirmation)
+        assertTrue(!removeInvoked)
     }
 
     @Test

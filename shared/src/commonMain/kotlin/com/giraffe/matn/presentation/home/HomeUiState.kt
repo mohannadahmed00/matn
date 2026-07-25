@@ -34,4 +34,11 @@ data class HomeUiState(
     val dailyGoal: DailyGoalUiState = DailyGoalUiState(),
     val progressByMatn: Map<String, Float> = emptyMap(),
     val availability: Map<String, ContentAvailability> = emptyMap(),
-)
+) {
+    /** Phase 8 (FR-022): whether the Continue Learning entry's matn is installed, joining
+     *  [continueLearning] with [availability] — drives
+     *  [com.giraffe.matn.presentation.common.ContinueLearningCard]'s reinstall offer. `true` when
+     *  there is no entry (nothing to gate). */
+    val isContinueLearningContentInstalled: Boolean
+        get() = continueLearning?.let { entry -> availability[entry.matnId] is ContentAvailability.Installed } ?: true
+}

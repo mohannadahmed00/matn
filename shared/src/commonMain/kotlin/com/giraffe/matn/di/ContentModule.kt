@@ -56,6 +56,8 @@ import com.giraffe.matn.domain.usecase.ObserveNotesUseCase
 import com.giraffe.matn.domain.usecase.ObserveVerseAnnotationsUseCase
 import com.giraffe.matn.domain.usecase.ObserveVerseMemorizationUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
+import com.giraffe.matn.domain.usecase.RemoveAllContentUseCase
+import com.giraffe.matn.domain.usecase.RemoveMatnContentUseCase
 import com.giraffe.matn.domain.usecase.ResolveResumeTargetUseCase
 import com.giraffe.matn.domain.usecase.SaveNoteUseCase
 import com.giraffe.matn.domain.usecase.SearchLibraryUseCase
@@ -170,4 +172,7 @@ fun contentModule() = module {
     factory { ObserveLibraryAvailabilityUseCase(get()) }
     factory { InstallMatnContentUseCase(get(), get()) }
     factory { CancelInstallUseCase(get()) }
+    // Phase 8 (US2 T061): removal use cases.
+    factory { RemoveMatnContentUseCase(get(), get()) }
+    factory { RemoveAllContentUseCase(get()) }
 }
