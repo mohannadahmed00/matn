@@ -63,7 +63,7 @@ import org.jetbrains.compose.resources.stringResource
  *    no bottom bar
  *  * `notes` — [NavigationTab.NOTES]'s real screen (Phase 6 US2/US3): bookmarks + notes
  *  * `goals` — [NavigationTab.GOALS]'s real screen (Phase 7 US3): the Goals dashboard
- *  * `settings` — [NavigationTab.SETTINGS], still routed to the shared [ComingSoonScreen]
+ *  * `settings` — [NavigationTab.SETTINGS]'s real screen (Phase 8 US3): storage management
  *
  * The graph is authored once and extended per story. ViewModels are built per destination
  * with `androidx.lifecycle.viewmodel.compose.viewModel { ... }`, injecting use cases from the
@@ -214,7 +214,15 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                 )
             }
             composable(Routes.SETTINGS) {
-                ComingSoonScreen(tab = NavigationTab.SETTINGS, onBackToLibrary = { navController.navigate(Routes.HOME) })
+                val koin = MatnKoinHolder.koin
+                val viewModel: com.giraffe.matn.presentation.settings.SettingsViewModel = viewModel {
+                    com.giraffe.matn.presentation.settings.SettingsViewModel(
+                        observeStorageUsage = koin.get<com.giraffe.matn.domain.usecase.ObserveStorageUsageUseCase>(),
+                        removeMatnContent = koin.get<com.giraffe.matn.domain.usecase.RemoveMatnContentUseCase>(),
+                        removeAllContent = koin.get<com.giraffe.matn.domain.usecase.RemoveAllContentUseCase>(),
+                    )
+                }
+                com.giraffe.matn.presentation.settings.SettingsScreen(viewModel = viewModel)
             }
         }
     }

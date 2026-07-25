@@ -25,8 +25,14 @@ class FakeContentDeliveryEngine : ContentDeliveryEngine {
     /** Live size override; null ⇒ fall back to declared (matches the engine contract). */
     var liveSize: Long? = null
 
-    /** Filesystem root reported by [locate] for an installed pack. */
+    /** Filesystem root reported by [locate] for an installed pack, used when [installedRoots] has
+     *  no entry for that pack. Sufficient for tests exercising a single on-demand pack. */
     var installedRoot: String? = "/fake/packs"
+
+    /** Per-pack root override — needed only when a test installs multiple on-demand packs and
+     *  must give each a distinct measurable directory size (e.g. storage-usage ordering tests).
+     *  Falls back to [installedRoot] for any pack without an entry here. */
+    val installedRoots: MutableMap<String, String> = mutableMapOf()
 
     /** Outcome returned by the next [remove] call. */
     var nextRemovalOutcome: RemovalOutcome = RemovalOutcome.Reclaimed(0L)
@@ -54,6 +60,7 @@ class FakeContentDeliveryEngine : ContentDeliveryEngine {
         removeInvocations.clear()
         liveSize = null
         installedRoot = "/fake/packs"
+        installedRoots.clear()
         nextRemovalOutcome = RemovalOutcome.Reclaimed(0L)
         failInstallWith = null
     }
@@ -120,7 +127,7 @@ class FakeContentDeliveryEngine : ContentDeliveryEngine {
     }
 
     override suspend fun locate(packId: String): String? =
-        if (states[packId] is ContentAvailability.Installed) installedRoot else null
+        if (states[packId] is ContentAvailability.Installed) installedRoots[packId] ?: installedRoot else null
 
     override suspend fun isInstalled(packId: String): Boolean =
         states[packId] is ContentAvailability.Installed

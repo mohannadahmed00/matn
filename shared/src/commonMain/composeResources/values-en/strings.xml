@@ -92,4 +92,14 @@
     <string name="confirm_removal_message_pending">%1$s will be released; the system reclaims it when needed.</string>
     <string name="confirm_removal_confirm">Remove</string>
     <string name="confirm_removal_cancel">Cancel</string>
+    <string name="storage_row_part_of_app">Part of the app</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_storage_used_label">Used</string>
+    <string name="settings_storage_free_label">Free</string>
+    <string name="settings_storage_breakdown_title">Storage breakdown</string>
+    <string name="settings_storage_zero_title">Nothing downloaded yet</string>
+    <string name="settings_storage_zero_message">Install a matn to play it offline; it will appear here.</string>
+    <string name="settings_remove_all">Remove all downloaded content</string>
+    <string name="settings_removal_reclaimed">%1$s freed.</string>
+    <string name="settings_removal_pending">%1$s released; the system reclaims it when needed.</string>
 </resources>

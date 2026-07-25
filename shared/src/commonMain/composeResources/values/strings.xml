@@ -92,4 +92,14 @@
     <string name="confirm_removal_message_pending">سيتم تحرير %1$s، ويستعيدها النظام عند الحاجة إليها.</string>
     <string name="confirm_removal_confirm">إزالة</string>
     <string name="confirm_removal_cancel">إلغاء</string>
+    <string name="storage_row_part_of_app">جزء من التطبيق</string>
+    <string name="settings_title">الإعدادات</string>
+    <string name="settings_storage_used_label">المساحة المستخدمة</string>
+    <string name="settings_storage_free_label">المساحة المتاحة</string>
+    <string name="settings_storage_breakdown_title">تفاصيل التخزين</string>
+    <string name="settings_storage_zero_title">لا يوجد محتوى مُنزَّل بعد</string>
+    <string name="settings_storage_zero_message">ثبّت متنًا لتشغيله دون اتصال؛ سيظهر هنا.</string>
+    <string name="settings_remove_all">إزالة كل المحتوى المُنزَّل</string>
+    <string name="settings_removal_reclaimed">تم تحرير %1$s.</string>
+    <string name="settings_removal_pending">تم تحرير %1$s، ويستعيدها النظام عند الحاجة إليها.</string>
 </resources>

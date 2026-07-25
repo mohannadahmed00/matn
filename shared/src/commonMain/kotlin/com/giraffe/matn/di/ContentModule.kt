@@ -53,6 +53,7 @@ import com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
 import com.giraffe.matn.domain.usecase.ObserveMatnProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveNotesUseCase
+import com.giraffe.matn.domain.usecase.ObserveStorageUsageUseCase
 import com.giraffe.matn.domain.usecase.ObserveVerseAnnotationsUseCase
 import com.giraffe.matn.domain.usecase.ObserveVerseMemorizationUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
@@ -175,4 +176,6 @@ fun contentModule() = module {
     // Phase 8 (US2 T061): removal use cases.
     factory { RemoveMatnContentUseCase(get(), get()) }
     factory { RemoveAllContentUseCase(get()) }
+    // Phase 8 (US3 T071): the Settings tab's storage-usage stream.
+    factory { ObserveStorageUsageUseCase(get()) }
 }
