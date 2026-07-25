@@ -29,3 +29,4 @@ dependencyResolutionManagement {
 
 include(":androidApp")
 include(":shared")
+include(":packs:matn_structured_sample")

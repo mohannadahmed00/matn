@@ -1,4 +1,4 @@
-package com.giraffe.matn.playback
+﻿package com.giraffe.matn.playback
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.InMemoryRepetitionSettingsStore
@@ -35,14 +35,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Phase 4 resume-path behaviour of [PlaybackController] (T031b/T035b — a NEW file; the
+ * Phase 4 resume-path behaviour of [PlaybackController] (T031b/T035b â€” a NEW file; the
  * pre-existing [PlaybackControllerTest] is untouched, Rule 1).
  *
  * - **FR-022a / E3**: a resume that begins while another app holds audio focus must restore the
- *   session fully but sit PAUSED with [PauseReason.NON_TRANSIENT_INTERRUPTION] — never report
+ *   session fully but sit PAUSED with [PauseReason.NON_TRANSIENT_INTERRUPTION] â€” never report
  *   PLAYING over a call, never silently die (Principle VII).
  * - **FR-020 / T035b**: starting a session for a matn whose stored settings contain a [LoopRange]
- *   must yield a non-empty `loopRangeVerseIds` covering exactly the inclusive range — the guard
+ *   must yield a non-empty `loopRangeVerseIds` covering exactly the inclusive range â€” the guard
  *   that keeps T035a's one-line fix from silently regressing.
  */
 class SessionResumeFocusTest {
@@ -108,7 +108,7 @@ class SessionResumeFocusTest {
         val state = ctrl.state.value
         assertEquals(PlaybackStatus.PAUSED, state.status, "denial during start must be honoured (FR-022a)")
         assertEquals(PauseReason.NON_TRANSIENT_INTERRUPTION, state.pauseReason)
-        // The session restored fully — matn, verse, position, and settings all present.
+        // The session restored fully â€” matn, verse, position, and settings all present.
         assertEquals("matn-1", state.matnId)
         assertEquals("v2", state.activeVerseId)
         assertEquals(3_000L, engine.seekedToMs, "resume position must be applied before the denial pauses")
@@ -124,7 +124,7 @@ class SessionResumeFocusTest {
         ctrl.playFromVerse("matn-1", "v1", startPositionMs = 0)
         assertEquals(PlaybackStatus.LOADING, ctrl.state.value.status)
 
-        // A transient dip before start completes is owned by the existing auto-resume path —
+        // A transient dip before start completes is owned by the existing auto-resume path â€”
         // it must NOT flip the starting session to PAUSED (T031a scope guard).
         engine.emit(AudioEngineEvent.InterruptionBegan(transient = true))
         assertEquals(PlaybackStatus.LOADING, ctrl.state.value.status)
@@ -145,7 +145,7 @@ class SessionResumeFocusTest {
         ctrl.playFromStart("matn-1")
         engine.emit(AudioEngineEvent.Ready)
 
-        // Exactly the verse IDs inside the inclusive range — not empty (the latent Phase-3 bug),
+        // Exactly the verse IDs inside the inclusive range â€” not empty (the latent Phase-3 bug),
         // not the whole matn.
         assertEquals(setOf("v1", "v2"), ctrl.state.value.loopRangeVerseIds)
     }
@@ -187,6 +187,6 @@ class SessionResumeFocusTest {
     }
 
     private object StubResolver : AudioSourceResolver {
-        override suspend fun resolve(fileRef: String): String = "file://audio/$fileRef"
+        override suspend fun resolve(matnId: String, fileRef: String): String = "file://audio/$fileRef"
     }
 }

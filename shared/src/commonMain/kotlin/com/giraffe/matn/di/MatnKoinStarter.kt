@@ -8,6 +8,8 @@ import com.giraffe.matn.data.seed.SeedMatn
 import com.giraffe.matn.data.seed.SeedVerse
 import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.WakeLock
+import com.giraffe.matn.domain.delivery.ContentDeliveryEngine
+import com.giraffe.matn.domain.delivery.DeviceStorage
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.playback.PracticeSignalRecorder
 import com.giraffe.matn.playback.SessionStateRecorder
@@ -63,6 +65,8 @@ fun initMatnKoin(
     driverFactory: DatabaseDriverFactory,
     audioEngine: AudioEngine,
     wakeLock: WakeLock,
+    deliveryEngine: ContentDeliveryEngine,
+    deviceStorage: DeviceStorage,
     seedIfEmpty: Boolean = true,
 ) {
     // Guard the whole body: a second call (e.g. Android `onCreate` after a rotation) must not
@@ -75,6 +79,10 @@ fun initMatnKoin(
                 single { driverFactory }
                 single<AudioEngine> { audioEngine }
                 single<WakeLock> { wakeLock }
+                // Phase 8 (FR-001): the two new delivery seams are platform-injected exactly like
+                // AudioEngine and WakeLock; their actuals live in androidMain/iosMain.
+                single<ContentDeliveryEngine> { deliveryEngine }
+                single<DeviceStorage> { deviceStorage }
             },
             contentModule(),
         )
@@ -114,6 +122,13 @@ private suspend fun seedBundledSamplesIfEmpty() {
     bundledSampleMatns().forEach { payload -> loader.load(payload) }
 }
 
+/**
+ * Phase 8 (data-model §1.1): the starter matn (الأجرومية) ships bundled in the app binary and the
+ * structured sample ships as an on-demand asset pack. The `packId`s MUST match the Gradle asset-pack
+ * module name and the iOS On-Demand Resources tag exactly (T003/T007). The `declaredSizeBytes`
+ * figures below are **measured from the actual audio files** and MUST be re-measured whenever a
+ * matn's audio changes (SC-002 / SC-003) — T006 records the measurement procedure.
+ */
 private fun bundledSampleMatns(): List<SeedMatn> = listOf(
     SeedMatn(
         id = "b3f1e2a4-0000-4000-8000-000000000001",
@@ -126,6 +141,9 @@ private fun bundledSampleMatns(): List<SeedMatn> = listOf(
         coverImageRef = null,
         structureKind = "SIMPLE",
         defaultReciterId = "reciter-default-v1",
+        packId = "matn_ajurrumiyya",
+        declaredSizeBytes = 296L,
+        isStarter = true,
         verses = listOf(
             SeedVerse(
                 id = "b3f1e2a4-0000-4000-8000-0000000000v1",
@@ -181,6 +199,9 @@ private fun bundledSampleMatns(): List<SeedMatn> = listOf(
         coverImageRef = null,
         structureKind = "STRUCTURED",
         defaultReciterId = "reciter-default-v1",
+        packId = "matn_structured_sample",
+        declaredSizeBytes = 296L,
+        isStarter = false,
         chapters = listOf(
             SeedChapter(
                 id = "e5c5c5c5-0000-4000-8000-0000000000c1",

@@ -1,4 +1,4 @@
-package com.giraffe.matn.playback
+﻿package com.giraffe.matn.playback
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.InMemoryRepetitionSettingsStore
@@ -35,8 +35,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Drives [PlaybackController]'s repetition window against [FakeAudioEngine] — rows C1–C18 of
- * [contracts/repetition-contract.md] §4 (Phase 3 splits this file across US1–US4; this file covers
+ * Drives [PlaybackController]'s repetition window against [FakeAudioEngine] â€” rows C1â€“C18 of
+ * [contracts/repetition-contract.md] Â§4 (Phase 3 splits this file across US1â€“US4; this file covers
  * US1's C1, C2, C3, C4, C6, C9, C10, C14, C15).
  */
 class RepetitionControllerTest {
@@ -100,7 +100,7 @@ class RepetitionControllerTest {
         assertEquals("v1", ctrl.state.value.activeVerseId)
         assertEquals(3, ctrl.state.value.repetitionProgress?.repetition)
 
-        // Third repetition consumed → advances to v2.
+        // Third repetition consumed â†’ advances to v2.
         engine.emit(AudioEngineEvent.TrackTransition(1))
         assertEquals("v2", ctrl.state.value.activeVerseId)
     }
@@ -373,7 +373,7 @@ class RepetitionControllerTest {
         assertEquals("v1", (notice as PlaybackNotice.SkippedMissingVerse).verseId)
         assertEquals("v2", ctrl.state.value.activeVerseId)
 
-        // Later passes over the range never land back on v1 — only v2 keeps repeating.
+        // Later passes over the range never land back on v1 â€” only v2 keeps repeating.
         repeat(4) { engine.emit(AudioEngineEvent.TrackTransition(1)) }
         assertEquals("v2", ctrl.state.value.activeVerseId)
     }
@@ -386,9 +386,9 @@ class RepetitionControllerTest {
         ctrl.playFromStart("matn-1")
         engine.emit(AudioEngineEvent.Ready)
 
-        engine.emit(AudioEngineEvent.TrackError(0)) // v1 fails → skip to v2
+        engine.emit(AudioEngineEvent.TrackError(0)) // v1 fails â†’ skip to v2
         assertEquals("v2", ctrl.state.value.activeVerseId)
-        engine.emit(AudioEngineEvent.TrackError(0)) // v2 (now window index 0) fails too → nothing left
+        engine.emit(AudioEngineEvent.TrackError(0)) // v2 (now window index 0) fails too â†’ nothing left
 
         assertEquals(PlaybackStatus.ENDED, ctrl.state.value.status)
         assertTrue(ctrl.state.value.notice is PlaybackNotice.NoPlayableAudio)
@@ -396,13 +396,13 @@ class RepetitionControllerTest {
 
     /**
      * Regression test for a real-engine-only bug found via on-device testing (not reproducible
-     * against [FakeAudioEngine], which — unlike Media3 — never synchronously re-emits a
+     * against [FakeAudioEngine], which â€” unlike Media3 â€” never synchronously re-emits a
      * `TrackTransition` as a side effect of `seekToTrack`). The recovery branch used to reassign
      * `window` to a fresh 0-indexed `buildWindow(nextCursor)` while telling the engine to
      * `seekToTrack` an index from the OLD window, silently breaking the "engine index == window
      * index" invariant the whole sliding-window design depends on. This asserts the fast recovery
      * path now goes through the same trim/drop/rebuild dance as `moveToVerse`'s existing-in-window
-     * branch (T028) — no second `setQueue`, and `dropConsumed()` runs exactly once.
+     * branch (T028) â€” no second `setQueue`, and `dropConsumed()` runs exactly once.
      */
     @Test
     fun `TrackError recovery via an already-windowed verse drops consumed instead of rebuilding`() = runTest {
@@ -417,7 +417,7 @@ class RepetitionControllerTest {
         engine.emit(AudioEngineEvent.TrackError(0))
 
         assertEquals(1, engine.seekedToTrack)
-        assertEquals(queueBefore, engine.lastQueue) // no second setQueue call — fast path, not rebuild
+        assertEquals(queueBefore, engine.lastQueue) // no second setQueue call â€” fast path, not rebuild
         assertEquals(dropsBefore + 1, engine.dropConsumedCount) // refillWindow() ran after the seek
         assertEquals("v2", ctrl.state.value.activeVerseId)
     }
@@ -484,6 +484,6 @@ class RepetitionControllerTest {
     }
 
     private object StubResolver : AudioSourceResolver {
-        override suspend fun resolve(fileRef: String): String = "file://audio/$fileRef"
+        override suspend fun resolve(matnId: String, fileRef: String): String = "file://audio/$fileRef"
     }
 }

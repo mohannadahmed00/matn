@@ -24,4 +24,6 @@ sealed interface PlaybackNotice {
     data object ReachedEnd : PlaybackNotice
     /** No track in the queue is playable (FR-020). */
     data object NoPlayableAudio : PlaybackNotice
+    /** Phase 8 (FR-011): the matn's content is not installed; the UI shows install prompt. */
+    data class ContentNotInstalled(val matnId: String) : PlaybackNotice
 }

@@ -34,6 +34,16 @@ class ContentSeedLoaderImpl(private val db: ContentDatabase) : ContentSeedLoader
                         structure_kind = payload.structureKind,
                     )
 
+                    // Phase 8 (FR-001): the matn's content_pack row is written in the same
+                    // transaction so the catalog is atomically consistent with the matn itself.
+                    // is_starter is stored as 1L/0L per the SQLDelight INTEGER column contract.
+                    q.insertContentPack(
+                        matn_id = payload.id,
+                        pack_id = payload.packId,
+                        declared_size_bytes = payload.declaredSizeBytes,
+                        is_starter = if (payload.isStarter) 1L else 0L,
+                    )
+
                     payload.chapters.forEach { chapter ->
                         q.upsertChapter(
                             id = chapter.id,

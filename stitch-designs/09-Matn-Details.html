@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#dcd9d9",
+                    "on-tertiary-fixed": "#1c1c18",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#696863",
+                    "surface": "#fcf9f8",
+                    "surface-variant": "#e4e2e1",
+                    "on-tertiary-fixed-variant": "#474742",
+                    "surface-container-low": "#f6f3f2",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#506353",
+                    "on-tertiary-container": "#ebe8e1",
+                    "secondary-fixed-dim": "#d8c4a2",
+                    "outline": "#737872",
+                    "surface-container-high": "#eae7e7",
+                    "secondary": "#6b5c41",
+                    "on-secondary": "#ffffff",
+                    "inverse-on-surface": "#f3f0f0",
+                    "tertiary": "#51504b",
+                    "primary": "#425546",
+                    "surface-container": "#f0eded",
+                    "on-background": "#1b1c1c",
+                    "primary-fixed-dim": "#b7ccb9",
+                    "on-secondary-fixed": "#241a05",
+                    "inverse-primary": "#b7ccb9",
+                    "inverse-surface": "#303030",
+                    "on-surface": "#1b1c1c",
+                    "secondary-container": "#f2ddba",
+                    "outline-variant": "#c3c8c1",
+                    "surface-container-highest": "#e4e2e1",
+                    "background": "#fcf9f8",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#e5e2db",
+                    "on-secondary-container": "#706145",
+                    "tertiary-fixed-dim": "#c9c6c0",
+                    "primary-container": "#5a6d5d",
+                    "on-secondary-fixed-variant": "#52452b",
+                    "surface-bright": "#fcf9f8",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed-variant": "#394b3c",
+                    "secondary-fixed": "#f5e0bd",
+                    "on-surface-variant": "#434843",
+                    "on-primary-fixed": "#0e1f13",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#d9eeda",
+                    "on-error-container": "#93000a",
+                    "primary-fixed": "#d3e8d4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "64px",
+                    "container-max": "1024px",
+                    "gutter": "24px",
+                    "unit": "8px",
+                    "margin-mobile": "20px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["\"Source Serif 4\""],
+                    "headline-lg-mobile": ["\"Source Serif 4\""],
+                    "label-sm": ["Plus Jakarta Sans"],
+                    "body-ar": ["Amiri"],
+                    "body-md": ["\"Source Serif 4\""],
+                    "display-ar": ["Amiri"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-ar": ["24px", {"lineHeight": "2.2", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-ar": ["40px", {"lineHeight": "1.6", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      body {
+        background-color: #fcf9f8;
+        font-family: "Source Serif 4", serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .custom-scroll::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scroll::-webkit-scrollbar-thumb {
+        background: #c3c8c1;
+        border-radius: 10px;
+      }
+      .glass-effect {
+        backdrop-filter: blur(12px);
+        background-color: rgba(252, 249, 248, 0.8);
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .arabic-text {
+        font-family: 'Amiri', serif;
+        line-height: 2.2;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface">
+<!-- Top AppBar Navigation Shell -->
+<header class="fixed top-0 left-0 w-full z-50 bg-surface/80 backdrop-blur-md">
+<div class="flex justify-between items-center w-full px-margin-mobile h-16 md:px-margin-desktop">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined text-primary">arrow_forward</span>
+</button>
+<h1 class="font-display-ar text-2xl text-primary font-bold">Matn</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+</button>
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</button>
+</div>
+</div>
+</header>
+<main class="pt-16 pb-32">
+<!-- Hero Section with Cover Image -->
+<section class="relative w-full h-[353px] min-h-[300px] flex flex-col justify-end">
+<div class="absolute inset-0 z-0">
+<div class="w-full h-full bg-cover bg-center" data-alt="A tranquil, high-resolution photograph of an ancient, open leather-bound manuscript resting on a weathered wooden stand in a sun-drenched library. Soft golden hour light filters through arched windows, casting gentle shadows and highlighting the rich textures of the cream-colored pages and calligraphy. The overall mood is scholarly, meditative, and warm, featuring a palette of earthy browns, soft creams, and muted sage greens." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAeKfmPYOuDBx1IGsD86-cN8VTvMHYVP83LRI8p8CRNF4I9qexKY06NW1nJZgDUGtQ6CVPcHzi5yP5BUxpPEIrYpEIUf0Nx2zv7MlSd1e05w9WTlT9kcQuRynP6fM-lXrZ_ShjDu1EKkvjtpjGvhnOI3G96IIwmSkOdhnKhrIY4mochah02il8z1Z6_hebE9AR2rjBSPaHGAkQkyn8xn9Ma4hvwov_GSFoWyDvSbqcH-ewaV4KIE6fk')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent"></div>
+</div>
+<div class="relative z-10 px-margin-mobile md:px-0 max-w-[720px] mx-auto w-full pb-8">
+<div class="inline-flex px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-label-sm mb-4">
+                    Tajweed Science
+                </div>
+<h1 class="font-display-ar text-display-ar text-on-surface mb-2">Tuhfat al-Atfal</h1>
+<p class="font-body-md text-on-surface-variant text-lg">Al-Jamzuri</p>
+</div>
+</section>
+<!-- Progress and Stats Section -->
+<section class="px-margin-mobile md:px-0 max-w-[720px] mx-auto w-full mb-12">
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-wider">Overall Memorization</span>
+<span class="font-label-sm text-primary font-bold">45%</span>
+</div>
+<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full transition-all duration-1000" style="width: 45%;"></div>
+</div>
+<div class="flex justify-between items-center pt-2 text-on-surface-variant">
+<div class="flex flex-col">
+<span class="font-label-sm">Total Verses</span>
+<span class="font-headline-lg-mobile text-on-surface">61</span>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex flex-col">
+<span class="font-label-sm">Memorized</span>
+<span class="font-headline-lg-mobile text-on-surface">27</span>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex flex-col text-left">
+<span class="font-label-sm">Level</span>
+<span class="font-headline-lg-mobile text-on-surface">Intermediate</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Description -->
+<section class="px-margin-mobile md:px-0 max-w-[720px] mx-auto w-full mb-12">
+<h2 class="font-headline-lg-mobile text-primary mb-4 border-r-4 border-secondary pr-4">About this Matn</h2>
+<p class="font-body-md text-on-surface-variant leading-relaxed text-justify">
+                A foundational didactic poem (matn) for students beginning their journey in the science of Tajweed. Written by Imam Sulayman al-Jamzuri, it concisely explains the rules of Noon Sakinah, Tanween, Meem Sakinah, and Madd in rhythmic Arabic verse, making it ideal for memorization and preservation of the sacred tradition.
+            </p>
+</section>
+<!-- Table of Contents (Bento-style) -->
+<section class="px-margin-mobile md:px-0 max-w-[720px] mx-auto w-full mb-12">
+<h2 class="font-headline-lg-mobile text-primary mb-6">Sections</h2>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-4 bg-surface-container-high rounded-xl border border-outline-variant/30 hover:border-primary transition-all cursor-pointer group">
+<span class="text-xs font-label-sm text-on-tertiary-fixed-variant mb-2 block">01 - 05</span>
+<h3 class="font-body-md font-bold text-on-surface group-hover:text-primary">Introduction</h3>
+</div>
+<div class="p-4 bg-surface-container-high rounded-xl border border-outline-variant/30 hover:border-primary transition-all cursor-pointer group">
+<span class="text-xs font-label-sm text-on-tertiary-fixed-variant mb-2 block">06 - 15</span>
+<h3 class="font-body-md font-bold text-on-surface group-hover:text-primary">Noon Sakinah</h3>
+</div>
+<div class="p-4 bg-surface-container-high rounded-xl border border-outline-variant/30 hover:border-primary transition-all cursor-pointer group">
+<span class="text-xs font-label-sm text-on-tertiary-fixed-variant mb-2 block">16 - 25</span>
+<h3 class="font-body-md font-bold text-on-surface group-hover:text-primary">Ghunnah &amp; Meem</h3>
+</div>
+<div class="p-4 bg-surface-container-high rounded-xl border border-outline-variant/30 hover:border-primary transition-all cursor-pointer group">
+<span class="text-xs font-label-sm text-on-tertiary-fixed-variant mb-2 block">26 - 61</span>
+<h3 class="font-body-md font-bold text-on-surface group-hover:text-primary">Rules of Madd</h3>
+</div>
+</div>
+</section>
+<!-- Verse List -->
+<section class="px-margin-mobile md:px-0 max-w-[720px] mx-auto w-full">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-lg-mobile text-primary">Verse List</h2>
+<button class="text-primary font-label-sm flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-base">filter_list</span> Filter
+                </button>
+</div>
+<div class="space-y-4">
+<!-- Verse Item (Active/Completed) -->
+<div class="flex items-center gap-4 p-4 bg-secondary-container/20 border-r-4 border-secondary rounded-l-lg hover:bg-secondary-container/30 transition-all cursor-pointer">
+<div class="flex-none flex flex-col items-center justify-center w-10 text-on-surface-variant font-label-sm">
+<span>01</span>
+<span class="material-symbols-outlined text-secondary scale-75" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-grow text-center">
+<p class="arabic-text text-2xl font-bold text-on-surface">يَقُولُ رَاجِي رَحْمَةِ الْغَفُورِ • دَوْماً سُلَيْمَانُ هُوَ الجَمْزُورِي</p>
+</div>
+<div class="flex-none flex flex-col items-center gap-1">
+<button class="bg-primary text-on-primary p-2 rounded-full shadow-md active:scale-90 transition-transform">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<span class="text-[10px] font-label-sm text-on-surface-variant">0:12</span>
+</div>
+</div>
+<!-- Verse Item (Active/Studying) -->
+<div class="flex items-center gap-4 p-4 bg-primary-container/10 border-r-4 border-primary rounded-l-lg hover:bg-primary-container/20 transition-all cursor-pointer relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary/20"></div>
+<div class="flex-none flex flex-col items-center justify-center w-10 text-primary font-bold font-label-sm">
+<span>02</span>
+<span class="w-1 h-1 bg-primary rounded-full mt-1"></span>
+</div>
+<div class="flex-grow text-center">
+<p class="arabic-text text-2xl font-bold text-on-surface">الْحَمْدُ للهِ مُصَلِّياً عَلَى • مُحَمَّدٍ وَآلِهِ وَمَنْ تَلَى</p>
+</div>
+<div class="flex-none flex flex-col items-center gap-1">
+<button class="bg-primary text-on-primary p-2 rounded-full shadow-md active:scale-90 transition-transform">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<span class="text-[10px] font-label-sm text-on-surface-variant">0:10</span>
+</div>
+</div>
+<!-- Verse Item (Upcoming) -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low border-r-4 border-transparent rounded-l-lg transition-all cursor-pointer">
+<div class="flex-none flex flex-col items-center justify-center w-10 text-outline font-label-sm">
+<span>03</span>
+</div>
+<div class="flex-grow text-center">
+<p class="arabic-text text-2xl text-on-surface-variant">وَبَعْدُ هَذَا النَّظْمُ لِلْمُرِيدِ • فِي النُّونِ وَالتَّنْوِينِ وَالْمُدُودِ</p>
+</div>
+<div class="flex-none flex flex-col items-center gap-1">
+<button class="text-on-surface-variant p-2 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<span class="text-[10px] font-label-sm text-on-surface-variant">0:14</span>
+</div>
+</div>
+<!-- Verse Item (Upcoming) -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low border-r-4 border-transparent rounded-l-lg transition-all cursor-pointer">
+<div class="flex-none flex flex-col items-center justify-center w-10 text-outline font-label-sm">
+<span>04</span>
+</div>
+<div class="flex-grow text-center">
+<p class="arabic-text text-2xl text-on-surface-variant">سَمَّيْتُهُ بِتُحْفَةِ الأَطْفَالِ • عَنْ شَيْخِنَا الْمِيِّهِيِّ ذِي الْكَمَالِ</p>
+</div>
+<div class="flex-none flex flex-col items-center gap-1">
+<button class="text-on-surface-variant p-2 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<span class="text-[10px] font-label-sm text-on-surface-variant">0:11</span>
+</div>
+</div>
+<!-- Verse Item (Upcoming) -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low border-r-4 border-transparent rounded-l-lg transition-all cursor-pointer">
+<div class="flex-none flex flex-col items-center justify-center w-10 text-outline font-label-sm">
+<span>05</span>
+</div>
+<div class="flex-grow text-center">
+<p class="arabic-text text-2xl text-on-surface-variant">أَرْجُو بِهِ أَنْ يَنْفَعَ الطُّلاَّبَا • وَالأَجْرَ وَالقَبُولَ وَالثَّوَابَا</p>
+</div>
+<div class="flex-none flex flex-col items-center gap-1">
+<button class="text-on-surface-variant p-2 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<span class="text-[10px] font-label-sm text-on-surface-variant">0:15</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-surface-container-low border-t border-outline-variant px-4 py-3 pb-safe shadow-sm md:hidden">
+<div class="flex justify-around items-center">
+<div class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+<span class="font-label-sm text-label-sm">Library</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">track_changes</span>
+<span class="font-label-sm text-label-sm">Goals</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-label-sm text-label-sm">Notes</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</div>
+</div>
+</nav>
+<!-- Side Navigation Shell (Desktop) -->
+<aside class="hidden md:flex fixed right-0 top-0 h-full w-64 bg-surface border-l border-outline-variant flex-col z-50">
+<div class="p-6 h-16 flex items-center justify-end">
+<span class="font-display-ar text-2xl text-primary font-bold">Matn</span>
+</div>
+<div class="p-4 flex flex-col gap-1 overflow-y-auto">
+<div class="flex items-center gap-4 pr-4 py-3 mb-1 bg-secondary-container text-on-secondary-container font-bold rounded-l-full -mr-4 group transition-all">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</div>
+<div class="flex items-center gap-4 pr-4 py-3 mb-1 text-on-surface-variant hover:bg-surface-variant/20 transition-all rounded-l-full group">
+<span class="material-symbols-outlined">cloud_upload</span>
+<span class="font-body-md">Upload Matn</span>
+</div>
+<div class="flex items-center gap-4 pr-4 py-3 mb-1 text-on-surface-variant hover:bg-surface-variant/20 transition-all rounded-l-full group">
+<span class="material-symbols-outlined">folder_open</span>
+<span class="font-body-md">Library Management</span>
+</div>
+<div class="flex items-center gap-4 pr-4 py-3 mb-1 text-on-surface-variant hover:bg-surface-variant/20 transition-all rounded-l-full group">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-body-md">System Settings</span>
+</div>
+</div>
+<div class="mt-auto p-4 border-t border-outline-variant">
+<div class="flex items-center gap-3 justify-end">
+<div class="text-left">
+<p class="font-body-md font-bold text-on-surface">Ustadh Ahmed</p>
+<p class="text-xs text-on-surface-variant">Teacher Portal</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary-fixed overflow-hidden border-2 border-primary/20">
+<img class="w-full h-full object-cover" data-alt="A professional and warm studio portrait of a middle-aged scholar with a neatly trimmed beard, wearing traditional modest attire. He is smiling gently towards the camera, suggesting wisdom and approachability. The background is a soft, blurred studio setting with warm amber lighting that complements the premium minimalist UI aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMUuCrTRoFbY8pYpzsLeQpkfDkRS1hP31TGqE8a0l5fVcar6ilYVV-DKoKnobfsST1ZaxD8nk7pSjs77Xku_WJdb_YokNNOcrydJwh1jTKkbPkdBblOPKk6TyR49wUoEmlOFu1PNavyX4Q9qhVFXBEzcAwIJzr2CkqzoPHDSvYdBlhrhXemnYQpVeCtT0awPunu-Y79tJ6p1HRElKDjOFwYkgehxJkTDw-Bf4MpevuRQO_P4Xp0E4n"/>
+</div>
+</div>
+</div>
+</aside>
+<!-- Mini Floating Playback Controller -->
+<div class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[90%] max-w-[400px] z-[60] md:bottom-8 md:left-margin-desktop md:translate-x-0">
+<div class="glass-effect shadow-2xl rounded-2xl p-4 border border-outline-variant/50 flex items-center gap-4">
+<div class="flex-none w-10 h-10 bg-secondary rounded-lg flex items-center justify-center text-on-secondary shadow-sm">
+<span class="material-symbols-outlined">mic</span>
+</div>
+<div class="flex-grow">
+<p class="text-xs font-label-sm text-on-surface-variant">Currently Playing</p>
+<p class="font-body-md font-bold text-on-surface truncate">Verse 02 - Al-Hamdu lillahi...</p>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-variant/20 rounded-full">
+<span class="material-symbols-outlined text-primary">replay_10</span>
+</button>
+<button class="p-3 bg-primary text-on-primary rounded-full shadow-lg active:scale-90 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+</div>
+</div>
+</div>
+<script>
+        // Simple scroll behavior for the TopAppBar
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 20) {
+                header.classList.add('shadow-sm');
+                header.classList.remove('bg-surface/80');
+                header.classList.add('bg-surface');
+            } else {
+                header.classList.remove('shadow-sm');
+                header.classList.add('bg-surface/80');
+                header.classList.remove('bg-surface');
+            }
+        });
+
+        // Add micro-interactions to buttons
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('touchstart', () => {
+                btn.classList.add('opacity-70');
+            });
+            btn.addEventListener('touchend', () => {
+                btn.classList.remove('opacity-70');
+            });
+        });
+    </script>
+</body></html>

@@ -13,6 +13,12 @@ data class SeedMatn(
     val defaultReciterId: String,
     val chapters: List<SeedChapter> = emptyList(),
     val verses: List<SeedVerse>,
+    /** Phase 8: delivery slug for this matn's on-demand pack (data-model §1.1). */
+    val packId: String = "",
+    /** Phase 8: measured byte size of the matn's audio, used as the always-offline declared size. */
+    val declaredSizeBytes: Long = 0L,
+    /** Phase 8: 1 ⇒ bundled install-time starter, non-removable (FR-027/FR-029). */
+    val isStarter: Boolean = false,
 )
 
 @Serializable

@@ -115,7 +115,7 @@ class BuildPlaybackQueueUseCaseTest {
         val useCase = BuildPlaybackQueueUseCase(
             verseRepository = FakeVerseRepo(verses),
             audioRepository = FakeAudioRepo(listOf(audio("v1", "v1.mp3", durationMs = 0))),
-            audioSourceResolver = FakeResolver { "resolved://$it" },
+            audioSourceResolver = FakeResolver { _, ref -> "resolved://$ref" },
         )
         val result = useCase.invoke(BuildPlaybackQueueUseCase.Params(matnId))
         assertTrue(result is Resource.Success)
@@ -140,8 +140,8 @@ class BuildPlaybackQueueUseCaseTest {
             Resource.Success(assets)
     }
 
-    private class FakeResolver(private val block: (String) -> String = { "file://audio/$it" }) :
+    private class FakeResolver(private val block: (String, String) -> String = { _, ref -> "file://audio/$ref" }) :
         AudioSourceResolver {
-        override suspend fun resolve(fileRef: String): String = block(fileRef)
+        override suspend fun resolve(matnId: String, fileRef: String): String = block(matnId, fileRef)
     }
 }

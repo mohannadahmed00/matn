@@ -14,6 +14,8 @@ import androidx.core.content.ContextCompat
 import com.giraffe.matn.audio.AndroidWakeLock
 import com.giraffe.matn.audio.Media3AudioEngine
 import com.giraffe.matn.data.db.DatabaseDriverFactory
+import com.giraffe.matn.delivery.AndroidDeviceStorage
+import com.giraffe.matn.delivery.PlayAssetDeliveryEngine
 import com.giraffe.matn.di.flushSessionState
 import com.giraffe.matn.di.initMatnKoin
 
@@ -33,6 +35,8 @@ class MainActivity : ComponentActivity() {
             driverFactory = DatabaseDriverFactory(this),
             audioEngine = Media3AudioEngine(applicationContext),
             wakeLock = wakeLock,
+            deliveryEngine = PlayAssetDeliveryEngine(applicationContext),
+            deviceStorage = AndroidDeviceStorage(applicationContext),
         )
         requestPostNotificationsIfNeeded()
 

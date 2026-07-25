@@ -69,7 +69,7 @@ class PlayerBarViewModelTest {
                     Resource.Success(emptyList())
             },
             audioSourceResolver = object : AudioSourceResolver {
-                override suspend fun resolve(fileRef: String): String = "file://$fileRef"
+                override suspend fun resolve(matnId: String, fileRef: String): String = "file://$fileRef"
             },
         ) {
             override suspend fun invoke(params: Params): Resource<PlaybackQueue> =
