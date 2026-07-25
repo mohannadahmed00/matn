@@ -1,8 +1,6 @@
 package com.giraffe.matn
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,7 +8,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.giraffe.matn.appearance.AndroidAppearanceMirror
 import com.giraffe.matn.audio.AndroidWakeLock
 import com.giraffe.matn.audio.Media3AudioEngine
 import com.giraffe.matn.data.db.DatabaseDriverFactory
@@ -18,15 +17,30 @@ import com.giraffe.matn.delivery.AndroidDeviceStorage
 import com.giraffe.matn.delivery.PlayAssetDeliveryEngine
 import com.giraffe.matn.di.flushSessionState
 import com.giraffe.matn.di.initMatnKoin
+import com.giraffe.matn.permission.AndroidNotificationPermission
+import com.giraffe.matn.permission.NotificationPermissionRequester
+import com.giraffe.matn.preferences.AndroidMotionPreferences
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
-class MainActivity : ComponentActivity() {
+class MainActivity :
+    ComponentActivity(),
+    NotificationPermissionRequester {
 
     private val wakeLock: AndroidWakeLock = AndroidWakeLock()
 
+    /** The one launcher the notification seam awaits — at most one in-flight request (T029, rule 5). */
     private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* result intentionally ignored */ }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            pendingPermissionContinuation?.resume(granted)
+            pendingPermissionContinuation = null
+        }
+    private var pendingPermissionContinuation: Continuation<Boolean>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
+        applyMirroredAppearance()
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
@@ -37,13 +51,41 @@ class MainActivity : ComponentActivity() {
             wakeLock = wakeLock,
             deliveryEngine = PlayAssetDeliveryEngine(applicationContext),
             deviceStorage = AndroidDeviceStorage(applicationContext),
+            appearanceMirror = AndroidAppearanceMirror(applicationContext),
+            notificationPermission = AndroidNotificationPermission(applicationContext, this),
+            motionPreferences = AndroidMotionPreferences(applicationContext),
         )
-        requestPostNotificationsIfNeeded()
 
         setContent {
             App()
         }
     }
+
+    /**
+     * T049 (US1): the platform splash itself is unavoidably picked by device night mode, before
+     * any Kotlin runs (research D9). Here — still before [super.onCreate] — the *pinned*
+     * appearance [com.giraffe.matn.appearance.AndroidAppearanceMirror] last wrote is read back and
+     * used to select the matching post-splash theme explicitly, so a pin overrides device night
+     * mode rather than the reverse. A missing or unrecognized mirror value (first launch, or the
+     * student has never overridden) leaves the manifest-declared theme in effect, which already
+     * resolved to the correct SYSTEM default via the values/values-night qualifier
+     * (data-model.md §1.2 — a stale or missing mirror degrades to system, never to an error).
+     */
+    private fun applyMirroredAppearance() {
+        val prefs = getSharedPreferences(AndroidAppearanceMirror.PREFS_NAME, Context.MODE_PRIVATE)
+        when (prefs.getString(AndroidAppearanceMirror.KEY_APPEARANCE, null)) {
+            "LIGHT" -> setTheme(R.style.Theme_Matn_Main_Light)
+            "DARK" -> setTheme(R.style.Theme_Matn_Main_Dark)
+        }
+    }
+
+    override suspend fun requestPermission(permission: String): Boolean =
+        suspendCancellableCoroutine { cont ->
+            check(pendingPermissionContinuation == null) { "Concurrent permission requests unsupported" }
+            pendingPermissionContinuation = cont
+            cont.invokeOnCancellation { pendingPermissionContinuation = null }
+            requestPermissionLauncher.launch(permission)
+        }
 
     override fun onStop() {
         super.onStop()
@@ -53,16 +95,6 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         wakeLock.detach()
-    }
-
-    /** Android 13+ requires the POST_NOTIFICATIONS runtime permission for the media notification (T037). */
-    private fun requestPostNotificationsIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
     }
 }
 

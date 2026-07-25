@@ -102,4 +102,36 @@
     <string name="settings_remove_all">إزالة كل المحتوى المُنزَّل</string>
     <string name="settings_removal_reclaimed">تم تحرير %1$s.</string>
     <string name="settings_removal_pending">تم تحرير %1$s، ويستعيدها النظام عند الحاجة إليها.</string>
+    <!-- Phase 9: appearance, permissions, onboarding, and accessibility labels -->
+    <string name="settings_appearance">المظهر</string>
+    <string name="theme_system">حسب النظام</string>
+    <string name="theme_light">فاتح دائماً</string>
+    <string name="theme_dark">داكن دائماً</string>
+    <string name="settings_permissions">الأذونات</string>
+    <string name="permission_notifications">الإشعارات</string>
+    <string name="permission_not_requested">لم يُطلب بعد</string>
+    <string name="permission_granted">مُفعَّل</string>
+    <string name="permission_denied">مرفوض</string>
+    <string name="permission_open_settings">فتح إعدادات النظام</string>
+    <string name="permission_rationale_title">إشعار التشغيل</string>
+    <string name="permission_rationale_body">يسمح لك بالتحكم في التشغيل من شاشة القفل. يمكنك الرفض والاستمرار في الاستماع كالمعتاد.</string>
+    <string name="permission_rationale_not_now">ليس الآن</string>
+    <string name="onboarding_skip">تخطٍّ</string>
+    <string name="onboarding_continue">متابعة</string>
+    <string name="onboarding_start">ابدأ</string>
+    <string name="onboarding_p1_tagline">سَكينةٌ لطالبِ العلم</string>
+    <string name="onboarding_p2_title">رافقك في الحفظ</string>
+    <string name="onboarding_p2_body">اقرأ، واستمع لتسجيل شيخك، وكرِّر حتى يثبت المتن.</string>
+    <string name="onboarding_p3_title">كيف يعمل المحتوى</string>
+    <string name="onboarding_p3_body">يأتي التطبيق بمتنٍ جاهز. وبقية المتون تُنزَّل عند طلبك، ثم تعمل بدون إنترنت إلى الأبد.</string>
+    <string name="onboarding_reopen">إعادة عرض التعريف</string>
+    <string name="a11y_close">إغلاق</string>
+    <string name="a11y_retry">إعادة المحاولة</string>
+    <string name="a11y_state_bookmarked">معلَّم</string>
+    <string name="a11y_state_not_bookmarked">غير معلَّم</string>
+    <string name="a11y_state_memorized">محفوظ</string>
+    <string name="a11y_state_not_memorized">غير محفوظ</string>
+    <string name="a11y_state_installed">مُنزَّل</string>
+    <string name="a11y_state_installing">قيد التنزيل</string>
+    <string name="a11y_state_not_installed">غير مُنزَّل</string>
 </resources>

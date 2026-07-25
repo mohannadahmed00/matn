@@ -32,12 +32,19 @@ fun SearchResultRow(result: SearchResult, onClick: () -> Unit, modifier: Modifie
     }
 }
 
+/** T059 (US2): [onClickLabel] names the tap's target — each variant's own text is already merged
+ *  into the accessible name via descendant [Text]s, so this only supplies the purpose hint. */
 @Composable
-private fun RowShell(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+private fun RowShell(
+    onClick: () -> Unit,
+    onClickLabel: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClickLabel = onClickLabel, onClick = onClick)
             .padding(horizontal = MatnSpacing.marginMobile, vertical = MatnSpacing.unit * 2),
         content = content,
     )
@@ -45,7 +52,7 @@ private fun RowShell(onClick: () -> Unit, modifier: Modifier = Modifier, content
 
 @Composable
 private fun MatnMatchRow(result: SearchResult.MatnMatch, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    RowShell(onClick, modifier) {
+    RowShell(onClick, onClickLabel = result.matnTitle, modifier = modifier) {
         Text(
             text = result.matnTitle,
             style = MaterialTheme.typography.titleMedium,
@@ -56,7 +63,7 @@ private fun MatnMatchRow(result: SearchResult.MatnMatch, onClick: () -> Unit, mo
 
 @Composable
 private fun ChapterMatchRow(result: SearchResult.ChapterMatch, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    RowShell(onClick, modifier) {
+    RowShell(onClick, onClickLabel = "${result.matnTitle} ${result.chapterTitle}", modifier = modifier) {
         Text(
             text = result.matnTitle,
             style = MaterialTheme.typography.labelSmall,
@@ -73,7 +80,7 @@ private fun ChapterMatchRow(result: SearchResult.ChapterMatch, onClick: () -> Un
 
 @Composable
 private fun VerseMatchRow(result: SearchResult.VerseMatch, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    RowShell(onClick, modifier) {
+    RowShell(onClick, onClickLabel = "${result.ref.matnTitle} ${result.ref.verseNumber}", modifier = modifier) {
         Text(
             text = "${result.ref.matnTitle} · ${result.ref.verseNumber}",
             style = MaterialTheme.typography.labelSmall,

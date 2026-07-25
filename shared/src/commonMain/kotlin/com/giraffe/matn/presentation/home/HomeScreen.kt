@@ -32,7 +32,9 @@ import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.presentation.common.ContinueLearningCard
 import com.giraffe.matn.presentation.common.DailyGoalRing
 import com.giraffe.matn.presentation.common.MatnCard
+import com.giraffe.matn.presentation.theme.LocalWindowWidthClass
 import com.giraffe.matn.presentation.theme.MatnSpacing
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.app_title
@@ -102,10 +104,14 @@ fun HomeContent(
                         .padding(MatnSpacing.gutter),
                 )
 
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                else -> {
+                val widthClass = LocalWindowWidthClass.current
+                LazyVerticalGrid(
+                    // T084 (US4, FR-027, SC-011): column count and margin follow available width,
+                    // not device type — a narrow split-screen pane gets the COMPACT layout.
+                    columns = GridCells.Fixed(MatnSpacing.libraryColumns(widthClass)),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(MatnSpacing.marginMobile),
+                    contentPadding = PaddingValues(MatnSpacing.horizontalMargin(widthClass)),
                     horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
                     verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
                 ) {
@@ -139,6 +145,7 @@ fun HomeContent(
                             declaredSizeBytes = summary.declaredSizeBytes,
                         )
                     }
+                }
                 }
             }
         }
@@ -225,6 +232,67 @@ private fun previewSummary(id: String, title: String, count: Int, total: Long) =
 @Composable
 private fun HomeContentPopulatedPreview() {
     MatnTheme {
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                items = listOf(
+                    previewSummary("m1", "الأجرومية", 4, 31_300),
+                    previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
+                ),
+            ),
+            onOpenMatn = {},
+        )
+    }
+}
+
+/** T092 (US4): expanded window width — confirms the grid gains columns, not a stretched single
+ *  one. `widthDp` alone doesn't set [LocalWindowWidthClass] (only `App.kt`'s `BoxWithConstraints`
+ *  does that at runtime), so it is provided explicitly here to exercise the same code path. */
+@Preview(widthDp = 900)
+@Composable
+private fun HomeContentWidePreview() {
+    MatnTheme {
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.giraffe.matn.presentation.theme.LocalWindowWidthClass provides
+                com.giraffe.matn.presentation.theme.WindowWidthClass.EXPANDED,
+        ) {
+            HomeContent(
+                state = HomeUiState(
+                    isLoading = false,
+                    items = listOf(
+                        previewSummary("m1", "الأجرومية", 4, 31_300),
+                        previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
+                    ),
+                ),
+                onOpenMatn = {},
+            )
+        }
+    }
+}
+
+/** T067 (US2, accessibility-contract.md §5/§7): largest reachable font scale, narrowest width. */
+@Preview(fontScale = 2.0f, widthDp = 320)
+@Composable
+private fun HomeContentMaxScalePreview() {
+    MatnTheme {
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                items = listOf(
+                    previewSummary("m1", "الأجرومية", 4, 31_300),
+                    previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
+                ),
+            ),
+            onOpenMatn = {},
+        )
+    }
+}
+
+/** T052 (US2): dark-theme coverage for the populated content state. */
+@Preview
+@Composable
+private fun HomeContentPopulatedDarkPreview() {
+    MatnTheme(themeMode = ThemeMode.DARK) {
         HomeContent(
             state = HomeUiState(
                 isLoading = false,

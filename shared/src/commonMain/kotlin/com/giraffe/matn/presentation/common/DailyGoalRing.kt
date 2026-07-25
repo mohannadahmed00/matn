@@ -1,5 +1,7 @@
 package com.giraffe.matn.presentation.common
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,11 +9,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import com.giraffe.matn.presentation.theme.LocalReduceMotion
+import com.giraffe.matn.presentation.theme.MatnMotion
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 
@@ -31,6 +36,14 @@ fun DailyGoalRing(
     diameter: Dp = MatnSpacing.unit * 12,
 ) {
     val scheme = MaterialTheme.colorScheme
+    // T095 (US5, adaptive-motion-contract.md §B2.1/§B3): the sweep animates toward the true
+    // value at durationShort, never past it (FR-034); reduce motion snaps immediately — the
+    // "4/10" text is never animated, only the arc's interpolation.
+    val reduceMotion = LocalReduceMotion.current
+    val animatedFraction by animateFloatAsState(
+        targetValue = fraction.coerceIn(0f, 1f),
+        animationSpec = tween(if (reduceMotion) 0 else MatnMotion.durationShort),
+    )
     Box(modifier = modifier.size(diameter), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = Stroke(width = size.minDimension * 0.12f)
@@ -41,11 +54,11 @@ fun DailyGoalRing(
                 useCenter = false,
                 style = stroke,
             )
-            if (fraction > 0f) {
+            if (animatedFraction > 0f) {
                 drawArc(
                     color = if (isComplete) scheme.tertiary else scheme.primary,
                     startAngle = -90f,
-                    sweepAngle = 360f * fraction.coerceIn(0f, 1f),
+                    sweepAngle = 360f * animatedFraction,
                     useCenter = false,
                     style = stroke,
                 )

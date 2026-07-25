@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +30,7 @@ import com.giraffe.matn.domain.model.DailyProgress
 import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.presentation.common.DailyGoalRing
 import com.giraffe.matn.presentation.common.MatnProgressBar
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
@@ -66,8 +69,12 @@ fun GoalsScreenContent(
 
             state.isEmpty -> GoalsEmptyState(modifier = Modifier.align(Alignment.Center))
 
+            // T086 (US4, FR-028): bounded to the reading measure and centred on wide windows.
             else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+                    .widthIn(max = MatnSpacing.readingMaxWidth),
                 contentPadding = PaddingValues(
                     horizontal = MatnSpacing.marginMobile,
                     vertical = MatnSpacing.gutter,
@@ -182,6 +189,63 @@ private fun GoalsEmptyState(modifier: Modifier = Modifier) {
 @Composable
 private fun GoalsScreenPopulatedPreview() {
     MatnTheme {
+        GoalsScreenContent(
+            state = GoalsUiState(
+                isLoading = false,
+                dailyProgress = DailyProgress(practicedToday = 4, goal = 10),
+                matnProgress = listOf(
+                    MatnProgress("m1", 3, 4),
+                    MatnProgress("m2", 1, 5),
+                ),
+                matnTitles = mapOf("m1" to "الأجرومية", "m2" to "متن الآجرومية مبوب"),
+            ),
+        )
+    }
+}
+
+/** T092 (US4): expanded window width — confirms the list stays bounded/centred. */
+@Preview(widthDp = 900)
+@Composable
+private fun GoalsScreenWidePreview() {
+    MatnTheme {
+        GoalsScreenContent(
+            state = GoalsUiState(
+                isLoading = false,
+                dailyProgress = DailyProgress(practicedToday = 4, goal = 10),
+                matnProgress = listOf(
+                    MatnProgress("m1", 3, 4),
+                    MatnProgress("m2", 1, 5),
+                ),
+                matnTitles = mapOf("m1" to "الأجرومية", "m2" to "متن الآجرومية مبوب"),
+            ),
+        )
+    }
+}
+
+/** T067 (US2, accessibility-contract.md §5/§7): largest reachable font scale, narrowest width. */
+@Preview(fontScale = 2.0f, widthDp = 320)
+@Composable
+private fun GoalsScreenMaxScalePreview() {
+    MatnTheme {
+        GoalsScreenContent(
+            state = GoalsUiState(
+                isLoading = false,
+                dailyProgress = DailyProgress(practicedToday = 4, goal = 10),
+                matnProgress = listOf(
+                    MatnProgress("m1", 3, 4),
+                    MatnProgress("m2", 1, 5),
+                ),
+                matnTitles = mapOf("m1" to "الأجرومية", "m2" to "متن الآجرومية مبوب"),
+            ),
+        )
+    }
+}
+
+/** T052 (US2): dark-theme coverage for the populated content state. */
+@Preview
+@Composable
+private fun GoalsScreenPopulatedDarkPreview() {
+    MatnTheme(themeMode = ThemeMode.DARK) {
         GoalsScreenContent(
             state = GoalsUiState(
                 isLoading = false,

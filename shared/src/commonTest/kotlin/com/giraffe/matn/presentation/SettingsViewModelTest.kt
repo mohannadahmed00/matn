@@ -6,6 +6,10 @@ import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.MatnStorageEntry
 import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.StorageUsage
+import com.giraffe.matn.domain.model.ThemeMode
+import com.giraffe.matn.domain.repository.AppearancePreferencesRepository
+import com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase
+import com.giraffe.matn.domain.usecase.SetThemeModeUseCase
 import com.giraffe.matn.presentation.settings.RemovalTarget
 import com.giraffe.matn.presentation.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
@@ -51,12 +55,15 @@ class SettingsViewModelTest {
         usageFlow: Flow<StorageUsage>,
         removeMatnContent: UseCase<String, RemovalOutcome> = FakeRemove { Resource.Success(RemovalOutcome.Reclaimed(0)) },
         removeAllContent: UseCase<Unit, List<RemovalOutcome>> = FakeRemoveAll { Resource.Success(emptyList()) },
+        appearanceRepository: AppearancePreferencesRepository = FakeAppearancePreferencesRepository(),
     ): SettingsViewModel = SettingsViewModel(
         observeStorageUsage = object : FlowUseCase<Unit, StorageUsage> {
             override fun invoke(params: Unit): Flow<StorageUsage> = usageFlow
         },
         removeMatnContent = removeMatnContent,
         removeAllContent = removeAllContent,
+        observeThemeMode = ObserveThemeModeUseCase(appearanceRepository),
+        setThemeMode = SetThemeModeUseCase(appearanceRepository),
     )
 
     @Test
@@ -174,5 +181,33 @@ class SettingsViewModelTest {
 
     private class FakeRemoveAll(private val block: suspend (Unit) -> Resource<List<RemovalOutcome>>) : UseCase<Unit, List<RemovalOutcome>> {
         override suspend fun invoke(params: Unit): Resource<List<RemovalOutcome>> = block(params)
+    }
+
+    /** T053 (US1): minimal in-memory fake — a single mutable flow, no persistence semantics needed. */
+    private class FakeAppearancePreferencesRepository(
+        initial: ThemeMode = ThemeMode.SYSTEM,
+    ) : AppearancePreferencesRepository {
+        private val mode = MutableStateFlow(initial)
+        override fun observeThemeMode(): Flow<ThemeMode> = mode
+        override fun themeModeNow(): ThemeMode = mode.value
+        override suspend fun setThemeMode(mode: ThemeMode): Resource<Unit> {
+            this.mode.value = mode
+            return Resource.Success(Unit)
+        }
+    }
+
+    @Test
+    fun `selecting a theme mode updates state and persists through the use case`() = runTest {
+        val repo = FakeAppearancePreferencesRepository(initial = ThemeMode.SYSTEM)
+        val vm = newViewModel(
+            usageFlow = MutableStateFlow(usageOf(listOf(starter))),
+            appearanceRepository = repo,
+        )
+        assertEquals(ThemeMode.SYSTEM, vm.state.value.themeMode)
+
+        vm.onThemeModeSelected(ThemeMode.DARK)
+
+        assertEquals(ThemeMode.DARK, vm.state.value.themeMode)
+        assertEquals(ThemeMode.DARK, repo.themeModeNow())
     }
 }

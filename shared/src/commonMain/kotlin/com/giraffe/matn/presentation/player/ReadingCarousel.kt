@@ -1,5 +1,6 @@
 package com.giraffe.matn.presentation.player
 
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -26,6 +31,7 @@ import com.giraffe.matn.presentation.common.BookmarkGlyph
 import com.giraffe.matn.presentation.common.MemorizedGlyph
 import com.giraffe.matn.presentation.common.NoteGlyph
 import com.giraffe.matn.presentation.details.VerseRow
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
@@ -33,7 +39,13 @@ import com.giraffe.matn.presentation.theme.arabicLabelSmall
 import com.giraffe.matn.presentation.theme.toSp
 import com.giraffe.matn.presentation.theme.verseFontFamily
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.presentation.theme.LocalReduceMotion
+import com.giraffe.matn.presentation.theme.MatnMotion
 import matn.shared.generated.resources.Res
+import matn.shared.generated.resources.a11y_state_bookmarked
+import matn.shared.generated.resources.a11y_state_memorized
+import matn.shared.generated.resources.a11y_state_not_bookmarked
+import matn.shared.generated.resources.a11y_state_not_memorized
 import matn.shared.generated.resources.bookmarked_indicator
 import matn.shared.generated.resources.has_note_indicator
 import matn.shared.generated.resources.memorized_indicator
@@ -64,9 +76,13 @@ fun ReadingCarousel(
     modifier: Modifier = Modifier,
 ) {
     val verseFont = verseFontFamily()
+    // T085 (US4, FR-028): bounded to the reading measure and centred when the available width
+    // exceeds it — a comfortable line length on a tablet, not a stretched-full-width paragraph.
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .wrapContentWidth(Alignment.CenterHorizontally)
+            .widthIn(max = MatnSpacing.readingMaxWidth)
             .padding(horizontal = MatnSpacing.gutter),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -78,16 +94,49 @@ fun ReadingCarousel(
             memorizedVerseIds = memorizedVerseIds,
         )
         Box(modifier = Modifier.height(MatnSpacing.unit * 6))
-        ActiveVerseCard(
-            verse = state.activeVerse,
-            fontSize = fontSize,
-            verseFont = verseFont,
-            annotations = annotations,
-            memorizedVerseIds = memorizedVerseIds,
-            onToggleBookmark = onToggleBookmark,
-            onOpenNoteEditor = onOpenNoteEditor,
-            onToggleMemorized = onToggleMemorized,
-        )
+        // T097 (US5, adaptive-motion-contract.md §B3/§B4): a reaction to the verse change, never
+        // something the playback path waits on — this is a plain Compose recomposition observer;
+        // PlaybackController's transition already completed before this ever runs (rule 1).
+        val reduceMotion = LocalReduceMotion.current
+        androidx.compose.animation.AnimatedContent(
+            targetState = state.activeVerse,
+            transitionSpec = {
+                if (reduceMotion) {
+                    androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(0),
+                    ) togetherWith androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(0),
+                    )
+                } else {
+                    (androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(
+                            MatnMotion.durationMedium,
+                            easing = MatnMotion.easingStandard,
+                        ),
+                    ) + androidx.compose.animation.slideInVertically(
+                        animationSpec = androidx.compose.animation.core.tween(
+                            MatnMotion.durationMedium,
+                            easing = MatnMotion.easingStandard,
+                        ),
+                        initialOffsetY = { it / 4 },
+                    )) togetherWith (androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(MatnMotion.durationMedium),
+                    ))
+                }
+            },
+            label = "activeVerse",
+        ) { verse ->
+            ActiveVerseCard(
+                verse = verse,
+                fontSize = fontSize,
+                verseFont = verseFont,
+                annotations = annotations,
+                memorizedVerseIds = memorizedVerseIds,
+                onToggleBookmark = onToggleBookmark,
+                onOpenNoteEditor = onOpenNoteEditor,
+                onToggleMemorized = onToggleMemorized,
+            )
+        }
         Box(modifier = Modifier.height(MatnSpacing.unit * 6))
         NeighborVerse(
             verse = state.nextVerse,
@@ -174,6 +223,10 @@ private fun ActiveVerseCard(
     val isBookmarked = annotation?.isBookmarked == true
     val hasNote = annotation?.hasNote == true
     val isMemorized = verse.id in memorizedVerseIds
+    val bookmarkedState = stringResource(Res.string.a11y_state_bookmarked)
+    val notBookmarkedState = stringResource(Res.string.a11y_state_not_bookmarked)
+    val memorizedState = stringResource(Res.string.a11y_state_memorized)
+    val notMemorizedState = stringResource(Res.string.a11y_state_not_memorized)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -201,14 +254,30 @@ private fun ActiveVerseCard(
                         contentDescription = stringResource(Res.string.toggle_note),
                     )
                 }
-                IconButton(onClick = { onToggleBookmark(verse.id) }) {
+                // T061 (US2): stateDescription reports condition; the control's name (set via
+                // contentDescription above) never changes — see accessibility-contract.md §2.1a.
+                IconButton(
+                    onClick = { onToggleBookmark(verse.id) },
+                    modifier = Modifier.semantics {
+                        stateDescription = if (isBookmarked) {
+                            bookmarkedState
+                        } else {
+                            notBookmarkedState
+                        }
+                    },
+                ) {
                     BookmarkGlyph(
                         color = if (isBookmarked) scheme.secondary else scheme.onSurfaceVariant,
                         filled = isBookmarked,
                         contentDescription = stringResource(Res.string.toggle_bookmark),
                     )
                 }
-                IconButton(onClick = { onToggleMemorized(verse.id) }) {
+                IconButton(
+                    onClick = { onToggleMemorized(verse.id) },
+                    modifier = Modifier.semantics {
+                        stateDescription = if (isMemorized) memorizedState else notMemorizedState
+                    },
+                ) {
                     MemorizedGlyph(
                         color = if (isMemorized) scheme.secondary else scheme.onSurfaceVariant,
                         filled = isMemorized,
@@ -375,6 +444,73 @@ private fun ReadingCarouselMemorizedBookmarkedAndNotedActiveVersePreview() {
 @Composable
 private fun ReadingCarouselUnbookmarkedActiveVersePreview() {
     MatnTheme {
+        ReadingCarousel(
+            state = ReadingCarouselUiState(
+                previousVerse = previewVerse("v1", 1, "يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي"),
+                activeVerse = previewVerse("v2", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ وَمُصْطَفَاهُ"),
+                nextVerse = previewVerse("v3", 3, "مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ"),
+            ),
+        )
+    }
+}
+
+/** T052 (US2): dark-theme coverage for the plain active-verse state. */
+/**
+ * T067 (US2, accessibility-contract.md §5) — the binding worst case: `XLARGE` (30sp) × a 2.0
+ * system font scale on a 320dp screen. No `maxLines` or fixed-height ancestor constrains the
+ * verse [Text] (research/FR-014), so it wraps rather than clips at any combination.
+ */
+@Preview(fontScale = 2.0f, widthDp = 320)
+@Composable
+private fun ReadingCarouselMaxScalePreview() {
+    MatnTheme {
+        ReadingCarousel(
+            state = ReadingCarouselUiState(
+                previousVerse = previewVerse("v1", 1, "يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي"),
+                activeVerse = previewVerse("v2", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ وَمُصْطَفَاهُ"),
+                nextVerse = previewVerse("v3", 3, "مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ"),
+            ),
+            fontSize = ReadingFontSize.XLARGE,
+        )
+    }
+}
+
+/** T067 (US2, FR-015) — the other end of the range: `SMALL` (~18sp) at a 0.8 system scale
+ *  (~14.4sp), confirming verse text stays legible at the minimum combination too. */
+@Preview(fontScale = 0.8f)
+@Composable
+private fun ReadingCarouselMinScalePreview() {
+    MatnTheme {
+        ReadingCarousel(
+            state = ReadingCarouselUiState(
+                previousVerse = previewVerse("v1", 1, "يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي"),
+                activeVerse = previewVerse("v2", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ وَمُصْطَفَاهُ"),
+                nextVerse = previewVerse("v3", 3, "مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ"),
+            ),
+            fontSize = ReadingFontSize.SMALL,
+        )
+    }
+}
+
+/** T092 (US4): expanded window width — confirms the carousel stays bounded/centred. */
+@Preview(widthDp = 900)
+@Composable
+private fun ReadingCarouselWidePreview() {
+    MatnTheme {
+        ReadingCarousel(
+            state = ReadingCarouselUiState(
+                previousVerse = previewVerse("v1", 1, "يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي"),
+                activeVerse = previewVerse("v2", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ وَمُصْطَفَاهُ"),
+                nextVerse = previewVerse("v3", 3, "مُحَمَّدٍ وَآلِهِ وَصَحْبِهِ وَمُقْرِئِ الْقُرْآنِ مَعْ مُحِبِّهِ"),
+            ),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ReadingCarouselUnbookmarkedActiveVerseDarkPreview() {
+    MatnTheme(themeMode = ThemeMode.DARK) {
         ReadingCarousel(
             state = ReadingCarouselUiState(
                 previousVerse = previewVerse("v1", 1, "يَقُولُ رَاجِي عَفْوِ رَبٍّ سَامِعِ مُحَمَّدُ بْنُ الْجَزَرِيِّ الشَّافِعِي"),

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      T047 (US1): the light launch theme. windowSplashScreenBackground mirrors the light `surface`
+      role (#FCF9F8, presentation/theme/Color.kt Surface) — this value, values-night/themes.xml's
+      dark counterpart, and theme/Color.kt must always agree (T105 re-checks all three). The splash
+      itself is unavoidably picked by device night mode, before any Kotlin runs (research D9) — it
+      is postSplashScreenTheme that MainActivity (T049) overrides explicitly from the mirrored
+      *pinned* appearance, which can differ from device night mode. No icon animation.
+    -->
+    <style name="Theme.Matn.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FCF9F8</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Matn.Main.Light</item>
+    </style>
+
+    <!-- Plain no-action-bar themes Compose paints over immediately. Explicitly named (not
+         night-qualified) so MainActivity.setTheme() can pick the one matching the student's
+         *pinned* appearance rather than the device's current night mode. -->
+    <style name="Theme.Matn.Main.Light" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Matn.Main.Dark" parent="android:Theme.Material.NoActionBar" />
+</resources>

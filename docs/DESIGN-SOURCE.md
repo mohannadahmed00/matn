@@ -120,9 +120,10 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
 4. **Phase 5 has no dedicated screen.** *Continue Learning* is a card on Home / Library rather
    than its own design. Phase 5 UI work should derive from the Home screen's card region.
 
-5. **No dark-mode variants exist.** Principle VII makes dark mode contractual and Phase 9 owns it,
-   but the Stitch set is light-theme only. Dark tokens will need to be derived rather than
-   imported.
+5. ~~**No dark-mode variants exist.**~~ **Resolved 2026-07-25** — see issue 10 below. `MatnDarkColors`
+   was derived per research D3's tone-mapping rule and is gated by `ColorContrastTest` (48
+   assertions, all passing), not imported — confirmed via the fetched *Splash Screen* HTML, which
+   declares `darkMode: "class"` but contains zero `dark:` variant classes.
 
 6. ~~**The bottom navigation shell (Library / Goals / Notes / Settings) is undocumented outside
    Stitch.**~~ **Resolved 2026-07-24**: documented in `docs/PRODUCT-SPEC.md` § Navigation & App
@@ -183,6 +184,28 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
      invented) for the availability badge, and the Matn Details header's fetched `Play` button slot
      **was** reused for the install/cancel/remove action — both per the existing captured regions.
 
+10. **Phase 9 (Polish & Accessibility) — implemented 2026-07-25.** *Splash Screen*
+    (`6aba0b42e95d43e5b6f81928f3e3f7c6`) was fetched during planning — see
+    `specs/009-polish-accessibility/design-notes.md` for the full write-up. Deviations from the
+    fetched design:
+    - **The fetched 3-second fake "Preparing your workspace…" progress bar was not implemented.**
+      Matn has nothing to prepare; the visual treatment (brand mark, tagline, background colour)
+      was adopted for onboarding panel 1, the fabricated delay was not (Principle VIII: designs are
+      authoritative about appearance, not behaviour).
+    - **The dark palette is derived, not fetched** (issue 5, now resolved) — the tone-mapping rule
+      in research D3, gated by `ColorContrastTest`.
+    - **Onboarding panels 2–3 and the permission rationale sheet have no Stitch capture** — both
+      are original compositions from the Phase 10 token set, following the Settings-screen
+      precedent Phase 8 set (issue 9 above) for phases with no design to retrofit.
+    - **iOS's launch surface uses `UILaunchScreen` generation, not a hand-authored storyboard** —
+      the project already builds its launch screen via
+      `INFOPLIST_KEY_UILaunchScreen_Generation`; a `LaunchBackground` colour asset plus an explicit
+      `UILaunchScreen` `Info.plist` entry reaches the same static, colour-only, no-animation result
+      through the project's existing mechanism instead of introducing a second one.
+    - One string beyond the phase's originally fixed list was required and added:
+      `permission_rationale_not_now` (both locales) — the rationale sheet's dismiss action had no
+      existing or listed string to use.
+
 ## Phase 10 — Design System Adoption
 
 Phases 1–5's screens (Home/Library, Matn Details, Reading & Playback, Repetition Setup) have been
@@ -191,4 +214,4 @@ retrofitted to this registry's canonical designs — see `specs/010-design-syste
 (`presentation/theme/{Color,Type,Shape,Spacing}.kt`), and the reading experience has moved from a
 scrollable verse list to the focused 3-verse carousel described by the "Reading & Playback
 (Updated)" screen. Repetition Setup's bottom sheet and the bottom navigation shell are both
-implemented; dark mode (issue 5) remains open and owned by Phase 9.
+implemented; dark mode (issue 5) was delivered by Phase 9 (issue 10 above).

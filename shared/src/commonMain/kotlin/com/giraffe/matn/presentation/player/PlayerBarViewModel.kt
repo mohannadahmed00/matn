@@ -35,6 +35,10 @@ class PlayerBarViewModel(
 
     fun consumeNotice() = controller.consumeNotice()
 
+    /** T076 (US3): the rationale sheet's two terminal actions — forwarded, no logic here. */
+    fun onNotificationRationaleContinue() = controller.onNotificationRationaleContinue()
+    fun onNotificationRationaleDismissed() = controller.onNotificationRationaleDismissed()
+
     /** Forwarders for the repetition drill (US1/US3); no logic beyond forwarding (Principle II). */
     fun onVerseRepeatSelected(count: RepeatCount) = controller.setVerseRepeat(count)
     fun onMatnRepeatSelected(count: RepeatCount) = controller.setMatnRepeat(count)
@@ -58,6 +62,7 @@ class PlayerBarViewModel(
             pass = repetitionProgress?.pass ?: 1,
             matnRepeatTarget = settings.matnRepeat,
             settings = settings,
+            showNotificationRationale = showNotificationRationale,
         )
     }
 }

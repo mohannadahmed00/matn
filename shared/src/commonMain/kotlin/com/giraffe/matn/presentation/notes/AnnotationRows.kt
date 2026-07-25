@@ -46,11 +46,14 @@ fun VerseContextBlock(ref: AnnotatedVerseRef, modifier: Modifier = Modifier) {
 
 @Composable
 fun BookmarkRow(entry: BookmarkEntry, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    // T059 (US2): content row — the verse context is already merged from VerseContextBlock's
+    // descendant Text; onClickLabel just names the tap's target.
+    val label = "${entry.ref.matnTitle} ${entry.ref.verseNumber}"
     VerseContextBlock(
         ref = entry.ref,
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClickLabel = label, onClick = onClick)
             .padding(horizontal = MatnSpacing.marginMobile, vertical = MatnSpacing.unit * 2),
     )
 }
@@ -59,10 +62,11 @@ fun BookmarkRow(entry: BookmarkEntry, onClick: () -> Unit, modifier: Modifier = 
  *  lives in [NoteEntry.note] — only the rendering truncates). */
 @Composable
 fun NoteRow(entry: NoteEntry, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val label = "${entry.ref.matnTitle} ${entry.ref.verseNumber}"
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClickLabel = label, onClick = onClick)
             .padding(horizontal = MatnSpacing.marginMobile, vertical = MatnSpacing.unit * 2),
     ) {
         VerseContextBlock(ref = entry.ref)

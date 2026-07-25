@@ -1,11 +1,14 @@
 package com.giraffe.matn.presentation.common
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import com.giraffe.matn.presentation.theme.MatnShapes
+import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.confirm_removal_cancel
@@ -32,6 +35,9 @@ fun ConfirmRemovalDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        // T088 (US4, FR-029): bounded to MatnSpacing.surfaceMaxWidth — Dialogs are already
+        // window-centred, so no separate alignment modifier is needed here.
+        modifier = Modifier.widthIn(max = MatnSpacing.surfaceMaxWidth),
         shape = MatnShapes.xl,
         title = { Text(stringResource(Res.string.confirm_removal_title, matnTitle)) },
         text = {

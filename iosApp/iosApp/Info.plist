@@ -8,5 +8,18 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<!--
+	  T050 (US1): a static launch surface — colour only, no animation (research D9) — using the
+	  project's existing INFOPLIST_KEY_UILaunchScreen_Generation mechanism rather than a hand-authored
+	  storyboard. LaunchBackground (Assets.xcassets) carries Any (#FCF9F8) and Dark (#121414)
+	  appearances that mirror presentation/theme/Color.kt's Surface / DarkSurface — all three must
+	  stay in sync (T105). iOS resolves Any/Dark by the *device* appearance only, before any Kotlin
+	  runs, same unavoidable constraint as the Android splash.
+	-->
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
 </dict>
 </plist>

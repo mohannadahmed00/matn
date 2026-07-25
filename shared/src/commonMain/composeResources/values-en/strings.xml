@@ -102,4 +102,36 @@
     <string name="settings_remove_all">Remove all downloaded content</string>
     <string name="settings_removal_reclaimed">%1$s freed.</string>
     <string name="settings_removal_pending">%1$s released; the system reclaims it when needed.</string>
+    <!-- Phase 9: appearance, permissions, onboarding, and accessibility labels -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="theme_system">Follow the device</string>
+    <string name="theme_light">Always light</string>
+    <string name="theme_dark">Always dark</string>
+    <string name="settings_permissions">Permissions</string>
+    <string name="permission_notifications">Notifications</string>
+    <string name="permission_not_requested">Not requested yet</string>
+    <string name="permission_granted">Granted</string>
+    <string name="permission_denied">Declined</string>
+    <string name="permission_open_settings">Open device settings</string>
+    <string name="permission_rationale_title">Playback notification</string>
+    <string name="permission_rationale_body">Lets you control playback from the lock screen. You can decline and keep listening as normal.</string>
+    <string name="permission_rationale_not_now">Not now</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_start">Get started</string>
+    <string name="onboarding_p1_tagline">Sakinah for seekers</string>
+    <string name="onboarding_p2_title">Your memorization companion</string>
+    <string name="onboarding_p2_body">Read, listen to your teacher\'s recitation, and repeat until the matn holds.</string>
+    <string name="onboarding_p3_title">How content works</string>
+    <string name="onboarding_p3_body">The app ships with one matn ready to go. Other متون install when you ask, then work offline forever.</string>
+    <string name="onboarding_reopen">Show the introduction again</string>
+    <string name="a11y_close">Close</string>
+    <string name="a11y_retry">Retry</string>
+    <string name="a11y_state_bookmarked">Bookmarked</string>
+    <string name="a11y_state_not_bookmarked">Not bookmarked</string>
+    <string name="a11y_state_memorized">Memorized</string>
+    <string name="a11y_state_not_memorized">Not memorized</string>
+    <string name="a11y_state_installed">Installed</string>
+    <string name="a11y_state_installing">Installing</string>
+    <string name="a11y_state_not_installed">Not installed</string>
 </resources>

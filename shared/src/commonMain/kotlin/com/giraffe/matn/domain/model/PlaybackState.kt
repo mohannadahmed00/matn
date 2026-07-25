@@ -28,6 +28,12 @@ data class PlaybackState(
      *  SAME verse apart. Purely additive — read only by [com.giraffe.matn.playback.PracticeSignalRecorder]. */
     val lastCompletedVerseId: String? = null,
     val completionTick: Long = 0,
+    /** T075 (US3, onboarding-permissions-contract.md §4): set once per session start when the
+     *  notification-permission gate decides the in-app rationale should be shown. The caller
+     *  (`PlayerBar`) reacts by presenting the sheet, then clears this via
+     *  `PlaybackController.onNotificationRationaleContinue`/`onNotificationRationaleDismissed`.
+     *  Purely additive — never read by anything on the audio path. */
+    val showNotificationRationale: Boolean = false,
 ) {
     val isPlaying: Boolean get() = status == PlaybackStatus.PLAYING
     val hasSession: Boolean get() = status != PlaybackStatus.IDLE

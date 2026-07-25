@@ -15,8 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,7 +23,6 @@ import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
-import matn.shared.generated.resources.continue_learning_dismiss
 import matn.shared.generated.resources.continue_learning_reinstall
 import matn.shared.generated.resources.continue_learning_resume
 import matn.shared.generated.resources.continue_learning_title
@@ -61,13 +58,23 @@ fun ContinueLearningCard(
     onReinstall: () -> Unit = onResume,
 ) {
     val onPrimaryAction = if (isContentInstalled) onResume else onReinstall
+    // T059 (US2): a content row, not icon-only — the accessible name comes from an onClickLabel
+    // naming the action, since the row's own merged text (title, verse anchor) describes the
+    // *subject*, not the *action* a tap performs.
+    val primaryActionLabel = stringResource(
+        if (isContentInstalled) Res.string.continue_learning_resume else Res.string.continue_learning_reinstall,
+    )
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MatnShapes.xl,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Column(modifier = Modifier.clickable(onClick = onPrimaryAction).padding(MatnSpacing.gutter)) {
+        Column(
+            modifier = Modifier
+                .clickable(onClickLabel = primaryActionLabel, onClick = onPrimaryAction)
+                .padding(MatnSpacing.gutter),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -85,20 +92,21 @@ fun ContinueLearningCard(
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                val dismissLabel = stringResource(Res.string.continue_learning_dismiss)
+                // T058 (US2): icon-only dismiss — migrated onto IconActionButton so the 48dp
+                // touch target and the accessible name are structural, not asserted by hand.
                 Surface(
-                    modifier = Modifier
-                        .clickable(onClick = onDismiss)
-                        .semantics { contentDescription = dismissLabel },
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
-                    Text(
-                        text = "×",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = MatnSpacing.unit, vertical = MatnSpacing.unit / 4),
-                    )
+                    IconActionButton(action = A11yAction.CLOSE, onClick = onDismiss) { color ->
+                        Text(
+                            text = "×",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = color,
+                            modifier = Modifier.padding(horizontal = MatnSpacing.unit, vertical = MatnSpacing.unit / 4),
+                        )
+                    }
                 }
             }
             Text(
@@ -120,7 +128,9 @@ fun ContinueLearningCard(
             // matn's content isn't installed, the same pill offers reinstall instead — a resume
             // that would fail the playback gate is never offered as if it would work (SC-007).
             Surface(
-                modifier = Modifier.padding(top = MatnSpacing.unit * 2).clickable(onClick = onPrimaryAction),
+                modifier = Modifier
+                    .padding(top = MatnSpacing.unit * 2)
+                    .clickable(onClickLabel = primaryActionLabel, onClick = onPrimaryAction),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 contentColor = MaterialTheme.colorScheme.primaryContainer,

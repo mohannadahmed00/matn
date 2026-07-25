@@ -49,7 +49,9 @@ fun MatnCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            // T059 (US2): a content row — the title is already merged into the accessible name
+            // from its descendant Text, so onClickLabel only needs to name what a tap does.
+            .clickable(onClickLabel = summary.matn.title, onClick = onClick)
             .padding(MatnSpacing.unit),
         horizontalAlignment = Alignment.Start,
     ) {

@@ -5,23 +5,37 @@ import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.StorageUsage
+import com.giraffe.matn.domain.model.ThemeMode
+import com.giraffe.matn.domain.permission.NotificationPermission
+import com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase
+import com.giraffe.matn.domain.usecase.SetThemeModeUseCase
 import com.giraffe.matn.presentation.base.BaseViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 /**
  * Owns the Settings storage-management state (T066, storage-ui-contract.md §2; Principle II).
  * Mirrors [com.giraffe.matn.presentation.goals.GoalsViewModel]'s shape: a single collector clears
  * [SettingsUiState.isLoading] and fills the breakdown; removal intents are gated behind explicit
  * confirmation (FR-018) and never fire directly from [onRemoveMatn]/[onRemoveAll].
+ *
+ * T044 (US1): also owns the persisted appearance preference (FR-006). Appearance lives **below**
+ * the storage section in the UI (rule 4, SC-008) and applies immediately on select.
  */
 class SettingsViewModel(
     observeStorageUsage: FlowUseCase<Unit, StorageUsage>,
     private val removeMatnContent: UseCase<String, RemovalOutcome>,
     private val removeAllContent: UseCase<Unit, List<RemovalOutcome>>,
+    observeThemeMode: ObserveThemeModeUseCase,
+    private val setThemeMode: SetThemeModeUseCase,
+    private val notificationPermission: NotificationPermission,
 ) : BaseViewModel<SettingsUiState>(SettingsUiState()) {
 
     init {
+        // T077 (US3): populated on construction and re-read on every resume (see
+        // SettingsScreen's LifecycleResumeEffect) so a change made outside the app is reflected.
+        refreshPermissionStatus()
         observeStorageUsage.invoke(Unit)
             .onEach { usage ->
                 setState {
@@ -35,6 +49,43 @@ class SettingsViewModel(
                 }
             }
             .launchIn(viewModelScope)
+
+        // T044 (US1) — collect the persisted theme mode into state (FR-006). Existing storage
+        // behaviour is untouched: this is a second, independent collector for a different use case.
+        observeThemeMode.invoke(Unit)
+            .onEach { mode -> setState { it.copy(themeMode = mode) } }
+            .launchIn(viewModelScope)
+    }
+
+    /** T077 (US3, onboarding-permissions-contract.md §5): re-read the OS-level status. */
+    fun refreshPermissionStatus() {
+        viewModelScope.launch {
+            val status = notificationPermission.status()
+            setState { it.copy(notificationStatus = status) }
+        }
+    }
+
+    /** FR-023: `PERMANENTLY_DENIED`'s only affordance — the OS no longer surfaces its own prompt. */
+    fun onOpenNotificationSettings() = notificationPermission.openSystemSettings()
+
+    /** FR-023: `DENIED`'s retry — an explicit, student-initiated re-ask from Settings, distinct
+     *  from the cold-launch/onboarding request rule 5 forbids. */
+    fun onRetryNotificationPermission() {
+        viewModelScope.launch {
+            val status = notificationPermission.request()
+            setState { it.copy(notificationStatus = status) }
+        }
+    }
+
+    /** FR-004/FR-006: applies immediately and persists. Re-selection is a no-op extra call. */
+    fun onThemeModeSelected(mode: ThemeMode) {
+        setState { it.copy(themeMode = mode) }
+        runUseCase(
+            useCase = setThemeMode,
+            params = mode,
+            onSuccess = { /* observed live; nothing extra to do */ },
+            onError = { /* best-effort — re-emission from storage corrects state */ },
+        )
     }
 
     /** FR-018: open the confirmation for one matn. Removal never fires without it. */
