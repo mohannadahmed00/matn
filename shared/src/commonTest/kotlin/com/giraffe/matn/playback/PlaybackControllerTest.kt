@@ -1,10 +1,12 @@
-package com.giraffe.matn.playback
+﻿package com.giraffe.matn.playback
 
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.core.Resource
+import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.audio.AudioEngineEvent
 import com.giraffe.matn.domain.audio.AudioSourceResolver
 import com.giraffe.matn.domain.audio.WakeLock
+import com.giraffe.matn.domain.error.DeliveryError
 import com.giraffe.matn.domain.model.AudioAsset
 import com.giraffe.matn.domain.model.AudioTrack
 import com.giraffe.matn.domain.model.PlaybackNotice
@@ -38,9 +40,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Drive [PlaybackController] through every edge in data-model.md §6 with [FakeAudioEngine] +
+ * Drive [PlaybackController] through every edge in data-model.md Â§6 with [FakeAudioEngine] +
  * [FakeWakeLock] + a faked [BuildPlaybackQueueUseCase]. No device, audio, or network
- * (Principle V — primary gate).
+ * (Principle V â€” primary gate).
  */
 class PlaybackControllerTest {
 
@@ -76,19 +78,21 @@ class PlaybackControllerTest {
         engine: FakeAudioEngine = FakeAudioEngine(),
         wakeLock: FakeWakeLock = FakeWakeLock(),
         queueResult: Resource<PlaybackQueue> = Resource.Success(queue),
+        ensureMatnPlayable: UseCase<String, Unit>? = null,
     ): Pair<PlaybackController, FakeAudioEngine> {
         val buildQueue = FakeBuildQueue(queueResult)
         val ctrl = PlaybackController(
             engine = engine,
             buildQueue = buildQueue,
             wakeLock = wakeLock,
+            ensureMatnPlayable = ensureMatnPlayable,
             // `startInfoPolling()` runs a `while (true) { ...; delay(tick) }` loop that only stops
             // via `PlaybackController.stop()`/`release()`. Tests don't reliably call stop(), and
-            // `runTest` must drain its scheduler to idle before the test body returns — an infinite
+            // `runTest` must drain its scheduler to idle before the test body returns â€” an infinite
             // delay-loop never goes idle, so a Job parented under the ordinary TestScope livelocks
             // the test. Parenting under `backgroundScope`'s Job exempts it from that idle-drain
-            // (and gets it auto-cancelled at test end), while keeping `dispatcher` — our own
-            // UnconfinedTestDispatcher — so `engine.emit(...)` still resolves synchronously; plain
+            // (and gets it auto-cancelled at test end), while keeping `dispatcher` â€” our own
+            // UnconfinedTestDispatcher â€” so `engine.emit(...)` still resolves synchronously; plain
             // `backgroundScope` uses runTest's queued StandardTestDispatcher instead, which would
             // leave every assertion racing an unprocessed event.
             scope = CoroutineScope(SupervisorJob(backgroundScope.coroutineContext[Job]) + dispatcher),
@@ -109,11 +113,27 @@ class PlaybackControllerTest {
 
         // T024: engine is handed the window (starting at v3, planner ends immediately), not the queue.
         assertEquals(0, engine.startIndex)
-        // T024: window-space, not queue-space — default counters mean the window is just [v3].
+        // T024: window-space, not queue-space â€” default counters mean the window is just [v3].
         assertEquals(listOf("v3"), engine.lastQueue?.map { it.verseId })
         assertEquals(PlaybackStatus.PLAYING, ctrl.state.value.status)
         assertEquals("v3", ctrl.state.value.activeVerseId)
         assertEquals(2, ctrl.state.value.activeIndex)
+    }
+
+    @Test
+    fun `startSession does not build a queue or start the engine when the playability gate fails`() = runTest {
+        val (ctrl, engine) = newController(
+            ensureMatnPlayable = object : UseCase<String, Unit> {
+                override suspend fun invoke(params: String): Resource<Unit> =
+                    Resource.Failure(DeliveryError.ContentNotInstalled(params))
+            },
+        )
+        ctrl.playFromStart("matn-1")
+
+        assertEquals(PlaybackStatus.IDLE, ctrl.state.value.status)
+        assertEquals(PlaybackNotice.ContentNotInstalled("matn-1"), ctrl.state.value.notice)
+        assertNull(engine.lastQueue)
+        assertFalse(engine.playCalled)
     }
 
 @Test
@@ -132,7 +152,7 @@ class PlaybackControllerTest {
         val (ctrl, engine) = newController()
         ctrl.playFromStart("matn-1")
         engine.emit(AudioEngineEvent.Ready)
-        // startIndex 0 → v1 with displayNumber 1.
+        // startIndex 0 â†’ v1 with displayNumber 1.
         assertEquals(1, ctrl.state.value.activeDisplayNumber)
         engine.emit(AudioEngineEvent.TrackTransition(1))
         assertEquals(2, ctrl.state.value.activeDisplayNumber)
@@ -321,10 +341,10 @@ class PlaybackControllerTest {
         ctrl.pause()
         // Pre-existing gap (predates this window/repetition work): startInfoPolling() only
         // copies engine.playbackInfo into state while PLAYING, so a position set while PAUSED is
-        // never observed — previous() can't see this as "past the restart threshold" no matter how
+        // never observed â€” previous() can't see this as "past the restart threshold" no matter how
         // long the pause lasts. That means this scenario always takes the step-to-previous-verse
         // path, not the restart-in-place path; the window no longer holds the dropped verse (v1,
-        // per FR-030's bounded playlist), so it's a rebuild via setQueue rather than seekToTrack —
+        // per FR-030's bounded playlist), so it's a rebuild via setQueue rather than seekToTrack â€”
         // same rebuild the window model requires elsewhere (see moveToVerse's non-window branch).
         engine.setInfo(currentIndex = 1, positionMs = 3_000)
         engine.resetCalls()
@@ -356,7 +376,7 @@ class PlaybackControllerTest {
         ctrl.previous()
         // The window model (T023): refillWindow() drops v1 once playback has moved past it (FR-030
         // bounds the playlist), so it's no longer in `window` for moveToVerse's fast seekToTrack
-        // path — stepping back one verse now rebuilds via setQueue, same as any target outside the
+        // path â€” stepping back one verse now rebuilds via setQueue, same as any target outside the
         // materialized window.
         assertEquals(listOf("v1", "v2", "v3"), engine.lastQueue?.map { it.verseId })
         assertEquals(0, engine.startIndex)
@@ -540,6 +560,6 @@ class PlaybackControllerTest {
     }
 
     private object StubResolver : AudioSourceResolver {
-        override suspend fun resolve(fileRef: String): String = "file://audio/$fileRef"
+        override suspend fun resolve(matnId: String, fileRef: String): String = "file://audio/$fileRef"
     }
 }
