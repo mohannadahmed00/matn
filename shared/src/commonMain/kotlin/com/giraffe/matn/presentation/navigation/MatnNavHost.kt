@@ -112,6 +112,7 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         settingsStore = koin.get<RepetitionSettingsStore>(),
                         observeLibraryProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase>(),
                         observeDailyProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveDailyProgressUseCase>(),
+                        observeLibraryAvailability = koin.get<com.giraffe.matn.domain.usecase.ObserveLibraryAvailabilityUseCase>(),
                     )
                 }
                 HomeScreen(
@@ -151,6 +152,9 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         observeVerseMemorization = koin.get<com.giraffe.matn.domain.usecase.ObserveVerseMemorizationUseCase>(),
                         toggleVerseMemorized = koin.get<com.giraffe.matn.domain.usecase.ToggleVerseMemorizedUseCase>(),
                         markChapterMemorized = koin.get<com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase>(),
+                        observeContentAvailability = koin.get<com.giraffe.matn.domain.usecase.ObserveContentAvailabilityUseCase>(),
+                        installMatnContent = koin.get<com.giraffe.matn.domain.usecase.InstallMatnContentUseCase>(),
+                        cancelInstall = koin.get<com.giraffe.matn.domain.usecase.CancelInstallUseCase>(),
                     )
                 }
                 val playerBar: PlayerBarViewModel = viewModel {

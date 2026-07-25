@@ -35,16 +35,20 @@ import com.giraffe.matn.domain.repository.SearchRepository
 import com.giraffe.matn.domain.repository.SessionStateRepository
 import com.giraffe.matn.domain.repository.VerseRepository
 import com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase
+import com.giraffe.matn.domain.usecase.CancelInstallUseCase
 import com.giraffe.matn.domain.usecase.DeleteNoteUseCase
 import com.giraffe.matn.domain.usecase.DismissContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.EnsureMatnPlayableUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
 import com.giraffe.matn.domain.usecase.GetNoteUseCase
+import com.giraffe.matn.domain.usecase.InstallMatnContentUseCase
 import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
 import com.giraffe.matn.domain.usecase.ObserveBookmarksUseCase
+import com.giraffe.matn.domain.usecase.ObserveContentAvailabilityUseCase
 import com.giraffe.matn.domain.usecase.ObserveContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.ObserveDailyProgressUseCase
+import com.giraffe.matn.domain.usecase.ObserveLibraryAvailabilityUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
 import com.giraffe.matn.domain.usecase.ObserveMatnProgressUseCase
@@ -88,7 +92,7 @@ fun contentModule() = module {
     single<VerseRepository> { VerseRepositoryImpl(get()) }
     single<AudioAssetRepository> { AudioAssetRepositoryImpl(get()) }
     single<ContentSeedLoader> { ContentSeedLoaderImpl(get()) }
-    factory { GetMatnDetailsUseCase(get()) }
+    factory { GetMatnDetailsUseCase(get(), get()) }
     factory { ObserveVersesUseCase(get()) }
     factory { ObserveLibraryUseCase(get()) }
     single<ReadingPreferencesRepository> { ReadingPreferencesRepositoryImpl(get()) }
@@ -160,4 +164,10 @@ fun contentModule() = module {
 
     // Phase 8 (FR-001): content delivery repository above the platform engine + DeviceStorage seam.
     single<ContentPackRepository> { ContentPackRepositoryImpl(get(), get(), get()) }
+    // Phase 8 (US1 T052): install/observe use cases. EnsureMatnPlayableUseCase is registered
+    // above, ahead of PlaybackController, which depends on it.
+    factory { ObserveContentAvailabilityUseCase(get()) }
+    factory { ObserveLibraryAvailabilityUseCase(get()) }
+    factory { InstallMatnContentUseCase(get(), get()) }
+    factory { CancelInstallUseCase(get()) }
 }

@@ -3,8 +3,10 @@ package com.giraffe.matn.presentation.details
 import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
+import com.giraffe.matn.domain.error.DeliveryError
 import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.Chapter
+import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.MatnDetails
 import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.Note
@@ -18,6 +20,7 @@ import com.giraffe.matn.playback.PlaybackController
 import com.giraffe.matn.presentation.base.BaseViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 /**
  * Owns the reading/details screen state (data-model.md §4.2; Principle II). Constructed with
@@ -62,6 +65,12 @@ class MatnDetailsViewModel(
     private val observeVerseMemorization: FlowUseCase<String, Set<String>>? = null,
     private val toggleVerseMemorized: UseCase<ToggleVerseMemorizedUseCase.Params, Unit>? = null,
     private val markChapterMemorized: UseCase<MarkChapterMemorizedUseCase.Params, Unit>? = null,
+    /** Phase 8 (US1 FR-002/FR-004/FR-005/FR-006): content-delivery availability + install/cancel
+     *  intents for the header action. Optional/defaulted so existing call sites and tests keep
+     *  compiling. */
+    private val observeContentAvailability: FlowUseCase<String, ContentAvailability>? = null,
+    private val installMatnContent: UseCase<String, Unit>? = null,
+    private val cancelInstall: UseCase<String, Unit>? = null,
 ) : BaseViewModel<MatnDetailsUiState>(MatnDetailsUiState()) {
 
     // The two async inputs (details load + verse stream) are cached here and folded into UI
@@ -79,6 +88,7 @@ class MatnDetailsViewModel(
         observeAnnotations()
         observeProgress()
         observeMemorization()
+        observeAvailability()
     }
 
     /** US1 FR-002: toggle "memorized" on [verseId] — the target boolean is the inverse of its
@@ -130,6 +140,36 @@ class MatnDetailsViewModel(
         useCase.invoke(matnId)
             .onEach { ids -> setState { it.copy(memorizedVerseIds = ids) } }
             .launchIn(viewModelScope)
+    }
+
+    /** Phase 8 (FR-002, storage-ui-contract.md §5): its own collector, never gating [isLoading] —
+     *  a mid-flight availability change (backgrounding, eviction, install completion) reaches the
+     *  state object purely through Flow re-collection, never a cached snapshot. */
+    private fun observeAvailability() {
+        val useCase = observeContentAvailability ?: return
+        useCase.invoke(matnId)
+            .onEach { availability -> setState { it.copy(availability = availability) } }
+            .launchIn(viewModelScope)
+    }
+
+    /** FR-004/FR-007/FR-015: install this matn's on-demand content. A refusal (starter, offline,
+     *  insufficient space) is surfaced via [MatnDetailsUiState.installError] rather than silently
+     *  dropped (storage-ui-contract.md §5 "never a silent failure"). */
+    fun onInstall() {
+        val useCase = installMatnContent ?: return
+        runUseCase(
+            useCase = useCase,
+            params = matnId,
+            onSuccess = { setState { it.copy(installError = null) } },
+            onError = { error -> setState { it.copy(installError = error as? DeliveryError) } },
+        )
+    }
+
+    /** FR-005/FR-006: cancel an in-flight install; [observeContentAvailability] re-emits and
+     *  returns the header action to its not-installed state. */
+    fun onCancelInstall() {
+        val useCase = cancelInstall ?: return
+        viewModelScope.launch { useCase.invoke(matnId) }
     }
 
     /** US2 FR-010: toggle the bookmark on [verseId] (typically the active verse). Best-effort —
@@ -303,6 +343,8 @@ class MatnDetailsViewModel(
                 chapters = details?.chapters.orEmpty().toChapterRows(verseRows),
                 showTableOfContents = details?.showTableOfContents ?: false,
                 focusVerseId = focusVerseId?.takeIf { id -> verseRows.any { it.id == id } },
+                declaredSizeBytes = details?.declaredSizeBytes ?: current.declaredSizeBytes,
+                isStarter = details?.isStarter ?: current.isStarter,
             )
         }
     }

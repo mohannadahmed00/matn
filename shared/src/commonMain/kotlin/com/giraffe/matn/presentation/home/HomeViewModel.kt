@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
+import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.ContinueLearningEntry
 import com.giraffe.matn.domain.model.DailyProgress
 import com.giraffe.matn.domain.model.MatnProgress
@@ -49,6 +50,8 @@ class HomeViewModel(
     private val observeLibraryProgress: FlowUseCase<Unit, List<MatnProgress>>? = null,
     /** Phase 7 (US2 FR-009/FR-012): today's practice count + goal for the completion ring. */
     private val observeDailyProgress: FlowUseCase<Unit, DailyProgress>? = null,
+    /** Phase 8 (US1 FR-002): per-matn content-delivery availability for the library cards. */
+    private val observeLibraryAvailability: FlowUseCase<Unit, Map<String, ContentAvailability>>? = null,
 ) : BaseViewModel<HomeUiState>(HomeUiState()) {
 
     private val _navigation = Channel<String>(Channel.BUFFERED)
@@ -75,6 +78,13 @@ class HomeViewModel(
                 setState { it.copy(continueLearning = entry) }
             }
             .launchIn(viewModelScope)
+
+        // Phase 8 (FR-002, storage-ui-contract.md §5): its own collector, never gating
+        // isLoading — a mid-flight availability change (backgrounding, eviction, install
+        // completion) reaches the state object purely through Flow re-collection.
+        observeLibraryAvailability?.invoke(Unit)?.collectInto { availabilityMap ->
+            setState { it.copy(availability = availabilityMap) }
+        }
 
         observeLibraryProgress?.invoke(Unit)
             ?.onEach { progressList ->

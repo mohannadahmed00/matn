@@ -5,6 +5,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.MatnDetails
 import com.giraffe.matn.domain.model.StructureKind
+import com.giraffe.matn.domain.repository.ContentPackRepository
 import com.giraffe.matn.domain.repository.MatnRepository
 
 /**
@@ -16,9 +17,16 @@ import com.giraffe.matn.domain.repository.MatnRepository
  * propagated. Does **not** load the verse list — that's [ObserveVersesUseCase]'s job; the
  * details header derives its totals from the observed verses in the ViewModel to avoid a second
  * query (research.md Decision 6 / data-model.md §3.1).
+ *
+ * Phase 8 (FR-002/FR-003/FR-027): also folds in the catalog's declared size + starter flag, so
+ * the details header's [com.giraffe.matn.presentation.common.ContentAvailabilityBadge] and
+ * [com.giraffe.matn.presentation.common.ContentActionButton] have what they need without a
+ * second round trip. [contentPackRepo] is optional/defaulted so existing call sites and tests
+ * keep compiling.
  */
 class GetMatnDetailsUseCase(
     private val matnRepo: MatnRepository,
+    private val contentPackRepo: ContentPackRepository? = null,
 ) : UseCase<String, MatnDetails> {
 
     override suspend fun invoke(params: String): Resource<MatnDetails> {
@@ -38,6 +46,8 @@ class GetMatnDetailsUseCase(
                                 showTableOfContents =
                                     matn.structureKind == StructureKind.STRUCTURED &&
                                         chapters.isNotEmpty(),
+                                declaredSizeBytes = contentPackRepo?.declaredSize(params) ?: 0L,
+                                isStarter = contentPackRepo?.isStarterMatn(params) ?: false,
                             ),
                         )
                     }

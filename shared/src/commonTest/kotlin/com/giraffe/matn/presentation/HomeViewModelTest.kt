@@ -3,6 +3,7 @@ package com.giraffe.matn.presentation
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.DailyProgress
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
@@ -14,6 +15,7 @@ import com.giraffe.matn.SIMPLE_MATN_JSON
 import com.giraffe.matn.STRUCTURED_MATN_JSON
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -176,5 +178,45 @@ class HomeViewModelTest {
         assertEquals(1, vm.state.value.items.size)
         // dailyGoal simply stays at its default until the flow resolves.
         assertEquals(0, vm.state.value.dailyGoal.practiced)
+    }
+
+    private fun homeViewModelWithAvailability(
+        libraryFlow: Flow<List<MatnSummary>>,
+        availabilityFlow: Flow<Map<String, ContentAvailability>>,
+    ): HomeViewModel = HomeViewModel(
+        observeLibrary = object : FlowUseCase<Unit, List<MatnSummary>> {
+            override fun invoke(params: Unit): Flow<List<MatnSummary>> = libraryFlow
+        },
+        observeLibraryAvailability = object : FlowUseCase<Unit, Map<String, ContentAvailability>> {
+            override fun invoke(params: Unit): Flow<Map<String, ContentAvailability>> = availabilityFlow
+        },
+    )
+
+    @Test
+    fun `T048 per-card availability reaches the state map`() = runTest {
+        val vm = homeViewModelWithAvailability(
+            libraryFlow = flowOf(listOf(summary("m1", "الأجرومية", count = 4, total = 31_300))),
+            availabilityFlow = flowOf(mapOf("m1" to ContentAvailability.Installed(2_400_000))),
+        )
+        val availability = vm.state.value.availability["m1"]
+        assertEquals(ContentAvailability.Installed(2_400_000), availability)
+    }
+
+    @Test
+    fun `T048 a mid-flight availability change reaches the state object`() = runTest {
+        val availabilityFlow = MutableStateFlow<Map<String, ContentAvailability>>(
+            mapOf("m1" to ContentAvailability.NotInstalled()),
+        )
+        val vm = homeViewModelWithAvailability(
+            libraryFlow = flowOf(listOf(summary("m1", "الأجرومية", count = 4, total = 31_300))),
+            availabilityFlow = availabilityFlow,
+        )
+        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability["m1"])
+
+        // Simulate a backgrounding/resume re-collection reporting a newly-installed matn — this
+        // is what proves the state comes from Flow re-collection, never a cached snapshot
+        // (storage-ui-contract.md §5, FR-005).
+        availabilityFlow.value = mapOf("m1" to ContentAvailability.Installed(2_400_000))
+        assertEquals(ContentAvailability.Installed(2_400_000), vm.state.value.availability["m1"])
     }
 }

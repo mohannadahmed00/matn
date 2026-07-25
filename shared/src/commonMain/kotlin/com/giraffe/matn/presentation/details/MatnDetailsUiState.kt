@@ -1,7 +1,9 @@
 package com.giraffe.matn.presentation.details
 
 import com.giraffe.matn.core.AppError
+import com.giraffe.matn.domain.error.DeliveryError
 import com.giraffe.matn.domain.model.AnnotatedVerseRef
+import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.LoopRange
 import com.giraffe.matn.domain.model.MatnProgress
 import com.giraffe.matn.domain.model.ReadingFontSize
@@ -44,6 +46,18 @@ data class MatnDetailsUiState(
     /** Phase 7 (FR-006/FR-008): the latest progress emission, held independently of [header] so
      *  neither arrival order (progress vs. details load) loses data — see [MatnDetailsViewModel]. */
     val progress: MatnProgress? = null,
+    /** Phase 8 (FR-002/FR-004): this matn's content-delivery availability, driving the header's
+     *  [com.giraffe.matn.presentation.common.ContentActionButton]. `null` until the first
+     *  emission arrives. */
+    val availability: ContentAvailability? = null,
+    /** Phase 8 (FR-003): the catalog's declared install size (data-model.md §1.1). */
+    val declaredSizeBytes: Long = 0L,
+    /** Phase 8 (FR-027): true for the bundled, non-removable starter matn. */
+    val isStarter: Boolean = false,
+    /** Phase 8 (FR-007/FR-015): the reason the last install attempt was refused (offline /
+     *  required-vs-available bytes) — the screen maps this to a localized message, mirroring
+     *  [errorMessage] for [error]. `null` when there is nothing to report. */
+    val installError: DeliveryError? = null,
 )
 
 /**

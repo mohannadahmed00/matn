@@ -130,6 +130,8 @@ fun HomeContent(
                             summary = summary,
                             onClick = { onOpenMatn(summary.matn.id) },
                             progressFraction = state.progressByMatn[summary.matn.id],
+                            availability = state.availability[summary.matn.id],
+                            declaredSizeBytes = summary.declaredSizeBytes,
                         )
                     }
                 }

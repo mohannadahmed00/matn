@@ -1,10 +1,13 @@
-package com.giraffe.matn.presentation
+﻿package com.giraffe.matn.presentation
 
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
+import com.giraffe.matn.domain.error.DeliveryError
 import com.giraffe.matn.domain.model.Chapter
+import com.giraffe.matn.domain.model.ContentAvailability
+import com.giraffe.matn.domain.model.DeliveryFailure
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnDetails
 import com.giraffe.matn.domain.model.MatnProgress
@@ -56,37 +59,37 @@ class MatnDetailsViewModelTest {
 
     private val simpleMatn = Matn(
         id = "simple-1",
-        title = "الأجرومية",
-        author = "ابن آجُرُّوم",
-        description = "متن مختصر",
+        title = "Ø§Ù„Ø£Ø¬Ø±ÙˆÙ…ÙŠØ©",
+        author = "Ø§Ø¨Ù† Ø¢Ø¬ÙØ±ÙÙ‘ÙˆÙ…",
+        description = "Ù…ØªÙ† Ù…Ø®ØªØµØ±",
         coverImageRef = "covers/simple.jpg",
         structureKind = StructureKind.SIMPLE,
     )
 
     private val structuredMatn = Matn(
         id = "structured-1",
-        title = "متن الآجرومية مبوب",
-        author = "ابن آجُرُّوم",
-        description = "مبوب",
+        title = "Ù…ØªÙ† Ø§Ù„Ø¢Ø¬Ø±ÙˆÙ…ÙŠØ© Ù…Ø¨ÙˆØ¨",
+        author = "Ø§Ø¨Ù† Ø¢Ø¬ÙØ±ÙÙ‘ÙˆÙ…",
+        description = "Ù…Ø¨ÙˆØ¨",
         coverImageRef = null,
         structureKind = StructureKind.STRUCTURED,
     )
 
     private val simpleVerses = listOf(
-        Verse("v1", "simple-1", null, 1, "الكَلامُ هُوَ اللَّفظُ", 8200),
-        Verse("v2", "simple-1", null, 2, "وَأَقسامُهُ ثَلاثَةٌ", 7400),
-        Verse("v3", "simple-1", null, 3, "فَالاسمُ يُعرَفُ", 6900),
+        Verse("v1", "simple-1", null, 1, "Ø§Ù„ÙƒÙŽÙ„Ø§Ù…Ù Ù‡ÙÙˆÙŽ Ø§Ù„Ù„ÙŽÙ‘ÙØ¸Ù", 8200),
+        Verse("v2", "simple-1", null, 2, "ÙˆÙŽØ£ÙŽÙ‚Ø³Ø§Ù…ÙÙ‡Ù Ø«ÙŽÙ„Ø§Ø«ÙŽØ©ÙŒ", 7400),
+        Verse("v3", "simple-1", null, 3, "ÙÙŽØ§Ù„Ø§Ø³Ù…Ù ÙŠÙØ¹Ø±ÙŽÙÙ", 6900),
     )
 
     private val structuredChapters = listOf(
-        Chapter("c1", "structured-1", "باب الكلام", 1),
-        Chapter("c2", "structured-1", "باب الإعراب", 2),
+        Chapter("c1", "structured-1", "Ø¨Ø§Ø¨ Ø§Ù„ÙƒÙ„Ø§Ù…", 1),
+        Chapter("c2", "structured-1", "Ø¨Ø§Ø¨ Ø§Ù„Ø¥Ø¹Ø±Ø§Ø¨", 2),
     )
 
     private val structuredVerses = listOf(
-        Verse("sv1", "structured-1", "c1", 1, "الكَلامُ", 8200),
-        Verse("sv2", "structured-1", "c1", 2, "وَأَقسامُهُ", 7400),
-        Verse("sv3", "structured-1", "c2", 3, "الإِعرابُ", 8100),
+        Verse("sv1", "structured-1", "c1", 1, "Ø§Ù„ÙƒÙŽÙ„Ø§Ù…Ù", 8200),
+        Verse("sv2", "structured-1", "c1", 2, "ÙˆÙŽØ£ÙŽÙ‚Ø³Ø§Ù…ÙÙ‡Ù", 7400),
+        Verse("sv3", "structured-1", "c2", 3, "Ø§Ù„Ø¥ÙØ¹Ø±Ø§Ø¨Ù", 8100),
     )
 
     @Test
@@ -159,8 +162,8 @@ class MatnDetailsViewModelTest {
     @Test
     fun `chapters ordered by chapter order`() = runTest {
         val chapters = listOf(
-            Chapter("c2", "structured-1", "باب الإعراب", 2),
-            Chapter("c1", "structured-1", "باب الكلام", 1),
+            Chapter("c2", "structured-1", "Ø¨Ø§Ø¨ Ø§Ù„Ø¥Ø¹Ø±Ø§Ø¨", 2),
+            Chapter("c1", "structured-1", "Ø¨Ø§Ø¨ Ø§Ù„ÙƒÙ„Ø§Ù…", 1),
         )
         val vm = newViewModel(
             matnDetails = MatnDetails(structuredMatn, chapters, true),
@@ -255,7 +258,7 @@ class MatnDetailsViewModelTest {
                 ): Resource<List<com.giraffe.matn.domain.model.AudioAsset>> = Resource.Success(emptyList())
             },
             audioSourceResolver = object : com.giraffe.matn.domain.audio.AudioSourceResolver {
-                override suspend fun resolve(fileRef: String): String = "uri1"
+                override suspend fun resolve(matnId: String, fileRef: String): String = "uri1"
             },
         ) {
             override suspend fun invoke(
@@ -355,13 +358,13 @@ class MatnDetailsViewModelTest {
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
             verses = simpleVerses,
-            getNote = FakeUseCase { Resource.Success(Note("n1", "v1", "نص محفوظ", 500L)) },
+            getNote = FakeUseCase { Resource.Success(Note("n1", "v1", "Ù†Øµ Ù…Ø­ÙÙˆØ¸", 500L)) },
         )
         vm.onOpenNoteEditor("v1")
         val editor = vm.state.value.noteEditor
         assertNotNull(editor)
         assertEquals("v1", editor.verseId)
-        assertEquals("نص محفوظ", editor.initialText)
+        assertEquals("Ù†Øµ Ù…Ø­ÙÙˆØ¸", editor.initialText)
         assertEquals(simpleMatn.title, editor.verseRef.matnTitle)
     }
 
@@ -375,9 +378,9 @@ class MatnDetailsViewModelTest {
             saveNote = FakeUseCase { params -> savedParams = params; Resource.Success(Note("n1", params.verseId, params.text, 1L)) },
         )
         vm.onOpenNoteEditor("v1")
-        vm.onSaveNote("ملاحظة جديدة")
+        vm.onSaveNote("Ù…Ù„Ø§Ø­Ø¸Ø© Ø¬Ø¯ÙŠØ¯Ø©")
         assertEquals("v1", savedParams?.verseId)
-        assertEquals("ملاحظة جديدة", savedParams?.text)
+        assertEquals("Ù…Ù„Ø§Ø­Ø¸Ø© Ø¬Ø¯ÙŠØ¯Ø©", savedParams?.text)
         assertNull(vm.state.value.noteEditor)
     }
 
@@ -401,7 +404,7 @@ class MatnDetailsViewModelTest {
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
             verses = simpleVerses,
-            getNote = FakeUseCase { Resource.Success(Note("n1", "v1", "نص", 1L)) },
+            getNote = FakeUseCase { Resource.Success(Note("n1", "v1", "Ù†Øµ", 1L)) },
             deleteNote = FakeUseCase { Resource.Success(Unit) },
         )
         vm.onOpenNoteEditor("v1")
@@ -440,6 +443,9 @@ class MatnDetailsViewModelTest {
         memorizationFlow: Flow<Set<String>>? = null,
         toggleVerseMemorized: UseCase<ToggleVerseMemorizedUseCase.Params, Unit>? = null,
         markChapterMemorized: UseCase<MarkChapterMemorizedUseCase.Params, Unit>? = null,
+        availabilityFlow: Flow<ContentAvailability>? = null,
+        installMatnContent: UseCase<String, Unit>? = null,
+        cancelInstall: UseCase<String, Unit>? = null,
     ): MatnDetailsViewModel {
         val versesState = MutableStateFlow(verses)
         return MatnDetailsViewModel(
@@ -459,6 +465,9 @@ class MatnDetailsViewModelTest {
             observeVerseMemorization = memorizationFlow?.let { flow -> FakeFlowUseCase { flow } },
             toggleVerseMemorized = toggleVerseMemorized,
             markChapterMemorized = markChapterMemorized,
+            observeContentAvailability = availabilityFlow?.let { flow -> FakeFlowUseCase { flow } },
+            installMatnContent = installMatnContent,
+            cancelInstall = cancelInstall,
         )
     }
 
@@ -530,6 +539,74 @@ class MatnDetailsViewModelTest {
         assertEquals(false, vm.state.value.isPlaying)
         assertNull(vm.state.value.activeVerseId)
     }
+
+    // ---- T050 (Phase 8, US1) ------------------------------------------------
+
+    @Test
+    fun `T050 availability drives the header state`() = runTest {
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            availabilityFlow = flowOf(ContentAvailability.NotInstalled()),
+        )
+        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability)
+    }
+
+    @Test
+    fun `T050 install refused offline surfaces the reason`() = runTest {
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            availabilityFlow = flowOf(ContentAvailability.NotInstalled()),
+            installMatnContent = FakeUseCase {
+                Resource.Failure(DeliveryError.DeliveryFailed(DeliveryFailure.NoConnectivity))
+            },
+        )
+        vm.onInstall()
+        val error = vm.state.value.installError
+        assertNotNull(error)
+        assertTrue(error is DeliveryError.DeliveryFailed && error.failure is DeliveryFailure.NoConnectivity)
+    }
+
+    @Test
+    fun `T050 cancel returns the state to not-installed`() = runTest {
+        val availability = MutableStateFlow<ContentAvailability>(
+            ContentAvailability.Installing(
+                com.giraffe.matn.domain.model.DeliveryProgress(
+                    bytesTransferred = 1_000,
+                    totalBytes = 2_000,
+                    phase = com.giraffe.matn.domain.model.DeliveryPhase.TRANSFERRING,
+                ),
+            ),
+        )
+        var cancelInvoked = false
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            availabilityFlow = availability,
+            cancelInstall = FakeUseCase { cancelInvoked = true; Resource.Success(Unit) },
+        )
+        vm.onCancelInstall()
+        assertTrue(cancelInvoked)
+        // The use case's own effect (flipping the engine's state) is exercised in
+        // CancelInstallUseCaseTest / ContentPackRepositoryTest; here we simulate its
+        // observable consequence to prove the ViewModel's collector reflects it.
+        availability.value = ContentAvailability.NotInstalled()
+        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability)
+    }
+
+    @Test
+    fun `T050 a mid-flight availability change reaches the state object`() = runTest {
+        val availability = MutableStateFlow<ContentAvailability>(ContentAvailability.NotInstalled())
+        val vm = newViewModel(
+            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
+            verses = simpleVerses,
+            availabilityFlow = availability,
+        )
+        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability)
+        availability.value = ContentAvailability.Installed(2_400_000)
+        assertEquals(ContentAvailability.Installed(2_400_000), vm.state.value.availability)
+    }
 }
 
 /** Builds a real `PlaybackController` sitting idle (IDLE state) so the test only reads state. */
@@ -552,7 +629,7 @@ private fun idlePlaybackController(): PlaybackController {
             ): Resource<List<com.giraffe.matn.domain.model.AudioAsset>> = Resource.Success(emptyList())
         },
         audioSourceResolver = object : com.giraffe.matn.domain.audio.AudioSourceResolver {
-            override suspend fun resolve(fileRef: String): String = ""
+            override suspend fun resolve(matnId: String, fileRef: String): String = ""
         },
     ) {}
     return PlaybackController(
