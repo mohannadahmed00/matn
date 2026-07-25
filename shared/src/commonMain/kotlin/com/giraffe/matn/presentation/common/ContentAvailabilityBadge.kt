@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.DeliveryPhase
 import com.giraffe.matn.domain.model.DeliveryProgress
@@ -49,7 +48,7 @@ fun ContentAvailabilityBadge(
         is ContentAvailability.Installing -> {
             InstallProgressIndicator(
                 progress = availability.progress,
-                modifier = modifier.width(96.dp),
+                modifier = modifier.width(MatnSpacing.unit * 12),
             )
         }
         is ContentAvailability.NotInstalled -> {

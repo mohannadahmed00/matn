@@ -112,7 +112,9 @@ fun RemoveContentGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 2
 private fun ContentGlyphsPreview() {
     MatnTheme {
         androidx.compose.foundation.layout.Row(
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                com.giraffe.matn.presentation.theme.MatnSpacing.unit,
+            ),
         ) {
             val scheme = androidx.compose.material3.MaterialTheme.colorScheme
             DownloadGlyph(color = scheme.onSurfaceVariant)
