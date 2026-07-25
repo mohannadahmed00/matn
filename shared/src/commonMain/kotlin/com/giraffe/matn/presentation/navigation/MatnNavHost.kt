@@ -8,6 +8,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -47,6 +48,8 @@ import com.giraffe.matn.presentation.home.HomeScreen
 import com.giraffe.matn.presentation.home.HomeViewModel
 import com.giraffe.matn.presentation.notes.NotesTabScreen
 import com.giraffe.matn.presentation.notes.NotesTabViewModel
+import com.giraffe.matn.presentation.onboarding.OnboardingScreen
+import com.giraffe.matn.presentation.onboarding.OnboardingViewModel
 import com.giraffe.matn.presentation.player.PlayerBarViewModel
 import com.giraffe.matn.presentation.search.SearchScreen
 import com.giraffe.matn.presentation.search.SearchViewModel
@@ -74,6 +77,9 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = NavigationTab.entries.any { it.route == currentRoute }
+    // T094 (US5, adaptive-motion-contract.md §B3): read once here (a Composable scope) and
+    // captured by the transition lambdas below, which are not themselves Composable.
+    val reduceMotion = com.giraffe.matn.presentation.theme.LocalReduceMotion.current
 
     Scaffold(
         bottomBar = {
@@ -95,11 +101,124 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
             }
         },
     ) { innerPadding ->
+        // T072 (US3, onboarding-permissions-contract.md §2.3): resolved via a use case, never by
+        // injecting OnboardingRepository directly here (Principle I).
+        val startDestination = remember {
+            if (MatnKoinHolder.koin.get<com.giraffe.matn.domain.usecase.GetOnboardingStatusNowUseCase>()() ==
+                com.giraffe.matn.domain.model.OnboardingStatus.NOT_COMPLETED
+            ) {
+                Routes.ONBOARDING
+            } else {
+                Routes.HOME
+            }
+        }
+        // T094 (US5, adaptive-motion-contract.md §B3): shared enter/exit transitions on the
+        // NavHost itself, not per `composable`, so every route uses one vocabulary. Sibling tab
+        // changes fade only (no slide — sliding implies a hierarchy tabs don't have); forward
+        // navigation slides from the RTL start edge via the layout-direction-aware
+        // `SlideDirection.Start`/`End` (never a raw pixel offset, which would be LTR-only).
+        // `LocalReduceMotion` (captured above, a Composable read) substitutes a plain fade.
+        // No blocking overlay/scrim is added for the transition's duration (FR-037) — the
+        // existing `launchSingleTop` on every navigate call already prevents double-navigation.
+        val tabRoutes = remember { NavigationTab.entries.map { it.route }.toSet() }
+        fun isTabChange(scope: androidx.compose.animation.AnimatedContentTransitionScope<androidx.navigation.NavBackStackEntry>): Boolean {
+            val from = scope.initialState.destination.route
+            val to = scope.targetState.destination.route
+            return from in tabRoutes && to in tabRoutes
+        }
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                when {
+                    isTabChange(this) -> androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationShort),
+                    )
+                    reduceMotion -> androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationShort),
+                    )
+                    else -> slideIntoContainer(
+                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = androidx.compose.animation.core.tween(
+                            com.giraffe.matn.presentation.theme.MatnMotion.durationMedium,
+                            easing = com.giraffe.matn.presentation.theme.MatnMotion.easingStandard,
+                        ),
+                    ) + androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationMedium),
+                    )
+                }
+            },
+            exitTransition = {
+                when {
+                    isTabChange(this) -> androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationShort),
+                    )
+                    reduceMotion -> androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationShort),
+                    )
+                    else -> slideOutOfContainer(
+                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = androidx.compose.animation.core.tween(
+                            com.giraffe.matn.presentation.theme.MatnMotion.durationMedium,
+                            easing = com.giraffe.matn.presentation.theme.MatnMotion.easingStandard,
+                        ),
+                    ) + androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationMedium),
+                    )
+                }
+            },
+            popEnterTransition = {
+                if (reduceMotion) {
+                    androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationShort),
+                    )
+                } else {
+                    slideIntoContainer(
+                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = androidx.compose.animation.core.tween(
+                            com.giraffe.matn.presentation.theme.MatnMotion.durationMedium,
+                            easing = com.giraffe.matn.presentation.theme.MatnMotion.easingExit,
+                        ),
+                    ) + androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationMedium),
+                    )
+                }
+            },
+            popExitTransition = {
+                if (reduceMotion) {
+                    androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationShort),
+                    )
+                } else {
+                    slideOutOfContainer(
+                        towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = androidx.compose.animation.core.tween(
+                            com.giraffe.matn.presentation.theme.MatnMotion.durationMedium,
+                            easing = com.giraffe.matn.presentation.theme.MatnMotion.easingExit,
+                        ),
+                    ) + androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationMedium),
+                    )
+                }
+            },
         ) {
+            composable(Routes.ONBOARDING) {
+                val koin = MatnKoinHolder.koin
+                val viewModel: OnboardingViewModel = viewModel {
+                    OnboardingViewModel(
+                        completeOnboarding = koin.get<com.giraffe.matn.domain.usecase.CompleteOnboardingUseCase>(),
+                    )
+                }
+                OnboardingScreen(
+                    viewModel = viewModel,
+                    onCompleted = {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    },
+                )
+            }
             composable(Routes.HOME) {
                 val koin = MatnKoinHolder.koin
                 val viewModel: HomeViewModel = viewModel {
@@ -220,9 +339,17 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         observeStorageUsage = koin.get<com.giraffe.matn.domain.usecase.ObserveStorageUsageUseCase>(),
                         removeMatnContent = koin.get<com.giraffe.matn.domain.usecase.RemoveMatnContentUseCase>(),
                         removeAllContent = koin.get<com.giraffe.matn.domain.usecase.RemoveAllContentUseCase>(),
+                        observeThemeMode = koin.get<com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase>(),
+                        setThemeMode = koin.get<com.giraffe.matn.domain.usecase.SetThemeModeUseCase>(),
+                        notificationPermission = koin.get<com.giraffe.matn.domain.permission.NotificationPermission>(),
                     )
                 }
-                com.giraffe.matn.presentation.settings.SettingsScreen(viewModel = viewModel)
+                com.giraffe.matn.presentation.settings.SettingsScreen(
+                    viewModel = viewModel,
+                    // T073 (US3): re-opening never clears the completed flag — an ordinary
+                    // forward navigation, not a reset (contract §2.3).
+                    onReopenOnboarding = { navController.navigate(Routes.ONBOARDING) },
+                )
             }
         }
     }
@@ -248,6 +375,7 @@ private fun MatnBottomNavigationBar(currentRoute: String?, onTabSelected: (Navig
 object Routes {
     const val MATN_ID_ARG = "matnId"
     const val FOCUS_VERSE_ID_ARG = "focusVerseId"
+    const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val MATN_DETAILS = "matn/{$MATN_ID_ARG}?$FOCUS_VERSE_ID_ARG={$FOCUS_VERSE_ID_ARG}"
     const val GOALS = "goals"

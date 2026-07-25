@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -36,6 +38,8 @@ import com.giraffe.matn.domain.model.PlaybackMode
 import com.giraffe.matn.domain.model.PlaybackSpeed
 import com.giraffe.matn.domain.model.PlaybackStatus
 import com.giraffe.matn.domain.model.RepeatCount
+import com.giraffe.matn.presentation.common.A11yAction
+import com.giraffe.matn.presentation.common.IconActionButton
 import com.giraffe.matn.presentation.common.PauseGlyph
 import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.RepeatGlyph
@@ -43,6 +47,7 @@ import com.giraffe.matn.presentation.common.SkipNextGlyph
 import com.giraffe.matn.presentation.common.SkipPreviousGlyph
 import com.giraffe.matn.presentation.common.StopGlyph
 import com.giraffe.matn.presentation.common.formatDuration
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
@@ -52,8 +57,6 @@ import matn.shared.generated.resources.mode_ab_loop
 import matn.shared.generated.resources.mode_memorization
 import matn.shared.generated.resources.mode_normal
 import matn.shared.generated.resources.player_next
-import matn.shared.generated.resources.player_pause
-import matn.shared.generated.resources.player_play
 import matn.shared.generated.resources.player_previous
 import matn.shared.generated.resources.player_speed
 import matn.shared.generated.resources.player_stop
@@ -78,6 +81,14 @@ fun PlayerBar(viewModel: PlayerBarViewModel, onRepeatSettingsClicked: () -> Unit
             onSeek = viewModel::onSeek,
             onSpeedSelected = viewModel::onSpeedSelected,
             onRepeatSettingsClicked = onRepeatSettingsClicked,
+        )
+    }
+    // T076 (US3): the first-playback notification rationale — playback has already started
+    // regardless of this sheet's outcome (onboarding-permissions-contract.md §4).
+    if (state.showNotificationRationale) {
+        com.giraffe.matn.presentation.common.PermissionRationaleSheet(
+            onContinue = viewModel::onNotificationRationaleContinue,
+            onDismiss = viewModel::onNotificationRationaleDismissed,
         )
     }
 }
@@ -106,13 +117,18 @@ fun PlayerBarContent(
     onRepeatSettingsClicked: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
-    Box(modifier = Modifier.fillMaxWidth().padding(MatnSpacing.unit * 2)) {
+    // T087 (US4, FR-029): bounded to MatnSpacing.surfaceMaxWidth and centred — a tablet's full
+    // width would stretch the transport controls uncomfortably far apart.
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(MatnSpacing.unit * 2),
+        contentAlignment = Alignment.Center,
+    ) {
         Surface(
             color = scheme.surface,
             shape = MatnShapes.xl,
             shadowElevation = 12.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().widthIn(max = MatnSpacing.surfaceMaxWidth),
         ) {
             Column(modifier = Modifier.padding(MatnSpacing.unit * 2)) {
                 StatusRow(state = state)
@@ -185,7 +201,18 @@ private fun ScrubRow(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit)
     val scheme = MaterialTheme.colorScheme
     var scrubbing by remember { mutableStateOf(false) }
     var scrubValue by remember { mutableStateOf(0f) }
-    val shown = if (scrubbing) scrubValue else positionMs.toFloat() / durationMs
+    val target = positionMs.toFloat() / durationMs
+    // T096 (US5, adaptive-motion-contract.md §B3): the readout eases toward each ~125ms position
+    // tick at durationShort rather than jumping, but never while the student is actively dragging
+    // — an animated value would fight the touch input. Reduce motion snaps immediately.
+    val reduceMotion = com.giraffe.matn.presentation.theme.LocalReduceMotion.current
+    val animatedPosition by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = target,
+        animationSpec = androidx.compose.animation.core.tween(
+            if (reduceMotion) 0 else com.giraffe.matn.presentation.theme.MatnMotion.durationShort,
+        ),
+    )
+    val shown = if (scrubbing) scrubValue else animatedPosition
     Slider(
         value = shown.coerceIn(0f, 1f),
         onValueChange = {
@@ -201,9 +228,15 @@ private fun ScrubRow(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit)
             activeTrackColor = scheme.primary,
             inactiveTrackColor = scheme.surfaceVariant,
         ),
-        modifier = Modifier.fillMaxWidth(),
+        // T064 (US2): the scrub position ticks on every frame of playback — announcing it would
+        // talk over the recitation. Only the discrete transport controls (play/pause, next,
+        // previous) carry semantics; this continuous readout carries none.
+        modifier = Modifier.fillMaxWidth().clearAndSetSemantics { },
     )
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clearAndSetSemantics { },
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+    ) {
         Text(
             text = formatDuration(if (scrubbing) (scrubValue * durationMs).toLong() else positionMs),
             style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
@@ -258,9 +291,7 @@ private fun TransportRow(
         TransportDisc(
             onClick = onPlayPause,
             enabled = state.canPlayPause,
-            contentDescription = stringResource(
-                if (state.isPlaying) Res.string.player_pause else Res.string.player_play,
-            ),
+            action = if (state.isPlaying) A11yAction.PAUSE else A11yAction.PLAY,
         ) {
             if (state.isPlaying) {
                 PauseGlyph(color = scheme.onPrimary, size = 24.dp)
@@ -278,12 +309,16 @@ private fun TransportRow(
     }
 }
 
-/** Play/pause as the single filled, larger primary disc — the one emphasized transport control. */
+/**
+ * Play/pause as the single filled, larger primary disc — the one emphasized transport control.
+ * T058 (US2): the icon-only affordance itself is [IconActionButton], nested inside the styled
+ * 56dp disc — [action] is passed through by the caller since play/pause share this composable.
+ */
 @Composable
 private fun TransportDisc(
     onClick: () -> Unit,
     enabled: Boolean,
-    contentDescription: String,
+    action: A11yAction,
     content: @Composable () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -292,11 +327,10 @@ private fun TransportDisc(
             .padding(horizontal = MatnSpacing.unit)
             .size(56.dp)
             .clip(CircleShape)
-            .background(if (enabled) scheme.primary else scheme.primary.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, onClickLabel = contentDescription, onClick = onClick),
+            .background(if (enabled) scheme.primary else scheme.primary.copy(alpha = 0.35f)),
         contentAlignment = Alignment.Center,
     ) {
-        content()
+        IconActionButton(action = action, onClick = onClick, enabled = enabled) { content() }
     }
 }
 
@@ -327,7 +361,10 @@ private fun SpeedPill(speed: PlaybackSpeed, onClick: () -> Unit) {
     Surface(
         color = scheme.surfaceContainerHigh,
         shape = MatnShapes.full,
-        border = androidx.compose.foundation.BorderStroke(1.dp, scheme.outlineVariant),
+        // T060 (US2, accessibility-contract.md §1.2a): this border is the only affordance
+        // identifying SpeedPill as a clickable control, so it must meet 3:1 — `outline`, not the
+        // decorative `outlineVariant` every other border in this codebase deliberately uses.
+        border = androidx.compose.foundation.BorderStroke(1.dp, scheme.outline),
         modifier = Modifier
             .padding(start = MatnSpacing.unit)
             .clickable(onClickLabel = stringResource(Res.string.player_speed), onClick = onClick),
@@ -441,6 +478,79 @@ private fun PlayerBarEndedHiddenPreview() {
 @Composable
 private fun PlayerBarRepetitionPreview() {
     MatnTheme {
+        PlayerBarContent(
+            state = PlayerBarUiState(
+                visible = true,
+                status = PlaybackStatus.PLAYING,
+                matnId = "m1",
+                activeVerseDisplayNumber = 2,
+                positionMs = 2400,
+                durationMs = 8000,
+                speed = PlaybackSpeed.X1,
+                canNext = true,
+                canPrevious = true,
+                repetition = 2,
+                verseRepeatTarget = RepeatCount.of(5),
+                mode = PlaybackMode.MEMORIZATION,
+            ),
+        )
+    }
+}
+
+/** T092 (US4): expanded window width — confirms the control bar stays bounded/centred, not
+ *  stretched to a tablet's full width (FR-029). */
+@Preview(widthDp = 900)
+@Composable
+private fun PlayerBarWidePreview() {
+    MatnTheme {
+        PlayerBarContent(
+            state = PlayerBarUiState(
+                visible = true,
+                status = PlaybackStatus.PLAYING,
+                matnId = "m1",
+                activeVerseDisplayNumber = 2,
+                positionMs = 2400,
+                durationMs = 8000,
+                speed = PlaybackSpeed.X1,
+                canNext = true,
+                canPrevious = true,
+                repetition = 2,
+                verseRepeatTarget = RepeatCount.of(5),
+                mode = PlaybackMode.MEMORIZATION,
+            ),
+        )
+    }
+}
+
+/** T067 (US2, accessibility-contract.md §5/§7): largest reachable font scale, narrowest width. */
+@Preview(fontScale = 2.0f, widthDp = 320)
+@Composable
+private fun PlayerBarMaxScalePreview() {
+    MatnTheme {
+        PlayerBarContent(
+            state = PlayerBarUiState(
+                visible = true,
+                status = PlaybackStatus.PLAYING,
+                matnId = "m1",
+                activeVerseDisplayNumber = 2,
+                positionMs = 2400,
+                durationMs = 8000,
+                speed = PlaybackSpeed.X1,
+                canNext = true,
+                canPrevious = true,
+                repetition = 2,
+                verseRepeatTarget = RepeatCount.of(5),
+                mode = PlaybackMode.MEMORIZATION,
+            ),
+        )
+    }
+}
+
+/** T052 (US2): dark-theme coverage for an active playback state. */
+@Preview
+@Composable
+private fun PlayerBarRepetitionDarkPreview() {
+    MatnTheme(themeMode = ThemeMode.DARK) {
         PlayerBarContent(
             state = PlayerBarUiState(
                 visible = true,

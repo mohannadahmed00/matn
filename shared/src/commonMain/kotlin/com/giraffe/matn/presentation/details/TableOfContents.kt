@@ -66,7 +66,9 @@ fun TableOfContents(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onChapterSelected(chapter) }
+                    // T059 (US2): content row — chapter.title is already merged from the
+                    // descendant Text; onClickLabel just names the tap's purpose.
+                    .clickable(onClickLabel = chapter.title) { onChapterSelected(chapter) }
                     .padding(vertical = MatnSpacing.unit + 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

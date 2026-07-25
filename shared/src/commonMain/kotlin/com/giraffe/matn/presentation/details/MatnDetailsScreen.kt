@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -48,13 +49,17 @@ import com.giraffe.matn.domain.error.DeliveryError
 import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.DeliveryFailure
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.presentation.common.A11yAction
 import com.giraffe.matn.presentation.common.ContentActionButton
 import com.giraffe.matn.presentation.common.CoverImage
+import com.giraffe.matn.presentation.common.IconActionButton
 import com.giraffe.matn.presentation.common.MatnProgressBar
 import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.formatBytes
 import com.giraffe.matn.presentation.common.formatDuration
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnShapes
+import com.giraffe.matn.presentation.theme.LocalWindowWidthClass
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.toSp
@@ -73,7 +78,6 @@ import matn.shared.generated.resources.font_small
 import matn.shared.generated.resources.font_xlarge
 import matn.shared.generated.resources.matn_progress_label
 import matn.shared.generated.resources.player_play
-import matn.shared.generated.resources.verse_play
 import matn.shared.generated.resources.verses_count
 import org.jetbrains.compose.resources.stringResource
 
@@ -146,12 +150,13 @@ fun MatnDetailsContent(
     // flag is local UI state (Principle II precedent: GoldScrub's drag state in PlayerBar.kt is
     // the same kind of ephemeral, non-persisted interaction state) — nothing is written to a
     // ViewModel until the sheet's own "start" action fires.
-    var repetitionSheetOpen by remember { mutableStateOf(false) }
+    // T090 (US4, FR-030): rememberSaveable so rotation doesn't silently close an open sheet.
+    var repetitionSheetOpen by rememberSaveable { mutableStateOf(false) }
     // Phase 8 (FR-011, SC-007): a play tap against a not-installed matn opens the install prompt
     // instead of silently failing — the per-verse play button is the one play affordance this
     // screen renders that PlaybackController.startSession's gate (T041) cannot pre-empt visibly,
     // since nothing currently surfaces PlaybackState.notice to the user.
-    var installPromptOpen by remember { mutableStateOf(false) }
+    var installPromptOpen by rememberSaveable { mutableStateOf(false) }
     val isPlayable = state.isStarter || state.availability is ContentAvailability.Installed
     val guardedVersePlayClicked: (String) -> Unit = { verseId ->
         if (isPlayable) onVersePlayClicked(verseId) else installPromptOpen = true
@@ -263,8 +268,9 @@ fun MatnDetailsContent(
         if (noteEditor != null) {
             // Local draft state, seeded from the prefill once GetNoteUseCase resolves — same
             // idiom as RepetitionSetupHost's draft (Principle II: nothing here is a ViewModel
-            // call until the user explicitly saves/deletes).
-            var draft by remember(noteEditor.verseId, noteEditor.initialText) {
+            // call until the user explicitly saves/deletes). T091 (US4, FR-030): rememberSaveable
+            // so typed-but-unsaved note text survives a rotation instead of vanishing.
+            var draft by rememberSaveable(noteEditor.verseId, noteEditor.initialText) {
                 mutableStateOf(noteEditor.initialText.orEmpty())
             }
             com.giraffe.matn.presentation.notes.NoteEditorSheet(
@@ -298,6 +304,8 @@ private fun VerseList(
     val verses = state.verses
     val fontSize = state.fontSize.toSp()
     val verseFont = verseFontFamily()
+    // T089 (US4, FR-026): header + verse-list horizontal padding follows available width.
+    val horizontalMargin = MatnSpacing.horizontalMargin(LocalWindowWidthClass.current)
 
     // Header occupies item index 0; the TOC panel (when shown) occupies index 1; verses start
     // after that. SC-004 scroll target uses these offsets.
@@ -318,8 +326,8 @@ private fun VerseList(
         state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = MatnSpacing.marginMobile,
-            end = MatnSpacing.marginMobile,
+            start = horizontalMargin,
+            end = horizontalMargin,
             top = MatnSpacing.unit,
             bottom = MatnSpacing.gutter + MatnSpacing.unit,
         ),
@@ -521,7 +529,8 @@ private fun FontSizeChooser(
     fontSize: ReadingFontSize,
     onFontSizeChanged: (ReadingFontSize) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    // T090 (US4, FR-030): rememberSaveable so rotation doesn't silently close the menu.
+    var expanded by rememberSaveable { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
             Text(
@@ -651,11 +660,15 @@ private fun VerseRowItem(
                 modifier = Modifier.padding(top = MatnSpacing.unit),
             )
         }
-        IconButton(onClick = onPlayClicked) {
+        // T058 (US2): the icon-only play affordance — migrated onto IconActionButton so its
+        // accessible name comes from the shared catalogue rather than a one-off string. The row's
+        // own `Modifier.clickable` above stays a plain clickable: it already carries an accessible
+        // name via Compose's default semantics merging of its Text children (the verse number and
+        // Arabic text), so it needs no separate label (contract §3 / accessibility-contract.md).
+        IconActionButton(action = A11yAction.PLAY, onClick = onPlayClicked) { color ->
             PlayGlyph(
-                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isActive) MaterialTheme.colorScheme.primary else color,
                 size = 18.dp,
-                contentDescription = stringResource(Res.string.verse_play),
             )
         }
     }
@@ -811,6 +824,51 @@ private fun VerseRosetteBoundaryMarkPreview() {
 @Composable
 private fun MatnDetailsNoLoopRangePreview() {
     MatnTheme {
+        MatnDetailsContent(
+            state = MatnDetailsUiState(
+                isLoading = false,
+                header = previewHeader,
+                verses = previewVerses,
+            ),
+        )
+    }
+}
+
+/** T092 (US4): expanded window width — confirms the verse list stays bounded/centred. */
+@Preview(widthDp = 900)
+@Composable
+private fun MatnDetailsWidePreview() {
+    MatnTheme {
+        MatnDetailsContent(
+            state = MatnDetailsUiState(
+                isLoading = false,
+                header = previewHeader,
+                verses = previewVerses,
+            ),
+        )
+    }
+}
+
+/** T067 (US2, accessibility-contract.md §5/§7): largest reachable font scale, narrowest width. */
+@Preview(fontScale = 2.0f, widthDp = 320)
+@Composable
+private fun MatnDetailsMaxScalePreview() {
+    MatnTheme {
+        MatnDetailsContent(
+            state = MatnDetailsUiState(
+                isLoading = false,
+                header = previewHeader,
+                verses = previewVerses,
+            ),
+        )
+    }
+}
+
+/** T052 (US2): dark-theme coverage for the populated details content state. */
+@Preview
+@Composable
+private fun MatnDetailsNoLoopRangeDarkPreview() {
+    MatnTheme(themeMode = ThemeMode.DARK) {
         MatnDetailsContent(
             state = MatnDetailsUiState(
                 isLoading = false,

@@ -29,6 +29,8 @@ data class PlayerBarUiState(
     val pass: Int = 1,
     val matnRepeatTarget: RepeatCount = RepeatCount.ONE,
     val settings: RepetitionSettings = RepetitionSettings(),
+    /** T076 (US3): mirrors [com.giraffe.matn.domain.model.PlaybackState.showNotificationRationale]. */
+    val showNotificationRationale: Boolean = false,
 ) {
     val isPlaying: Boolean get() = status == PlaybackStatus.PLAYING
     val isLoading: Boolean get() = status == PlaybackStatus.LOADING

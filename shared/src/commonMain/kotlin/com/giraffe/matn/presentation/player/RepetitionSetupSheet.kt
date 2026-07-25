@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -126,15 +128,29 @@ fun RepetitionSetupSheet(
     onDismiss: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
+    // T098 (US5, adaptive-motion-contract.md §B3): a content-level fade layered on top of
+    // ModalBottomSheet's own slide-up (not developer-overridable in this Material3 version).
+    // Reduce motion skips the extra fade — the sheet still appears via the framework's slide.
+    val reduceMotion = com.giraffe.matn.presentation.theme.LocalReduceMotion.current
+    val fade = remember {
+        androidx.compose.animation.core.Animatable(if (reduceMotion) 1f else 0f)
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        fade.animateTo(1f, androidx.compose.animation.core.tween(com.giraffe.matn.presentation.theme.MatnMotion.durationMedium))
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(),
         containerColor = scheme.surface,
         shape = MatnShapes.xl,
     ) {
+        // T088 (US4, FR-029): bounded to MatnSpacing.surfaceMaxWidth and centred on wide windows.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .widthIn(max = MatnSpacing.surfaceMaxWidth)
+                .align(Alignment.CenterHorizontally)
+                .alpha(fade.value)
                 .padding(horizontal = MatnSpacing.gutter)
                 .padding(bottom = MatnSpacing.gutter)
                 .navigationBarsPadding(),

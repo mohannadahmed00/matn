@@ -1,5 +1,6 @@
 package com.giraffe.matn.presentation.common
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.width
@@ -12,6 +13,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.DeliveryPhase
 import com.giraffe.matn.domain.model.DeliveryProgress
+import com.giraffe.matn.presentation.theme.LocalReduceMotion
+import com.giraffe.matn.presentation.theme.MatnMotion
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
@@ -37,43 +40,52 @@ fun ContentAvailabilityBadge(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    when (availability) {
-        is ContentAvailability.Installed -> {
-            DownloadedGlyph(
+    // T095 (US5, adaptive-motion-contract.md §B3): a state switch (not a continuous value) still
+    // gets a smooth transition rather than an abrupt swap — keyed on the *kind*, not the whole
+    // [availability] value, so Installing's own progress ticks recompose in place without
+    // restarting the fade. Reduce motion snaps immediately (0ms).
+    val reduceMotion = LocalReduceMotion.current
+    val kind = when (availability) {
+        is ContentAvailability.Installed -> 0
+        is ContentAvailability.Installing -> 1
+        is ContentAvailability.NotInstalled -> 2
+    }
+    androidx.compose.animation.Crossfade(
+        targetState = kind,
+        animationSpec = tween(if (reduceMotion) 0 else MatnMotion.durationShort),
+        modifier = modifier,
+    ) { currentKind ->
+        when (currentKind) {
+            0 -> DownloadedGlyph(
                 color = scheme.primary,
-                modifier = modifier,
                 contentDescription = stringResource(Res.string.content_installed_desc),
             )
-        }
-        is ContentAvailability.Installing -> {
-            InstallProgressIndicator(
-                progress = availability.progress,
-                modifier = modifier.width(MatnSpacing.unit * 12),
+            1 -> InstallProgressIndicator(
+                progress = (availability as ContentAvailability.Installing).progress,
+                modifier = Modifier.width(MatnSpacing.unit * 12),
             )
-        }
-        is ContentAvailability.NotInstalled -> {
-            if (declaredSizeBytes <= 0L) {
-                Text(
-                    text = stringResource(Res.string.content_nothing_to_install),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = scheme.onSurfaceVariant,
-                    modifier = modifier,
-                )
-            } else {
-                Row(
-                    modifier = modifier,
-                    horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit / 2),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    DownloadGlyph(
-                        color = scheme.onSurfaceVariant,
-                        contentDescription = stringResource(Res.string.content_not_installed_desc),
-                    )
+            else -> {
+                if (declaredSizeBytes <= 0L) {
                     Text(
-                        text = formatBytes(declaredSizeBytes),
+                        text = stringResource(Res.string.content_nothing_to_install),
                         style = MaterialTheme.typography.labelSmall,
                         color = scheme.onSurfaceVariant,
                     )
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit / 2),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        DownloadGlyph(
+                            color = scheme.onSurfaceVariant,
+                            contentDescription = stringResource(Res.string.content_not_installed_desc),
+                        )
+                        Text(
+                            text = formatBytes(declaredSizeBytes),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

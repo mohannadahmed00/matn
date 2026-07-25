@@ -20,6 +20,7 @@ import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.domain.model.RepetitionSettings
 import com.giraffe.matn.domain.repository.RepetitionSettingsStore
 import com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase
+import com.giraffe.matn.domain.usecase.EnsureNotificationPermissionUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -55,6 +56,9 @@ class PlaybackController(
      *  start. Optional/defaulted so existing call sites and tests keep compiling (same pattern as
      *  the Phase 7 progress use cases below). Null ⇒ no gate (every matn plays). */
     private val ensureMatnPlayable: UseCase<String, Unit>? = null,
+    /** T075 (US3, onboarding-permissions-contract.md §4): the first-playback notification gate.
+     *  Optional/defaulted so existing call sites and tests keep compiling. Null ⇒ never prompts. */
+    private val ensureNotificationPermission: EnsureNotificationPermissionUseCase? = null,
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow(PlaybackState())
@@ -112,6 +116,17 @@ class PlaybackController(
             matnId = matnId,
             speed = _state.value.speed, // retain across sessions
         )
+        // T075 (US3, rule 1): the notification-permission gate — a SEPARATE, parallel coroutine so
+        // it can never delay or block the queue-building/engine.play() sequence below, and never
+        // touches moveToVerse/applyCursor/the transition path. Its only effect is a state flag the
+        // UI may react to; a denied or slow result never affects audio.
+        ensureNotificationPermission?.let { gate ->
+            scope.launch {
+                if (gate() is EnsureNotificationPermissionUseCase.Result.ShowRationale) {
+                    _state.value = _state.value.copy(showNotificationRationale = true)
+                }
+            }
+        }
         scope.launch {
             // Phase 8 (FR-011/FR-012, research D9): the single playback gate. Consulted once, here,
             // never inside moveToVerse/applyCursor/the transition path (Constitution VII).
@@ -424,6 +439,19 @@ class PlaybackController(
         if (_state.value.notice != null) {
             _state.value = _state.value.copy(notice = null)
         }
+    }
+
+    /** T076 (US3): the rationale sheet's "Continue" action — requests the system prompt, then
+     *  clears the flag whatever the outcome. Playback is never gated on this. */
+    fun onNotificationRationaleContinue() {
+        _state.value = _state.value.copy(showNotificationRationale = false)
+        ensureNotificationPermission?.let { gate -> scope.launch { gate.onRationaleContinue() } }
+    }
+
+    /** T076 (US3): the rationale sheet dismissed without continuing — never asks again. */
+    fun onNotificationRationaleDismissed() {
+        _state.value = _state.value.copy(showNotificationRationale = false)
+        ensureNotificationPermission?.let { gate -> scope.launch { gate.onRationaleDismissed() } }
     }
 
     // ---------------------------------------------------------------- Engine event reduce

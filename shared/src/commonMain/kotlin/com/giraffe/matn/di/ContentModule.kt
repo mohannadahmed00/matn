@@ -5,10 +5,13 @@ import com.giraffe.matn.data.db.DatabaseDriverFactory
 import com.giraffe.matn.data.db.buildDatabase
 import com.giraffe.matn.data.delivery.ContentPackRepositoryImpl
 import com.giraffe.matn.data.repository.AudioAssetRepositoryImpl
+import com.giraffe.matn.data.repository.AppearancePreferencesRepositoryImpl
 import com.giraffe.matn.data.repository.BookmarkRepositoryImpl
 import com.giraffe.matn.data.repository.DailyGoalRepositoryImpl
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.repository.NoteRepositoryImpl
+import com.giraffe.matn.data.repository.NotificationPermissionAskedRepositoryImpl
+import com.giraffe.matn.data.repository.OnboardingRepositoryImpl
 import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
 import com.giraffe.matn.data.repository.ProgressRepositoryImpl
 import com.giraffe.matn.data.repository.ReadingPreferencesRepositoryImpl
@@ -23,11 +26,14 @@ import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.delivery.ContentDeliveryEngine
 import com.giraffe.matn.domain.delivery.DeviceStorage
 import com.giraffe.matn.domain.repository.AudioAssetRepository
+import com.giraffe.matn.domain.repository.AppearancePreferencesRepository
 import com.giraffe.matn.domain.repository.BookmarkRepository
 import com.giraffe.matn.domain.repository.ContentPackRepository
 import com.giraffe.matn.domain.repository.DailyGoalRepository
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.domain.repository.NoteRepository
+import com.giraffe.matn.domain.repository.NotificationPermissionAskedRepository
+import com.giraffe.matn.domain.repository.OnboardingRepository
 import com.giraffe.matn.domain.repository.ProgressRepository
 import com.giraffe.matn.domain.repository.ReadingPreferencesRepository
 import com.giraffe.matn.domain.repository.RepetitionSettingsStore
@@ -39,9 +45,12 @@ import com.giraffe.matn.domain.usecase.CancelInstallUseCase
 import com.giraffe.matn.domain.usecase.DeleteNoteUseCase
 import com.giraffe.matn.domain.usecase.DismissContinueLearningUseCase
 import com.giraffe.matn.domain.usecase.EnsureMatnPlayableUseCase
+import com.giraffe.matn.domain.usecase.EnsureNotificationPermissionUseCase
 import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.GetMatnDetailsUseCase
 import com.giraffe.matn.domain.usecase.GetNoteUseCase
+import com.giraffe.matn.domain.usecase.GetOnboardingStatusNowUseCase
+import com.giraffe.matn.domain.usecase.GetThemeModeNowUseCase
 import com.giraffe.matn.domain.usecase.InstallMatnContentUseCase
 import com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase
 import com.giraffe.matn.domain.usecase.ObserveBookmarksUseCase
@@ -53,7 +62,9 @@ import com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveLibraryUseCase
 import com.giraffe.matn.domain.usecase.ObserveMatnProgressUseCase
 import com.giraffe.matn.domain.usecase.ObserveNotesUseCase
+import com.giraffe.matn.domain.usecase.ObserveOnboardingStatusUseCase
 import com.giraffe.matn.domain.usecase.ObserveStorageUsageUseCase
+import com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase
 import com.giraffe.matn.domain.usecase.ObserveVerseAnnotationsUseCase
 import com.giraffe.matn.domain.usecase.ObserveVerseMemorizationUseCase
 import com.giraffe.matn.domain.usecase.ObserveVersesUseCase
@@ -64,6 +75,8 @@ import com.giraffe.matn.domain.usecase.SaveNoteUseCase
 import com.giraffe.matn.domain.usecase.SearchLibraryUseCase
 import com.giraffe.matn.domain.usecase.SetDailyGoalUseCase
 import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
+import com.giraffe.matn.domain.usecase.SetThemeModeUseCase
+import com.giraffe.matn.domain.usecase.CompleteOnboardingUseCase
 import com.giraffe.matn.domain.usecase.ToggleBookmarkUseCase
 import com.giraffe.matn.domain.usecase.ToggleVerseMemorizedUseCase
 import com.giraffe.matn.playback.PlaybackController
@@ -113,6 +126,10 @@ fun contentModule() = module {
     // PlaybackController's parameter is typed as the UseCase<String, Unit> interface, not this
     // concrete class.
     factory { EnsureMatnPlayableUseCase(get()) }
+    // Phase 9 (US3, T075): the notification-permission gate — registered ahead of
+    // PlaybackController below, which consults it once per session start.
+    single<NotificationPermissionAskedRepository> { NotificationPermissionAskedRepositoryImpl(get()) }
+    factory { EnsureNotificationPermissionUseCase(get(), get()) }
     single {
         PlaybackController(
             engine = get(),
@@ -120,6 +137,7 @@ fun contentModule() = module {
             wakeLock = get(),
             settingsStore = get(),
             ensureMatnPlayable = get<EnsureMatnPlayableUseCase>(),
+            ensureNotificationPermission = get<EnsureNotificationPermissionUseCase>(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
         )
     }
@@ -178,4 +196,14 @@ fun contentModule() = module {
     factory { RemoveAllContentUseCase(get()) }
     // Phase 8 (US3 T071): the Settings tab's storage-usage stream.
     factory { ObserveStorageUsageUseCase(get()) }
+
+    // Phase 9 (T028): appearance + onboarding repositories and their use cases.
+    single<AppearancePreferencesRepository> { AppearancePreferencesRepositoryImpl(get()) }
+    factory { ObserveThemeModeUseCase(get()) }
+    factory { SetThemeModeUseCase(get()) }
+    factory { GetThemeModeNowUseCase(get()) }
+    single<OnboardingRepository> { OnboardingRepositoryImpl(get()) }
+    factory { ObserveOnboardingStatusUseCase(get()) }
+    factory { CompleteOnboardingUseCase(get()) }
+    factory { GetOnboardingStatusNowUseCase(get()) }
 }

@@ -3,6 +3,9 @@ package com.giraffe.matn.presentation.notes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
@@ -20,6 +23,7 @@ import com.giraffe.matn.domain.model.Bookmark
 import com.giraffe.matn.domain.model.BookmarkEntry
 import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.model.NoteEntry
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
@@ -54,7 +58,13 @@ fun NotesTabContent(
     onNoteClick: (NoteEntry) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    // T086 (US4, FR-028): bounded to the reading measure and centred on wide windows.
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .wrapContentWidth(Alignment.CenterHorizontally)
+            .widthIn(max = MatnSpacing.readingMaxWidth),
+    ) {
         item(key = "title") {
             Text(
                 text = stringResource(Res.string.notes_tab_title),
@@ -129,6 +139,60 @@ private fun NotesTabBothEmptyPreview() {
 @Composable
 private fun NotesTabBookmarksPopulatedPreview() {
     MatnTheme {
+        NotesTabContent(
+            state = NotesTabUiState(
+                bookmarks = listOf(
+                    BookmarkEntry(
+                        Bookmark("b1", "v1", 1000),
+                        AnnotatedVerseRef("m1", "الأجرومية", "v1", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ"),
+                    ),
+                ),
+            ),
+        )
+    }
+}
+
+/** T092 (US4): expanded window width — confirms the list stays bounded/centred. */
+@Preview(widthDp = 900)
+@Composable
+private fun NotesTabWidePreview() {
+    MatnTheme {
+        NotesTabContent(
+            state = NotesTabUiState(
+                bookmarks = listOf(
+                    BookmarkEntry(
+                        Bookmark("b1", "v1", 1000),
+                        AnnotatedVerseRef("m1", "الأجرومية", "v1", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ"),
+                    ),
+                ),
+            ),
+        )
+    }
+}
+
+/** T067 (US2, accessibility-contract.md §5/§7): largest reachable font scale, narrowest width. */
+@Preview(fontScale = 2.0f, widthDp = 320)
+@Composable
+private fun NotesTabMaxScalePreview() {
+    MatnTheme {
+        NotesTabContent(
+            state = NotesTabUiState(
+                bookmarks = listOf(
+                    BookmarkEntry(
+                        Bookmark("b1", "v1", 1000),
+                        AnnotatedVerseRef("m1", "الأجرومية", "v1", 2, "الْحَمْدُ لِلَّهِ وَصَلَّى اللَّهُ عَلَى نَبِيِّهِ"),
+                    ),
+                ),
+            ),
+        )
+    }
+}
+
+/** T052 (US2): dark-theme coverage for populated bookmarks. */
+@Preview
+@Composable
+private fun NotesTabBookmarksPopulatedDarkPreview() {
+    MatnTheme(themeMode = ThemeMode.DARK) {
         NotesTabContent(
             state = NotesTabUiState(
                 bookmarks = listOf(

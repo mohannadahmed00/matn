@@ -1,9 +1,13 @@
 package com.giraffe.matn.presentation.common
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -13,9 +17,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import com.giraffe.matn.presentation.theme.LocalReduceMotion
+import com.giraffe.matn.presentation.theme.MatnMotion
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
@@ -40,15 +49,25 @@ fun InstallPromptSheet(
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    // T098 (US5, adaptive-motion-contract.md §B3): a content-level fade layered on top of
+    // ModalBottomSheet's own slide-up (not developer-overridable in this Material3 version).
+    // Reduce motion skips the extra fade — the sheet still appears via the framework's slide.
+    val reduceMotion = LocalReduceMotion.current
+    val fade = remember { Animatable(if (reduceMotion) 1f else 0f) }
+    LaunchedEffect(Unit) { fade.animateTo(1f, tween(MatnMotion.durationMedium)) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(),
         containerColor = scheme.surface,
         shape = MatnShapes.xl,
     ) {
+        // T088 (US4, FR-029): bounded to MatnSpacing.surfaceMaxWidth and centred on wide windows.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .widthIn(max = MatnSpacing.surfaceMaxWidth)
+                .align(Alignment.CenterHorizontally)
+                .alpha(fade.value)
                 .padding(horizontal = MatnSpacing.gutter)
                 .padding(bottom = MatnSpacing.gutter),
         ) {

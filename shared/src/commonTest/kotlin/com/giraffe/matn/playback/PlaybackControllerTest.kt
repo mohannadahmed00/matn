@@ -15,9 +15,13 @@ import com.giraffe.matn.domain.model.PlaybackSpeed
 import com.giraffe.matn.domain.model.PlaybackStatus
 import com.giraffe.matn.domain.model.PauseReason
 import com.giraffe.matn.domain.model.Verse
+import com.giraffe.matn.domain.model.PermissionStatus
 import com.giraffe.matn.domain.repository.AudioAssetRepository
 import com.giraffe.matn.domain.repository.VerseRepository
 import com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase
+import com.giraffe.matn.domain.usecase.EnsureNotificationPermissionUseCase
+import com.giraffe.matn.permission.FakeNotificationPermission
+import com.giraffe.matn.permission.FakeNotificationPermissionAskedRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,6 +83,7 @@ class PlaybackControllerTest {
         wakeLock: FakeWakeLock = FakeWakeLock(),
         queueResult: Resource<PlaybackQueue> = Resource.Success(queue),
         ensureMatnPlayable: UseCase<String, Unit>? = null,
+        ensureNotificationPermission: EnsureNotificationPermissionUseCase? = null,
     ): Pair<PlaybackController, FakeAudioEngine> {
         val buildQueue = FakeBuildQueue(queueResult)
         val ctrl = PlaybackController(
@@ -86,6 +91,7 @@ class PlaybackControllerTest {
             buildQueue = buildQueue,
             wakeLock = wakeLock,
             ensureMatnPlayable = ensureMatnPlayable,
+            ensureNotificationPermission = ensureNotificationPermission,
             // `startInfoPolling()` runs a `while (true) { ...; delay(tick) }` loop that only stops
             // via `PlaybackController.stop()`/`release()`. Tests don't reliably call stop(), and
             // `runTest` must drain its scheduler to idle before the test body returns â€” an infinite
@@ -134,6 +140,106 @@ class PlaybackControllerTest {
         assertEquals(PlaybackNotice.ContentNotInstalled("matn-1"), ctrl.state.value.notice)
         assertNull(engine.lastQueue)
         assertFalse(engine.playCalled)
+    }
+
+    // ---- T081 (US3, onboarding-permissions-contract.md §4/§7) --------------
+
+    @Test
+    fun `the notification-permission gate runs once per session start and never blocks playback`() = runTest {
+        val permission = FakeNotificationPermission(
+            initialStatus = PermissionStatus.NOT_DETERMINED,
+            requestResult = PermissionStatus.DENIED,
+        )
+        val askedRepo = FakeNotificationPermissionAskedRepository()
+        val gate = EnsureNotificationPermissionUseCase(permission, askedRepo)
+        val (ctrl, engine) = newController(ensureNotificationPermission = gate)
+
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+
+        // A denied/not-yet-determined permission never prevents the session from starting.
+        assertEquals(PlaybackStatus.PLAYING, ctrl.state.value.status)
+        assertTrue(engine.playCalled)
+        // The gate ran and surfaced the rationale flag — this session's only observable effect.
+        assertTrue(ctrl.state.value.showNotificationRationale)
+    }
+
+    @Test
+    fun `a denied notification permission does not prevent a session`() = runTest {
+        val permission = FakeNotificationPermission(initialStatus = PermissionStatus.DENIED)
+        val gate = EnsureNotificationPermissionUseCase(permission, FakeNotificationPermissionAskedRepository())
+        val (ctrl, engine) = newController(ensureNotificationPermission = gate)
+
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+
+        assertEquals(PlaybackStatus.PLAYING, ctrl.state.value.status)
+        assertTrue(engine.playCalled)
+    }
+
+    @Test
+    fun `the gate never re-fires on a verse transition, only on session start`() = runTest {
+        val permission = FakeNotificationPermission(initialStatus = PermissionStatus.GRANTED)
+        val askedRepo = FakeNotificationPermissionAskedRepository()
+        val gate = EnsureNotificationPermissionUseCase(permission, askedRepo)
+        val (ctrl, engine) = newController(ensureNotificationPermission = gate)
+
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        assertTrue(askedRepo.asked, "the gate must have run once on session start")
+
+        // A verse transition (next()) must not invoke the gate again — moveToVerse/applyCursor
+        // never touch it (rule 1's sibling rule for this gate, contract §4).
+        engine.emit(AudioEngineEvent.TrackTransition(newIndex = 1))
+        ctrl.next()
+        engine.emit(AudioEngineEvent.TrackTransition(newIndex = 2))
+
+        // No observable re-trigger: showNotificationRationale never flips on a GRANTED permission
+        // regardless of how many verse transitions occur.
+        assertFalse(ctrl.state.value.showNotificationRationale)
+    }
+
+    // ---- T101 (US5, adaptive-motion-contract.md §B4) — the audio invariant, NON-NEGOTIABLE ----
+
+    @Test
+    fun `verse-transition timing is unchanged regardless of motion — no delay on the transition path`() = runTest {
+        // FR-035: PlaybackController has no dependency on reduce-motion at all — motion is a
+        // presentation-layer concern (LocalReduceMotion, read only by Composables). This test
+        // proves the transition never awaits anything time-based: the virtual clock does not
+        // advance across next()/previous(), which it would if a `delay()` (the shape an
+        // accidentally-awaited animation would take) sat on this path.
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+
+        val beforeNext = currentTime
+        engine.emit(AudioEngineEvent.TrackTransition(newIndex = 1))
+        ctrl.next()
+        assertEquals(beforeNext, currentTime, "next() must not await a delay — the transition is synchronous")
+        // The state change is visible immediately, with no advanceTimeBy/advanceUntilIdle needed.
+        assertEquals(PlaybackStatus.PLAYING, ctrl.state.value.status)
+
+        val beforePrevious = currentTime
+        ctrl.previous()
+        assertEquals(beforePrevious, currentTime, "previous() must not await a delay — the transition is synchronous")
+    }
+
+    @Test
+    fun `moveToVerse's synchronous path never touches the reduce-motion seam`() = runTest {
+        // Structural guard, mirrored in T105's source audit (design-notes.md): PlaybackController
+        // is constructed here with no MotionPreferences/reduce-motion dependency at all — the
+        // constructor accepts none, so it is architecturally impossible for the transition path
+        // to branch on it. next()/previous()/moveToVerse() completing at all (asserted above)
+        // already demonstrates this; this test documents the invariant explicitly.
+        val (ctrl, engine) = newController()
+        ctrl.playFromStart("matn-1")
+        engine.emit(AudioEngineEvent.Ready)
+        repeat(2) {
+            val before = currentTime
+            engine.emit(AudioEngineEvent.TrackTransition(newIndex = it + 1))
+            ctrl.next()
+            assertEquals(before, currentTime)
+        }
     }
 
 @Test

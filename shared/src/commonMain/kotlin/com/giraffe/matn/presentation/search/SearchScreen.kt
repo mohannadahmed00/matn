@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
@@ -28,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.domain.model.AnnotatedVerseRef
 import com.giraffe.matn.domain.model.SearchResult
 import com.giraffe.matn.presentation.common.BackGlyph
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
@@ -115,7 +118,13 @@ fun SearchScreenContent(
                 is SearchPhase.Idle -> EmptyMessage(stringResource(Res.string.search_idle_prompt))
                 is SearchPhase.Searching -> Unit // sub-frame; no spinner to avoid flicker
                 is SearchPhase.NoResults -> EmptyMessage(stringResource(Res.string.search_no_results))
-                is SearchPhase.Results -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                // T086 (US4, FR-028): bounded to the reading measure and centred on wide windows.
+                is SearchPhase.Results -> LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .wrapContentWidth(Alignment.CenterHorizontally)
+                        .widthIn(max = MatnSpacing.readingMaxWidth),
+                ) {
                     items(items = phase.results, key = { it.resultKey() }) { result ->
                         SearchResultRow(result = result, onClick = { onResultClick(result) })
                         HorizontalDivider(color = scheme.outlineVariant)
@@ -177,6 +186,39 @@ private fun SearchScreenIdlePreview() {
 @Composable
 private fun SearchScreenResultsPreview() {
     MatnTheme {
+        SearchScreenContent(
+            state = SearchUiState(query = "الكلام", phase = SearchPhase.Results(previewResults)),
+        )
+    }
+}
+
+/** T092 (US4): expanded window width — confirms the results list stays bounded/centred. */
+@Preview(widthDp = 900)
+@Composable
+private fun SearchScreenWidePreview() {
+    MatnTheme {
+        SearchScreenContent(
+            state = SearchUiState(query = "الكلام", phase = SearchPhase.Results(previewResults)),
+        )
+    }
+}
+
+/** T067 (US2, accessibility-contract.md §5/§7): largest reachable font scale, narrowest width. */
+@Preview(fontScale = 2.0f, widthDp = 320)
+@Composable
+private fun SearchScreenMaxScalePreview() {
+    MatnTheme {
+        SearchScreenContent(
+            state = SearchUiState(query = "الكلام", phase = SearchPhase.Results(previewResults)),
+        )
+    }
+}
+
+/** T052 (US2): dark-theme coverage for populated results. */
+@Preview
+@Composable
+private fun SearchScreenResultsDarkPreview() {
+    MatnTheme(themeMode = ThemeMode.DARK) {
         SearchScreenContent(
             state = SearchUiState(query = "الكلام", phase = SearchPhase.Results(previewResults)),
         )

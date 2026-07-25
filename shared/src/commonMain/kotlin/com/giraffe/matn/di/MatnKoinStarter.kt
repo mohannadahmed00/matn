@@ -6,10 +6,13 @@ import com.giraffe.matn.data.seed.SeedAudio
 import com.giraffe.matn.data.seed.SeedChapter
 import com.giraffe.matn.data.seed.SeedMatn
 import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.domain.appearance.AppearanceMirror
 import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.WakeLock
 import com.giraffe.matn.domain.delivery.ContentDeliveryEngine
 import com.giraffe.matn.domain.delivery.DeviceStorage
+import com.giraffe.matn.domain.permission.NotificationPermission
+import com.giraffe.matn.domain.preferences.MotionPreferences
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.playback.PracticeSignalRecorder
 import com.giraffe.matn.playback.SessionStateRecorder
@@ -67,6 +70,9 @@ fun initMatnKoin(
     wakeLock: WakeLock,
     deliveryEngine: ContentDeliveryEngine,
     deviceStorage: DeviceStorage,
+    appearanceMirror: AppearanceMirror,
+    notificationPermission: NotificationPermission,
+    motionPreferences: MotionPreferences,
     seedIfEmpty: Boolean = true,
 ) {
     // Guard the whole body: a second call (e.g. Android `onCreate` after a rotation) must not
@@ -83,6 +89,12 @@ fun initMatnKoin(
                 // AudioEngine and WakeLock; their actuals live in androidMain/iosMain.
                 single<ContentDeliveryEngine> { deliveryEngine }
                 single<DeviceStorage> { deviceStorage }
+                // Phase 9 (T028): the three new platform seams — appearance mirror, notification
+                // permission, and reduce-motion preferences — threaded through exactly like the
+                // delivery seams above. Actuals live in androidMain/iosMain; fakes in commonTest.
+                single<AppearanceMirror> { appearanceMirror }
+                single<NotificationPermission> { notificationPermission }
+                single<MotionPreferences> { motionPreferences }
             },
             contentModule(),
         )
