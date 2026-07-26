@@ -1,17 +1,27 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.4.2 → 1.5.0
-Rationale: Phase 8 (Storage & Downloads) resolved its content source to platform on-demand asset
-delivery, which requires connectivity to *acquire* content. Principle VI's blanket "the app MUST
-function fully with no network" did not distinguish using the student's own library from fetching
-new content, so the phase's plan could only record the conflict in Complexity Tracking rather than
-resolve it (specs/008-storage-downloads/plan.md; /speckit-analyze finding D1). This amendment scopes
-the offline guarantee to content already on the device and adds two binding conditions on
-acquisition: a bundled starter matn, and full offline usability once acquired. Guidance is
-materially expanded and a MUST is narrowed but no existing code becomes non-compliant, hence MINOR.
+Version change: 1.5.0 → 2.0.0
+Rationale: MAJOR, driven by roadmap Phases 11–13, which replace binary-bundled content with a
+Firebase-backed model — teacher uploads, students browse a remote catalog of overviews, students
+download per matn. Principle VI's requirement that "the app MUST ship with at least one complete,
+immediately playable matn" is **removed**: with teacher-uploaded content as the sole channel, a
+bundled matn would be content no teacher published and none can revise. Removing a MUST and
+redefining what the offline guarantee covers is precisely what the Governance versioning policy
+reserves MAJOR for, and shipped behaviour changes — a network-less first launch is now an empty
+library rather than a working app. Three smaller corrections ride along: (1) the Stack constraint
+still described Matn as "Android + iOS" with modules shared/androidApp/iosApp, though a desktop
+(JVM) client landed in 4941cc7 and :teacherApp adds a second; (2) the per-verse audio lock could be
+mis-read as forbidding an authoring tool that *accepts* a continuous recording and slices it — the
+lock is unchanged, but the input/output distinction is now explicit; (3) phase prerequisites extended
+through 13.
 
 History:
+  - 2.0.0 (2026-07-26): Principle VI — bundled-starter-matn requirement REMOVED; acquiring content
+    now requires connectivity unconditionally, with offline usability guaranteed only for content
+    already downloaded. Stack — desktop (JVM) targets recognized; student clients distinguished
+    from the producer client. Audio asset model — per-verse lock unchanged, with an explicit
+    carve-in for authoring-time tooling whose output is per-verse files.
   - 1.5.0 (2026-07-25): Principle VI — offline guarantee scoped to content already on the device;
     acquiring new content may require connectivity, conditional on a bundled starter matn and full
     offline usability thereafter. Resolves the Phase 8 deviation.
@@ -32,6 +42,13 @@ History:
     Technology & Architecture Constraints, Development Workflow & Quality Gates, Governance.
 
 Modified principles:
+  - VI. Offline-First & Future-Proof Data — BREAKING: the bundled-starter-matn condition is removed;
+    acquisition unconditionally requires connectivity. Rationale rewritten, since it previously
+    argued for the starter by name. (2.0.0)
+  - Technology & Architecture Constraints / Stack — desktop (JVM) targets added; student clients
+    distinguished from the producer client (:teacherApp). (2.0.0)
+  - Technology & Architecture Constraints / Audio asset model — per-verse lock restated unchanged,
+    with authoring-time input explicitly carved in. (2.0.0)
   - VI. Offline-First & Future-Proof Data — offline guarantee scoped to on-device content;
     connectivity permitted for acquisition under two conditions. (1.5.0)
   - II. MVVM Presentation (NON-NEGOTIABLE) — added: stateless "content" + thin stateful holder
@@ -48,24 +65,47 @@ Templates & artifacts reviewed:
        the new UI rules surface as presentation-task expectations, no template edit required.
   ✅ .specify/templates/checklist-template.md — generic; no change needed.
   ⚠ .specify/templates/commands/*.md — directory not present in repo; nothing to reconcile.
-  ✅ docs/PRODUCT-SPEC.md — Product Vision & Requirements (WHAT); unaffected by this amendment.
-  ✅ docs/ROADMAP.md — phased delivery plan (HOW/WHEN); unaffected by this amendment.
-  ✅ docs/DESIGN-SOURCE.md — NEW: Stitch project + screen→phase registry referenced by
-       Principle VIII. Holds the volatile IDs so this constitution does not.
+  ⚠ docs/PRODUCT-SPEC.md — updated in the same PR, and materially: "online catalog + selective
+       download" moves out of § Future-Proof Engineering (V2) into v1; § Storage & Downloads no
+       longer bundles anything; Phase 6 library-wide search narrows to catalog titles plus full
+       text within downloaded matns.
+  ✅ docs/ROADMAP.md — updated in the same PR: Phases 1–10 marked complete, and the single
+       "Phase 11 — Teacher Dashboard & Firebase Upload" entry rewritten as Phases 11–13 under a
+       new "Content Delivery & Authoring" section. Phase 13 supersedes Phase 8's delivery model.
+  ✅ docs/DESIGN-SOURCE.md — updated in the same PR: open issues #2 and #3 resolved, both Upload
+       screens added to the phase-mapped registry, stale "current-code gap" note closed.
+       Holds the volatile Stitch IDs so this constitution does not.
+  ✅ .specify/templates/* — re-checked for this amendment: no template hard-codes the module list,
+       the target platforms, or the audio asset model, so nothing required propagation.
 
 Deferred TODOs:
-  - "Upload Matn (Timestamp Map)" screen designs the rejected shared-audio-file model and
-    should be retired in Stitch; tracked in docs/DESIGN-SOURCE.md "Open issues".
-  - Dark-mode tokens (docs/DESIGN-SOURCE.md "Open issues" #5) remain undefined — owned by Phase 9.
+  - ~~"Upload Matn (Timestamp Map)" screen should be retired in Stitch.~~ Closed 2026-07-26: the
+    screen is retained as appearance-only reference for roadmap Phase 12's authoring-time
+    splitter. The rejected shared-audio-file *architecture* remains forbidden.
+    See docs/DESIGN-SOURCE.md "Open issues" #2.
+  - ~~Dark-mode tokens (docs/DESIGN-SOURCE.md "Open issues" #5) remain undefined — owned by
+    Phase 9.~~ Closed 2026-07-25 by Phase 9; MatnDarkColors is gated by ColorContrastTest.
+  - Two dependency justifications are outstanding under "Adding a new third-party dependency
+    requires justification against a simpler alternative" (Technology & Architecture Constraints):
+    (a) Phase 11 — Ktor, the project's first HTTP client. Firebase ships no official client SDK for
+    desktop JVM, so all backend access is Firestore/Storage/Identity Toolkit REST from one
+    commonMain implementation rather than three platform SDK paths. See docs/ROADMAP.md
+    § "Backend access — REST, not platform SDKs".
+    (b) Phase 12 — an MP3 decoder (JLayer/mp3spi vs. bundled ffmpeg), needed for verse slicing and
+    preview. Unavoidable: DesktopAudioEngine records that javax.sound.sampled ships no MP3 codec.
+  - Phase 13 must delete, not merely bypass, the superseded delivery stack: the packs/* modules,
+    play-asset-delivery-ktx, the three platform ContentDeliveryEngine implementations, the iOS ODR
+    tags, bundledSampleMatns(), and the whole isStarter path. Leaving it in place would contradict
+    Principle III and the amended Principle VI simultaneously.
 -->
 
 # Matn Constitution
 
-Matn is an offline-first Kotlin Multiplatform (Android + iOS) memorization companion for
-Islamic texts (المتون). This constitution defines the non-negotiable engineering principles
-that keep the codebase clean, testable, scalable, and free of duplication. Product requirements
-(the WHAT) live in `docs/PRODUCT-SPEC.md`; the phased delivery sequence (the HOW/WHEN) lives in
-`docs/ROADMAP.md`, which also schedules the later online/sync capabilities. The canonical UI
+Matn is a Kotlin Multiplatform memorization companion for Islamic texts (المتون), offline-first
+for content the student has downloaded (Principle VI). This constitution defines the
+non-negotiable engineering principles that keep the codebase clean, testable, scalable, and free
+of duplication. Product requirements (the WHAT) live in `docs/PRODUCT-SPEC.md`; the phased
+delivery sequence (the HOW/WHEN) lives in `docs/ROADMAP.md`. The canonical UI
 designs (the LOOK) live in the Stitch project registered in `docs/DESIGN-SOURCE.md`.
 
 ## Core Principles
@@ -86,7 +126,8 @@ The codebase MUST be organized into three strictly separated layers: **domain**,
   a blocking review failure.
 
 **Rationale**: Enforced boundaries make each layer independently testable and let the data layer
-swap from bundled files to streaming/sync (v2) without touching domain or UI code.
+swap its content source without touching domain or UI code — as Phase 13 does, replacing
+store-bundled asset packs with Firebase behind the unchanged `ContentDeliveryEngine` seam.
 
 ### II. MVVM Presentation (NON-NEGOTIABLE)
 
@@ -169,10 +210,11 @@ Data models MUST be designed on day one for the v2 online/sync roadmap.
 - Local persistence is the source of truth; the app MUST function fully with no network **for all
   content already on the device** — reading, playback, repetition, progress, bookmarks, notes, and
   resume never require connectivity, and no personal data may depend on a network round-trip.
-- **Acquiring new content MAY require connectivity** (Phase 8 on-demand delivery), on two
-  conditions: the app MUST ship with at least one complete, immediately playable matn so a
-  network-less first launch is still a working app; and content already acquired MUST remain fully
-  usable offline thereafter.
+- **Acquiring new content REQUIRES connectivity.** From Phase 13 the remote catalog is the only
+  content channel: nothing ships in the binary, so a first launch with no network is an empty
+  library showing a connect-to-browse state. The one binding condition is that content already
+  acquired MUST remain fully usable offline thereafter — reading, playback, repetition, progress,
+  bookmarks, notes, and resume, with no network round-trip.
 - State required by "Continue Learning" (last matn/verse, millisecond position, repetition
   settings, active A–B loop range) MUST be persisted on every verse transition or config change.
 - Schemas MUST avoid assumptions that block later remote accounts, cross-device sync,
@@ -181,9 +223,15 @@ Data models MUST be designed on day one for the v2 online/sync roadmap.
 **Rationale**: Retrofitting stable IDs and sync-safe schemas later is expensive and error-prone;
 structuring for it now is nearly free. The offline guarantee is about the student's *own* library —
 what they have must always work, on a plane, in a masjid basement, with no signal. Bundling the
-entire catalog into the binary was never what that guarantee meant, and forcing it would make the
-app grow without bound as the library does; requiring a bundled starter matn preserves the property
-that actually matters — the app is never a useless shell — while letting the catalog scale.
+catalog into the binary was never what that guarantee meant, and forcing it would make the app grow
+without bound as the library does.
+
+Through 1.5.0 this principle additionally required a bundled starter matn, so that a network-less
+first launch was still a working app. **That requirement was removed in 2.0.0**: with teacher-uploaded
+content as the sole channel, a matn compiled into the binary would be content no teacher published
+and no teacher can revise — a permanent fixture outside the system that produces everything else.
+The cost is real and accepted: a student's *first* launch now needs connectivity. What the guarantee
+protects is every launch after that.
 
 ### VII. Experience Fidelity: Audio, RTL & Accessibility
 
@@ -213,9 +261,12 @@ tokens** — never invented per screen and never copy-pasted.
   server. Inventing a layout for a screen that has a design is a blocking review failure.
 - **The constitution outranks the design**: Where a Stitch screen conflicts with a locked
   architectural decision or a principle here, **this document wins** and the conflict MUST be
-  raised rather than silently implemented. (Concretely: designs presupposing a shared/continuous
-  audio file with timestamp maps contradict the locked per-verse audio model and MUST NOT be
-  built.) Designs are authoritative about *appearance*, not about *architecture*.
+  raised rather than silently implemented. Designs are authoritative about *appearance*, not about
+  *architecture*. (Concretely: a design presupposing a shared/continuous audio file with timestamp
+  maps does not license building that model — the per-verse lock in Technology & Architecture
+  Constraints governs. Its *layout* may still be adopted where the implementation honours the
+  lock, as roadmap Phase 12's authoring-time splitter does; see docs/DESIGN-SOURCE.md open issue
+  #2 for the worked example of separating the two.)
 - **Tokens, not literals**: Color, typography, spacing, corner radii, and elevation MUST be
   defined once in a shared design-token layer derived from the Stitch Design System screen.
   Hard-coded literals (raw hex colors, magic `.dp`/`.sp` values) in screen or feature composables
@@ -244,14 +295,28 @@ prevents an out-of-date mockup from quietly reversing a locked architectural dec
 
 ## Technology & Architecture Constraints
 
-- **Stack**: Kotlin Multiplatform with Compose Multiplatform UI; modules `shared` (domain + data +
-  presentation logic), `androidApp`, and `iosApp`. Base package `com.giraffe.matn`.
+- **Stack**: Kotlin Multiplatform with Compose Multiplatform UI; `shared` (domain + data +
+  presentation logic) plus one module per client. Base package `com.giraffe.matn`.
+  - **Student clients** — `androidApp`, `iosApp` (primary targets), and `desktopApp` (JVM). All
+    three render the same shared `App()`; platform differences live behind the domain-defined
+    engine interfaces below, never in duplicated UI.
+  - **Producer client** — `teacherApp` (JVM), the content authoring tool built in roadmap Phases 11
+    and 12. From Phase 13 it is the origin of *all* student-visible content: nothing ships in a
+    client binary.
+    It depends on `shared` for the domain model and design tokens but has its own UI surface, and
+    MUST NOT be reachable from any student client.
+  - Adding a new client module requires updating this list in the same PR.
 - **Language/UI**: Kotlin with coroutines/Flow for async and state; Compose Material 3 for UI.
 - **Persistence & audio** are accessed only through domain-defined interfaces; concrete engines
   (SQLDelight local database, ExoPlayer/AVQueuePlayer) live in the data/platform layers.
 - **Audio asset model** is locked: exactly one micro-audio file per verse (matching how the
   teacher's recordings are produced). Data models and playback MUST assume this per-verse file
   boundary; a shared/continuous-file model is out of scope.
+  - This governs the **persisted and shipped** asset model. Authoring-time tooling MAY accept a
+    continuous recording as *input* provided it emits per-verse files, and provided no timestamp
+    offsets against a shared asset are persisted, exported, or shipped to a student client. A
+    matn whose verses resolve to ranges within one file is the rejected model, whatever produced
+    it, and is a blocking review failure.
 - **Dependency injection** MUST be used to wire layers; no manual singletons or service locators
   reached across layer boundaries.
 - **Design source**: UI designs are retrieved from Stitch through the `stitch` MCP server declared
@@ -291,7 +356,10 @@ specified in `docs/PRODUCT-SPEC.md`).
   reordered relative to each other provided their own prerequisites hold. Phase 10 (Design System
   Adoption) is a cross-cutting retrofit of Phases 1–5's UI and SHOULD land before Phases 6–9 begin
   their own UI work, since it establishes the shared token system and navigation shell those
-  phases would otherwise have to invent independently.
+  phases would otherwise have to invent independently. Phases 11 → 12 → 13 (Content Delivery &
+  Authoring) are strictly ordered; Phase 13 **supersedes** Phase 8's store-bundled delivery model
+  rather than building on it, keeping only its `ContentDeliveryEngine` seam and
+  `ContentPackRepository` abstraction.
 - Foundational invariants MUST be established in their owning phase and upheld thereafter:
   UUID-based domain entities and the per-verse audio asset model in Phase 1; recall-based progress
   (not raw listen count) in Phase 7.
@@ -327,4 +395,4 @@ specified in `docs/PRODUCT-SPEC.md`).
   complexity is rejected. Justified exceptions are recorded in the relevant plan's Complexity
   Tracking table.
 
-**Version**: 1.5.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-25
+**Version**: 2.0.0 | **Ratified**: 2026-07-18 | **Last Amended**: 2026-07-26
