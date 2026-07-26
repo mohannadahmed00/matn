@@ -4,6 +4,7 @@ import com.giraffe.matn.domain.model.PlaybackState
 import com.giraffe.matn.domain.model.PlaybackStatus
 import com.giraffe.matn.domain.model.SavedMatnSession
 import com.giraffe.matn.domain.repository.SessionStateRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -131,6 +132,8 @@ class SessionStateRecorder(
                     repository.setLastListenedMatnId(snapshot.matnId) // W4
                 }
                 lastPersisted = snapshot
+            } catch (t: CancellationException) {
+                throw t // structured concurrency: never swallow scope cancellation as a "failed write"
             } catch (t: Throwable) {
                 // W7 — swallow. A failed write must never disturb playback (FR-011, SC-008).
                 // lastPersisted is deliberately NOT advanced, so the next tick retries.

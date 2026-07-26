@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * App-scoped session orchestrator (D8 / contracts/playback-contract.md). Owns the single
@@ -72,6 +73,17 @@ class PlaybackController(
 
     /** Job polling `playbackInfo` into `positionMs` (throttled ~8 Hz). */
     private var infoJob: Job? = null
+
+    /** The in-flight `ensureMatnPlayable` → `buildQueue` → `engine.play()` setup coroutine started
+     *  by [startSession]. Tracked (and cancelled by every later [cancelJobs] call — a new session
+     *  starting, or an explicit [stop]) so a slow-resolving session can never land its state/engine
+     *  writes after a newer session has superseded it or the user has stopped playback. */
+    private var sessionJob: Job? = null
+
+    /** The parallel notification-permission gate coroutine [startSession] launches; tracked for the
+     *  same reason as [sessionJob] — otherwise a slow gate result from an abandoned session can pop
+     *  `showNotificationRationale` on top of a newer, unrelated session's state. */
+    private var permissionGateJob: Job? = null
 
     /** One materialized playlist entry: the track plus the drill cursor that produced it. */
     private data class WindowEntry(val track: AudioTrack, val cursor: PlaybackCursor)
@@ -121,13 +133,13 @@ class PlaybackController(
         // touches moveToVerse/applyCursor/the transition path. Its only effect is a state flag the
         // UI may react to; a denied or slow result never affects audio.
         ensureNotificationPermission?.let { gate ->
-            scope.launch {
+            permissionGateJob = scope.launch {
                 if (gate() is EnsureNotificationPermissionUseCase.Result.ShowRationale) {
                     _state.value = _state.value.copy(showNotificationRationale = true)
                 }
             }
         }
-        scope.launch {
+        sessionJob = scope.launch {
             // Phase 8 (FR-011/FR-012, research D9): the single playback gate. Consulted once, here,
             // never inside moveToVerse/applyCursor/the transition path (Constitution VII).
             if (ensureMatnPlayable?.invoke(matnId) is Resource.Failure) {
@@ -491,7 +503,7 @@ class PlaybackController(
                             activeDisplayNumber = null,
                             positionMs = 0,
                             notice = PlaybackNotice.ReachedEnd,
-                            lastCompletedVerseId = if (s.activeVerseId != null) s.activeVerseId else s.lastCompletedVerseId,
+                            lastCompletedVerseId = s.activeVerseId ?: s.lastCompletedVerseId,
                             completionTick = if (s.activeVerseId != null) s.completionTick + 1 else s.completionTick,
                         )
                         releaseWakeLock()
@@ -584,10 +596,10 @@ class PlaybackController(
      */
     private fun activeRange(): IntRange {
         val q = queue ?: return IntRange.EMPTY
-        val loopRange = _state.value.settings.loopRange ?: return 0..q.tracks.lastIndex
+        val loopRange = _state.value.settings.loopRange ?: return q.tracks.indices
         val startIdx = q.tracks.indexOfFirst { it.verseId == loopRange.startVerseId }
         val endIdx = q.tracks.indexOfFirst { it.verseId == loopRange.endVerseId }
-        if (startIdx < 0 || endIdx < 0) return 0..q.tracks.lastIndex
+        if (startIdx < 0 || endIdx < 0) return q.tracks.indices
         return minOf(startIdx, endIdx)..maxOf(startIdx, endIdx)
     }
 
@@ -642,7 +654,7 @@ class PlaybackController(
                 if (_state.value.status == PlaybackStatus.PLAYING) {
                     _state.value = _state.value.copy(positionMs = engine.playbackInfo.value.positionMs)
                 }
-                delay(POSITION_TICK_INTERVAL_MS)
+                delay(POSITION_TICK_INTERVAL_MS.milliseconds)
             }
         }
     }
@@ -650,6 +662,8 @@ class PlaybackController(
     private fun cancelJobs() {
         eventsJob?.cancel(); eventsJob = null
         infoJob?.cancel(); infoJob = null
+        sessionJob?.cancel(); sessionJob = null
+        permissionGateJob?.cancel(); permissionGateJob = null
     }
 
     /** Enter PLAYING (status + wake lock). Used by user-initiated transport (next/previous). */

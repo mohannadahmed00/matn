@@ -3,9 +3,9 @@ package com.giraffe.matn.playback
 import com.giraffe.matn.domain.model.PlaybackState
 import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.domain.repository.ProgressRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /**
@@ -31,7 +31,9 @@ class PracticeSignalRecorder(
                 if (isRecallMode(s)) {
                     try {
                         repository.recordPractice(verseId)
-                    } catch (t: Throwable) {
+                    } catch (t: CancellationException) {
+                        throw t // structured concurrency: never swallow scope cancellation as a "failed credit"
+                    } catch (_: Throwable) {
                         // Never disturb playback on a failed credit (mirrors SessionStateRecorder W7).
                     }
                 }
@@ -43,6 +45,6 @@ class PracticeSignalRecorder(
      *  continuous playback ($V_r = 1$, $M_r = 1$, no loop) never does. */
     private fun isRecallMode(s: PlaybackState): Boolean =
         s.settings.loopRange != null ||
-            s.settings.verseRepeat != RepeatCount.ONE ||
-            s.settings.matnRepeat != RepeatCount.ONE
+                s.settings.verseRepeat != RepeatCount.ONE ||
+                s.settings.matnRepeat != RepeatCount.ONE
 }

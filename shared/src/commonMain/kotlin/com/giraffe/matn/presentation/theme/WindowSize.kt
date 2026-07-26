@@ -1,6 +1,6 @@
 package com.giraffe.matn.presentation.theme
 
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -30,5 +30,11 @@ fun widthClassFor(width: Dp): WindowWidthClass = when {
 /**
  * Provided at the app root from `BoxWithConstraints`'s `maxWidth`; defaults to [WindowWidthClass.COMPACT]
  * so the 88 existing `@Preview`s keep working untouched (research D12).
+ *
+ * Plain [compositionLocalOf], not `staticCompositionLocalOf`: this value genuinely changes during
+ * the composition's lifetime (every resize/rotation/multi-window transition per the doc comment
+ * above), so it needs Compose's scoped-invalidation tracking — `staticCompositionLocalOf` would
+ * force a full recomposition of everything under the provider on every resize instead of just the
+ * composables that actually read this value.
  */
-val LocalWindowWidthClass = staticCompositionLocalOf { WindowWidthClass.COMPACT }
+val LocalWindowWidthClass = compositionLocalOf { WindowWidthClass.COMPACT }

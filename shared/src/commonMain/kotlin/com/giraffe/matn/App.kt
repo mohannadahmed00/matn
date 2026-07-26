@@ -4,9 +4,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.giraffe.matn.di.MatnKoinHolder
 import com.giraffe.matn.domain.appearance.AppearanceMirror
@@ -48,7 +48,7 @@ fun App() {
             systemIsDark = { systemIsDark },
         )
     }
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     MatnTheme(themeMode = state.themeMode, reduceMotion = state.reduceMotion) {
         // T083 (US4, research D8): available-width window class, recomputed on every resize so
         // rotation and multi-window transitions are ordinary recompositions (FR-026).

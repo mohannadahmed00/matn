@@ -1,7 +1,6 @@
 package com.giraffe.matn.presentation.player
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
@@ -38,6 +36,7 @@ import com.giraffe.matn.domain.model.PlaybackMode
 import com.giraffe.matn.domain.model.PlaybackSpeed
 import com.giraffe.matn.domain.model.PlaybackStatus
 import com.giraffe.matn.domain.model.RepeatCount
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.common.A11yAction
 import com.giraffe.matn.presentation.common.IconActionButton
 import com.giraffe.matn.presentation.common.PauseGlyph
@@ -47,7 +46,6 @@ import com.giraffe.matn.presentation.common.SkipNextGlyph
 import com.giraffe.matn.presentation.common.SkipPreviousGlyph
 import com.giraffe.matn.presentation.common.StopGlyph
 import com.giraffe.matn.presentation.common.formatDuration
-import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
@@ -57,7 +55,9 @@ import matn.shared.generated.resources.mode_ab_loop
 import matn.shared.generated.resources.mode_memorization
 import matn.shared.generated.resources.mode_normal
 import matn.shared.generated.resources.player_next
+import matn.shared.generated.resources.player_pass_label
 import matn.shared.generated.resources.player_previous
+import matn.shared.generated.resources.player_repetition_label
 import matn.shared.generated.resources.player_speed
 import matn.shared.generated.resources.player_stop
 import matn.shared.generated.resources.repetition_setup_open
@@ -386,21 +386,23 @@ private fun transportInk(enabled: Boolean) =
     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
 
 /** "3 / 7", or "3 / ∞" when the target is unlimited (data-model.md §6.1). */
+@Composable
 private fun repetitionLabel(current: Int, target: RepeatCount): String {
     val targetLabel = when (target) {
         is RepeatCount.Finite -> target.value.toString()
         RepeatCount.Unlimited -> "∞"
     }
-    return "$current / $targetLabel"
+    return stringResource(Res.string.player_repetition_label, current, targetLabel)
 }
 
-/** "pass 2 / 3", or "pass 2 / ∞" when the target is unlimited. */
+/** The localized equivalent of "pass 2 / 3", or "pass 2 / ∞" when the target is unlimited. */
+@Composable
 private fun passLabel(current: Int, target: RepeatCount): String {
     val targetLabel = when (target) {
         is RepeatCount.Finite -> target.value.toString()
         RepeatCount.Unlimited -> "∞"
     }
-    return "pass $current / $targetLabel"
+    return stringResource(Res.string.player_pass_label, current, targetLabel)
 }
 
 private fun speedLabel(speed: PlaybackSpeed): String = when (speed) {

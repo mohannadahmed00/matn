@@ -4,7 +4,6 @@
     <string name="library_empty">No texts loaded yet</string>
     <string name="toc_header">Contents</string>
     <string name="back">Back</string>
-    <string name="verses_count">%1$d verses</string>
     <string name="font_size">Font size</string>
     <string name="font_small">Small</string>
     <string name="font_medium">Medium</string>
@@ -21,6 +20,8 @@
     <string name="player_stop">Stop</string>
     <string name="player_speed">Playback speed</string>
     <string name="player_now_playing">Verse</string>
+    <string name="player_repetition_label">%1$d / %2$s</string>
+    <string name="player_pass_label">pass %1$d of %2$s</string>
     <string name="verse_play">Play this verse</string>
     <string name="mode_normal">Normal</string>
     <string name="mode_memorization">Memorization</string>
@@ -36,6 +37,8 @@
     <string name="repetition_setup_end_verse">End verse</string>
     <string name="repetition_setup_verse_repeat">Repeat each verse</string>
     <string name="repetition_setup_segment_repeat">Repeat whole segment</string>
+    <string name="repetition_setup_repeat_increase">Increase repeat count</string>
+    <string name="repetition_setup_repeat_decrease">Decrease repeat count</string>
     <string name="repetition_setup_start_action">Start structured repetition</string>
     <string name="repetition_setup_open">Repetition settings</string>
     <string name="nav_library">Library</string>
@@ -69,6 +72,8 @@
     <string name="mark_chapter_memorized">Mark chapter as memorized</string>
     <string name="unmark_chapter_memorized">Unmark chapter</string>
     <string name="goals_daily_target_label">Verses per day</string>
+    <string name="goals_increase_target">Increase daily goal</string>
+    <string name="goals_decrease_target">Decrease daily goal</string>
     <string name="goals_progress_section_title">Matn progress</string>
     <string name="goals_empty_title">Start your memorization journey</string>
     <string name="goals_empty_message">No verses memorized yet — open a text and start memorizing to see your goals here</string>

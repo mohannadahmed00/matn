@@ -16,6 +16,7 @@ import com.giraffe.matn.domain.preferences.MotionPreferences
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.playback.PracticeSignalRecorder
 import com.giraffe.matn.playback.SessionStateRecorder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,8 +25,6 @@ import kotlinx.coroutines.launch
 import org.koin.core.Koin
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
-import org.koin.core.context.startKoin
-import org.koin.dsl.KoinAppDeclaration
 import org.koin.dsl.koinApplication
 
 /**
@@ -166,12 +165,19 @@ fun flushSessionState() {
 }
 
 private suspend fun seedBundledSamplesIfEmpty() {
-    val koin = MatnKoinHolder.koin
-    val matnRepo = koin.get<MatnRepository>()
-    val loader = koin.get<ContentSeedLoader>()
-    val library = matnRepo.observeLibrary().first()
-    if (library.isNotEmpty()) return
-    bundledSampleMatns().forEach { payload -> loader.load(payload) }
+    try {
+        val koin = MatnKoinHolder.koin
+        val matnRepo = koin.get<MatnRepository>()
+        val loader = koin.get<ContentSeedLoader>()
+        val library = matnRepo.observeLibrary().first()
+        if (library.isNotEmpty()) return
+        bundledSampleMatns().forEach { payload -> loader.load(payload) }
+    } catch (t: CancellationException) {
+        throw t
+    } catch (t: Throwable) {
+        // Per this function's contract (see initMatnKoin's doc comment): a failed seed must degrade
+        // to the empty-state screen, never crash the process this coroutine has no caller to report to.
+    }
 }
 
 /**

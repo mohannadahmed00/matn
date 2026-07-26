@@ -20,6 +20,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,8 +38,10 @@ import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.goals_daily_target_label
+import matn.shared.generated.resources.goals_decrease_target
 import matn.shared.generated.resources.goals_empty_message
 import matn.shared.generated.resources.goals_empty_title
+import matn.shared.generated.resources.goals_increase_target
 import matn.shared.generated.resources.goals_progress_section_title
 import matn.shared.generated.resources.nav_goals
 import org.jetbrains.compose.resources.stringResource
@@ -139,8 +143,13 @@ private fun GoalStepperRow(goal: Int, onGoalChanged: (Int) -> Unit, modifier: Mo
             style = MaterialTheme.typography.labelSmall,
             color = scheme.onSurfaceVariant,
         )
+        val increaseLabel = stringResource(Res.string.goals_increase_target)
+        val decreaseLabel = stringResource(Res.string.goals_decrease_target)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onGoalChanged(goal + 1) }) {
+            IconButton(
+                onClick = { onGoalChanged(goal + 1) },
+                modifier = Modifier.semantics { contentDescription = increaseLabel },
+            ) {
                 Text("+", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
             }
             androidx.compose.material3.Surface(color = scheme.secondaryContainer, shape = MatnShapes.full) {
@@ -151,7 +160,11 @@ private fun GoalStepperRow(goal: Int, onGoalChanged: (Int) -> Unit, modifier: Mo
                     modifier = Modifier.padding(horizontal = MatnSpacing.unit * 2, vertical = MatnSpacing.unit * 3 / 4),
                 )
             }
-            IconButton(onClick = { onGoalChanged((goal - 1).coerceAtLeast(1)) }, enabled = goal > 1) {
+            IconButton(
+                onClick = { onGoalChanged((goal - 1).coerceAtLeast(1)) },
+                enabled = goal > 1,
+                modifier = Modifier.semantics { contentDescription = decreaseLabel },
+            ) {
                 Text("−", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
             }
         }

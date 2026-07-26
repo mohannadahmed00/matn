@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * SQLDelight-backed [ProgressRepository] (progress-contract.md; research.md D1/D4/D9). [today]
@@ -50,14 +51,18 @@ class ProgressRepositoryImpl(
         storageCall({ "Failed to set memorized state for chapter $chapterId" }) {
             db.transactionWithResult {
                 val verseIds = db.contentQueries.selectVersesByChapter(chapterId).executeAsList().map { it.id }
-                for (verseId in verseIds) {
-                    if (memorized) {
-                        val existing = db.contentQueries.selectMemorizationByVerse(verseId).executeAsOneOrNull()
-                        if (existing == null) {
+                if (memorized) {
+                    // One existence check for the whole chapter instead of one per verse (N+1).
+                    val alreadyMemorized =
+                        db.contentQueries.selectMemorizedVerseIdsByChapter(chapterId).executeAsList().toSet()
+                    for (verseId in verseIds) {
+                        if (verseId !in alreadyMemorized) {
                             db.contentQueries.insertMemorization(newId(), verseId, clock())
                             db.contentQueries.insertDailyPractice(newId(), today(), verseId, clock())
                         }
-                    } else {
+                    }
+                } else {
+                    for (verseId in verseIds) {
                         db.contentQueries.deleteMemorizationByVerse(verseId)
                     }
                 }
@@ -101,7 +106,7 @@ class ProgressRepositoryImpl(
         flow {
             while (true) {
                 emit(today())
-                delay(dayCheckIntervalMs)
+                delay(dayCheckIntervalMs.milliseconds)
             }
         }
             .distinctUntilChanged()

@@ -4,7 +4,6 @@
     <string name="library_empty">لا توجد متون محمّلة بعد</string>
     <string name="toc_header">الفهرس</string>
     <string name="back">رجوع</string>
-    <string name="verses_count">%1$d بيت</string>
     <string name="font_size">حجم الخط</string>
     <string name="font_small">صغير</string>
     <string name="font_medium">متوسط</string>
@@ -21,6 +20,8 @@
     <string name="player_stop">إيقاف</string>
     <string name="player_speed">سرعة التشغيل</string>
     <string name="player_now_playing">البيت</string>
+    <string name="player_repetition_label">%1$d / %2$s</string>
+    <string name="player_pass_label">الجولة %1$d من %2$s</string>
     <string name="verse_play">تشغيل هذا البيت</string>
     <string name="mode_normal">عادي</string>
     <string name="mode_memorization">حفظ</string>
@@ -36,6 +37,8 @@
     <string name="repetition_setup_end_verse">بيت النهاية</string>
     <string name="repetition_setup_verse_repeat">تكرار البيت الواحد</string>
     <string name="repetition_setup_segment_repeat">تكرار المقطع كاملاً</string>
+    <string name="repetition_setup_repeat_increase">زيادة عدد التكرار</string>
+    <string name="repetition_setup_repeat_decrease">إنقاص عدد التكرار</string>
     <string name="repetition_setup_start_action">بدء التكرار المنتظم</string>
     <string name="repetition_setup_open">إعدادات التكرار</string>
     <string name="nav_library">المكتبة</string>
@@ -69,6 +72,8 @@
     <string name="mark_chapter_memorized">تمييز الباب كمحفوظ</string>
     <string name="unmark_chapter_memorized">إلغاء تمييز الباب</string>
     <string name="goals_daily_target_label">عدد الأبيات يوميًا</string>
+    <string name="goals_increase_target">زيادة الهدف اليومي</string>
+    <string name="goals_decrease_target">إنقاص الهدف اليومي</string>
     <string name="goals_progress_section_title">تقدم المتون</string>
     <string name="goals_empty_title">ابدأ رحلة الحفظ</string>
     <string name="goals_empty_message">لم تُحفظ أبيات بعد — افتح متنًا وابدأ الحفظ لتظهر أهدافك هنا</string>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Arabic has 6 grammatical plural categories (CLDR); "بيت" (verse) inflects across all of
+         them, unlike most other strings in this app, so this is the one count that genuinely
+         needs a <plurals> resource rather than a single %1$d string (see android-code-guard
+         Compose review — a flat string produced the wrong noun form for every count but one). -->
+    <plurals name="verses_count">
+        <item quantity="zero">لا أبيات</item>
+        <item quantity="one">بيت واحد</item>
+        <item quantity="two">بيتان</item>
+        <item quantity="few">%1$d أبيات</item>
+        <item quantity="many">%1$d بيتًا</item>
+        <item quantity="other">%1$d بيت</item>
+    </plurals>
+</resources>
