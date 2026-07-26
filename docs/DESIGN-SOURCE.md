@@ -61,10 +61,11 @@ Repetition Setup, Matn Details — all identical). This is the canonical token s
   `container-max 1024px`.
 - **Radii**: `DEFAULT 0.25rem`, `lg 0.5rem`, `xl 0.75rem`, `full 9999px`.
 
-**Current-code gap**: `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/theme/` has no
-`Shape.kt`/`Dimens.kt`/`Spacing.kt`, uses a different ad-hoc "manuscript" color palette, and only
-bundles the Amiri font (no Source Serif 4 / Plus Jakarta Sans). 91+ raw `.dp`/`.sp` literals exist
-directly in screen composables — a standing Principle VIII violation independent of this redesign.
+~~**Current-code gap**~~ **Closed by Phase 10** — see the *Phase 10 — Design System Adoption*
+section at the end of this file. The token set above is now backed by
+`shared/src/commonMain/kotlin/com/giraffe/matn/presentation/theme/{Color,Type,Shape,Spacing}.kt`.
+New clients — including the `:teacherApp` of Phases 11–13 — consume those files rather than
+re-deriving tokens from this table.
 
 ## Screen registry
 
@@ -91,6 +92,12 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
 | Bookmarks & Notes | `bc99ab7f8110479086326271d0aa0310` | **6** |
 | Progress & Goals | `f059cccd2f634bc9ba2cf4d620e5df80` | **7** |
 | Splash Screen | `6aba0b42e95d43e5b6f81928f3e3f7c6` | **9** (first-launch / onboarding) |
+| Upload Matn (Per-Verse) | `4f1bee3d7518487b986c7c63cb3c07ff` | **11–12** — teacher client (`:teacherApp`); its verse list / text / reorder regions are **11**, its per-row audio column is **12** |
+| Upload Matn (Timestamp Map) | `f55899af78974175b345f3c3cd048387` | **12** — teacher client; appearance only, adopted as an authoring-time splitter. See *Open issues* #2 before implementing |
+
+> The two Upload screens are the only entries here that belong to the **teacher** client rather
+> than the student app. Their local exports are `stitch-designs/11-Upload-Per-Verse.*` and
+> `stitch-designs/12-Upload-Timestamp-Map.*`.
 
 ## Open issues in the design set
 
@@ -107,15 +114,31 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
    - All three superseded/duplicate entries should be retired in Stitch to stop future agents from
      picking them up as guidance.
 
-2. **`Upload Matn (Timestamp Map)` (`f55899af78974175b345f3c3cd048387`) contradicts a locked
-   architectural decision.** The constitution and `PRODUCT-SPEC.md` lock the audio model to *one
-   micro-audio file per verse*, and explicitly place a shared/continuous-file-with-timestamps
-   model out of scope. This screen designs the rejected model. **Do not implement it.** It should
-   be retired in Stitch to stop it being picked up as guidance.
+2. **`Upload Matn (Timestamp Map)` (`f55899af78974175b345f3c3cd048387`) — resolved 2026-07-26,
+   scoped to authoring-time use only.** This entry previously read "Do not implement it / retire it
+   in Stitch." That still holds for the *architecture* the screen implies, but not for the screen
+   itself. The constitution and `PRODUCT-SPEC.md` lock the runtime audio model to *one micro-audio
+   file per verse*; a persisted shared/continuous file with a timestamp map remains out of scope
+   and MUST NOT be built.
 
-3. **`Upload Matn (Per-Verse)` (`4f1bee3d7518487b986c7c63cb3c07ff`) has no home in the roadmap.**
-   Content intake is a production-side concern in `PRODUCT-SPEC.md`, not a v1 app phase. Either
-   add a roadmap phase for it or treat it as out of scope for v1.
+   Roadmap **Phase 12** adopts the screen's *appearance* — waveform, click-to-add verse markers,
+   per-verse start/end (ms) fields, overlap/gap validation — as a **splitter**: the continuous file
+   is an authoring *input*, and saving slices it into per-verse files. The marker list is transient
+   and is never persisted, never exported, and never reaches the app. This is the
+   Principle VIII distinction applied literally — designs are authoritative about appearance, not
+   architecture. **Do not retire this screen in Stitch**; it is now live reference material.
+
+   Reviewers: any implementation that stores start/end offsets against a shared audio asset, or
+   that ships a matn whose verses point into one file, is the rejected model and is a blocking
+   failure regardless of which screen it cites.
+
+3. ~~**`Upload Matn (Per-Verse)` (`4f1bee3d7518487b986c7c63cb3c07ff`) has no home in the
+   roadmap.**~~ **Resolved 2026-07-26** — content intake is still a production-side concern rather
+   than a student-app feature, and it now has a home as such: `docs/ROADMAP.md` § *Content
+   Delivery & Authoring* (Phases 11–13) builds a separate `:teacherApp` desktop client for it —
+   and from Phase 13 it is the origin of *all* student-visible content. This screen is
+   the canonical design for the per-verse upload path, split across both phases — see the registry
+   table above.
 
 4. **Phase 5 has no dedicated screen.** *Continue Learning* is a card on Home / Library rather
    than its own design. Phase 5 UI work should derive from the Home screen's card region.
@@ -149,7 +172,10 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
      hand-drawn glyph (pencil-on-page vs. ribbon) rather than inventing a new screen region.
    - Also noted: the fetched *Search Matn* HTML bleeds in teacher/producer-portal navigation
      chrome (dashboard, upload-matn, "Ustadh Ahmed" identity) from a shared Stitch project shell —
-     not part of the student search screen; ignored during implementation.
+     not part of the student search screen; ignored during implementation. **Reclassified
+     2026-07-26:** with Phases 11–13 adding a real teacher client, that chrome is no longer noise —
+     it is the closest thing the design set has to a `:teacherApp` navigation shell, and Phase 11
+     should use it as reference rather than inventing one.
 
 8. **Phase 7 (Progress & Daily Goals) — implemented 2026-07-24.** *Progress & Goals*
    (`f059cccd…`) and the daily-goal ring region of *Home / Library* (`618643f8…`) were fetched —

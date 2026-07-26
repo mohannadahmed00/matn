@@ -88,6 +88,8 @@ Persistent control bar / bottom sheet providing:
 ### Search
 Local, indexed, diacritic-insensitive matching on verse text, verse number, and matn title. Selecting a result navigates directly to that verse.
 
+**Scope follows what's on the device.** Verse text arrives with a download, not with the catalog overview, so full-text search covers **downloaded** متون; undownloaded ones are reachable by **title** only, and selecting one leads to its details page and install prompt rather than a verse. Search itself stays fully offline.
+
 ### Bookmarks & Notes
 - **Bookmarks:** Flag verses for quick access via a global list/drawer, persisted across sessions.
 - **Notes:** Local text attached to a specific verse ID (explanations, grammar points, mnemonics).
@@ -130,21 +132,25 @@ feature phases have landed.
 
 ---
 
-# Storage & Downloads
+# Content Catalog, Storage & Downloads
 
-Even in a fully offline v1, don't bundle every matn by default:
+**Nothing is bundled in the app binary.** All content originates from teachers publishing through the authoring tool; students reach it over the network. The model is an online catalog plus selective download:
+
+- The catalog lists every published matn as an **overview** — cover image, title, author, description, verse count, and download size. Overviews sync to the device so the library browses offline once seen; the verse text and audio arrive only on download.
 - Each matn is downloadable/removable individually, with visible file size before download.
 - Show total storage used by downloaded content in settings.
-- This keeps the app lightweight for students who only study a subset of available متون, and sets up cleanly for the "online catalog + selective download" model planned for v2 scalability.
+- Once downloaded, a matn is **fully usable with no network** — reading, playback, repetition, progress, bookmarks, notes, resume. This is the offline guarantee, and it is unconditional for downloaded content.
+- Because nothing ships in the binary, a **first launch with no connectivity is an empty library** showing a connect-to-browse state. Deliberate trade: content is only ever what a teacher published and can revise.
+- This keeps the app lightweight for students who only study a subset of available متون, and lets the catalog grow without growing the binary.
 
 ---
 
 # Future-Proof Engineering (V2 Scalability)
 
-Version 1 is standalone and offline-first, but data models, relations, and ID schemes (UUIDs) must be structured from day one to support:
-- Remote accounts, cloud backup, cross-device sync.
-- Online streaming and download managers for new content packages.
-- Multi-reciter support — mapping alternate audio (files or timestamp sets, per the chosen architecture) to the same verse IDs.
+The online catalog and download manager, previously listed here as a v2 item, are **v1** — see *Content Catalog, Storage & Downloads* above. Data models, relations, and ID schemes (UUIDs) must still be structured to support what remains deferred:
+- Remote **student** accounts, cloud backup, cross-device sync. (v1 has no student accounts: catalog reads are public and only the teacher authenticates, to publish.)
+- Multi-teacher permissions and a content-ownership model. v1 is scoped to a single teacher per institution.
+- Multi-reciter support — mapping alternate audio to the same verse IDs.
 - Shared community notes, quizzes, and teacher evaluation analytics.
 
 ---
