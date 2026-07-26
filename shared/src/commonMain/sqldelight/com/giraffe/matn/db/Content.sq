@@ -315,6 +315,12 @@ FROM memorization
 JOIN verse ON verse.id = memorization.verse_id
 WHERE verse.matn_id = ?;
 
+selectMemorizedVerseIdsByChapter:
+SELECT memorization.verse_id AS verse_id
+FROM memorization
+JOIN verse ON verse.id = memorization.verse_id
+WHERE verse.chapter_id = ?;
+
 -- Phase 7 (FR-006/FR-008, research D4): the ONE progress aggregate. LEFT JOINs keep a
 -- zero-verse matn present with total 0 / memorized 0 (no divide-by-zero downstream).
 selectAllMatnProgress:
@@ -351,6 +357,13 @@ SELECT COUNT(*) AS practiced_count FROM daily_practice WHERE day_epoch = ?;
 
 selectAllContentPacks:
 SELECT * FROM content_pack;
+
+-- Same rows as selectAllContentPacks, pre-joined with the matn title so callers building a
+-- full catalog view don't issue a separate selectMatnById per row (N+1).
+selectAllContentPacksWithTitle:
+SELECT content_pack.*, matn.title AS matn_title
+FROM content_pack
+JOIN matn ON matn.id = content_pack.matn_id;
 
 selectContentPackByMatn:
 SELECT * FROM content_pack WHERE matn_id = ?;

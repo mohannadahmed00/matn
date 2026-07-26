@@ -19,6 +19,7 @@ import com.giraffe.matn.playback.PlaybackController
  * 4. Touch no personal data — structurally guaranteed: `content_pack` has no relationship to any
  *    personal-data table (data-model.md §4), so nothing here can reach one.
  */
+@org.koin.core.annotation.Factory
 class RemoveMatnContentUseCase(
     private val repository: ContentPackRepository,
     private val playbackController: PlaybackController,

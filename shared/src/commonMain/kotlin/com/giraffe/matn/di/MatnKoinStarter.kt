@@ -16,14 +16,58 @@ import com.giraffe.matn.domain.preferences.MotionPreferences
 import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.playback.PracticeSignalRecorder
 import com.giraffe.matn.playback.SessionStateRecorder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.core.Koin
+import org.koin.core.annotation.Module
+import org.koin.core.annotation.Single
 import org.koin.dsl.koinApplication
-import org.koin.dsl.module
+
+/**
+ * Koin Annotations module for the platform-provided singletons (Android `Context`-backed /
+ * iOS-bundle-backed instances constructed by the app shell). Unlike [ContentModule], these can't
+ * be auto-wired from other Koin bindings — they're handed in as ready-made instances at
+ * [initMatnKoin] call time — so each is exposed via a one-line provider function instead.
+ */
+@Module
+class PlatformModule(
+    private val driverFactory: DatabaseDriverFactory,
+    private val audioEngine: AudioEngine,
+    private val wakeLock: WakeLock,
+    private val deliveryEngine: ContentDeliveryEngine,
+    private val deviceStorage: DeviceStorage,
+    private val appearanceMirror: AppearanceMirror,
+    private val notificationPermission: NotificationPermission,
+    private val motionPreferences: MotionPreferences,
+) {
+    @Single
+    fun driverFactory(): DatabaseDriverFactory = driverFactory
+
+    @Single
+    fun audioEngine(): AudioEngine = audioEngine
+
+    @Single
+    fun wakeLock(): WakeLock = wakeLock
+
+    @Single
+    fun contentDeliveryEngine(): ContentDeliveryEngine = deliveryEngine
+
+    @Single
+    fun deviceStorage(): DeviceStorage = deviceStorage
+
+    @Single
+    fun appearanceMirror(): AppearanceMirror = appearanceMirror
+
+    @Single
+    fun notificationPermission(): NotificationPermission = notificationPermission
+
+    @Single
+    fun motionPreferences(): MotionPreferences = motionPreferences
+}
 
 /**
  * Holds the started [Koin] instance for the app, accessible from `commonMain` on every target.
@@ -54,7 +98,7 @@ object MatnKoinHolder {
 
 /**
  * Boots the app-wide Koin instance with the platform-provided [driverFactory] plus the shared
- * [contentModule]. The platform shell (Android `MainActivity`, iOS `MainViewController`) owns
+ * [ContentModule]. The platform shell (Android `MainActivity`, iOS `MainViewController`) owns
  * the platform-specific construction of [DatabaseDriverFactory] and calls this exactly once
  * before any composable that resolves a use case (Constitution Principle I/III).
  *
@@ -81,22 +125,17 @@ fun initMatnKoin(
 
     val app = koinApplication {
         modules(
-            module {
-                single { driverFactory }
-                single<AudioEngine> { audioEngine }
-                single<WakeLock> { wakeLock }
-                // Phase 8 (FR-001): the two new delivery seams are platform-injected exactly like
-                // AudioEngine and WakeLock; their actuals live in androidMain/iosMain.
-                single<ContentDeliveryEngine> { deliveryEngine }
-                single<DeviceStorage> { deviceStorage }
-                // Phase 9 (T028): the three new platform seams — appearance mirror, notification
-                // permission, and reduce-motion preferences — threaded through exactly like the
-                // delivery seams above. Actuals live in androidMain/iosMain; fakes in commonTest.
-                single<AppearanceMirror> { appearanceMirror }
-                single<NotificationPermission> { notificationPermission }
-                single<MotionPreferences> { motionPreferences }
-            },
-            contentModule(),
+            PlatformModule(
+                driverFactory = driverFactory,
+                audioEngine = audioEngine,
+                wakeLock = wakeLock,
+                deliveryEngine = deliveryEngine,
+                deviceStorage = deviceStorage,
+                appearanceMirror = appearanceMirror,
+                notificationPermission = notificationPermission,
+                motionPreferences = motionPreferences,
+            ).module(),
+            ContentModule().module(),
         )
     }
     MatnKoinHolder.initialize(app.koin)
@@ -126,12 +165,19 @@ fun flushSessionState() {
 }
 
 private suspend fun seedBundledSamplesIfEmpty() {
-    val koin = MatnKoinHolder.koin
-    val matnRepo = koin.get<MatnRepository>()
-    val loader = koin.get<ContentSeedLoader>()
-    val library = matnRepo.observeLibrary().first()
-    if (library.isNotEmpty()) return
-    bundledSampleMatns().forEach { payload -> loader.load(payload) }
+    try {
+        val koin = MatnKoinHolder.koin
+        val matnRepo = koin.get<MatnRepository>()
+        val loader = koin.get<ContentSeedLoader>()
+        val library = matnRepo.observeLibrary().first()
+        if (library.isNotEmpty()) return
+        bundledSampleMatns().forEach { payload -> loader.load(payload) }
+    } catch (t: CancellationException) {
+        throw t
+    } catch (t: Throwable) {
+        // Per this function's contract (see initMatnKoin's doc comment): a failed seed must degrade
+        // to the empty-state screen, never crash the process this coroutine has no caller to report to.
+    }
 }
 
 /**

@@ -8,6 +8,7 @@ import com.giraffe.matn.domain.repository.OnboardingRepository
  * (FR-019). Pure domain read via a use case so navigation never reaches past it to a repository
  * (Principle I — contract onboarding-permissions §1.1).
  */
+@org.koin.core.annotation.Factory
 class GetOnboardingStatusNowUseCase(
     private val repo: OnboardingRepository,
 ) {

@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+@org.koin.core.annotation.Single(binds = [MatnRepository::class])
 class MatnRepositoryImpl(private val db: ContentDatabase) : MatnRepository {
 
     override suspend fun getMatn(id: String): Resource<Matn?> =

@@ -7,6 +7,7 @@ import com.giraffe.matn.domain.repository.ProgressRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
+@org.koin.core.annotation.Factory
 class ObserveDailyProgressUseCase(
     private val progressRepo: ProgressRepository,
     private val goalRepo: DailyGoalRepository,

@@ -58,7 +58,6 @@ import com.giraffe.matn.presentation.common.PlayGlyph
 import com.giraffe.matn.presentation.common.formatBytes
 import com.giraffe.matn.presentation.common.formatDuration
 import com.giraffe.matn.domain.model.ThemeMode
-import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.LocalWindowWidthClass
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
@@ -79,6 +78,7 @@ import matn.shared.generated.resources.font_xlarge
 import matn.shared.generated.resources.matn_progress_label
 import matn.shared.generated.resources.player_play
 import matn.shared.generated.resources.verses_count
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -186,13 +186,20 @@ fun MatnDetailsContent(
                 // read/listened to, the focused 3-verse carousel replaces the scrollable browse
                 // list. With no active verse (session not started / stopped) the browse list —
                 // header, table of contents, full verse list — is unchanged (User Story 4).
-                val carouselState = com.giraffe.matn.presentation.player.windowVersesForCarousel(
-                    verses = state.verses,
-                    // Phase 6 (research.md D5): a route-supplied focusVerseId centers the
-                    // carousel on that verse when no playback session is active yet — real
-                    // playback (activeVerseId non-null) always takes precedence.
-                    activeVerseId = state.activeVerseId ?: state.focusVerseId,
-                )
+                // Phase 6 (research.md D5): a route-supplied focusVerseId centers the carousel on
+                // that verse when no playback session is active yet — real playback
+                // (activeVerseId non-null) always takes precedence.
+                val carouselActiveVerseId = state.activeVerseId ?: state.focusVerseId
+                // remember: windowVersesForCarousel does an indexOfFirst scan over `verses` — this
+                // screen's single bundled UiState recomposes on unrelated changes (a bookmark
+                // toggle, an install-progress tick), so without this it re-scans on every one of
+                // those instead of only when the three actual inputs change (perf review).
+                val carouselState = remember(state.verses, carouselActiveVerseId) {
+                    com.giraffe.matn.presentation.player.windowVersesForCarousel(
+                        verses = state.verses,
+                        activeVerseId = carouselActiveVerseId,
+                    )
+                }
                 if (carouselState != null) {
                     com.giraffe.matn.presentation.player.ReadingCarousel(
                         state = carouselState,
@@ -312,6 +319,19 @@ private fun VerseList(
     val tocIndex = if (state.showTableOfContents && state.chapters.isNotEmpty()) 1 else -1
     val firstVerseIndex = if (tocIndex >= 0) tocIndex + 1 else 1
 
+    // US1 FR-003: precomputed once per actual change to chapters/verses/memorized-set, instead of
+    // TableOfContents' isChapterMemorized callback re-filtering `verses` per chapter on every
+    // recomposition this screen's single bundled UiState triggers (a bookmark toggle, a note edit,
+    // an install-progress tick — none of which change memorization) — see android-code-guard
+    // performance review. A chapter is "all memorized" only when it has verses AND every one of
+    // them is in the memorized set — an empty chapter is never reported as fully memorized.
+    val chapterMemorizedById = remember(state.chapters, verses, state.memorizedVerseIds) {
+        state.chapters.associate { chapter ->
+            val chapterVerseIds = verses.filter { it.chapterId == chapter.id }.map { it.id }
+            chapter.id to (chapterVerseIds.isNotEmpty() && chapterVerseIds.all { it in state.memorizedVerseIds })
+        }
+    }
+
     // FR-009/SC-003: auto-scroll the active verse into view when it changes.
     LaunchedEffect(state.activeVerseId) {
         val id = state.activeVerseId ?: return@LaunchedEffect
@@ -362,13 +382,7 @@ private fun VerseList(
                             coroutineScope.launch { listState.animateScrollToItem(target) }
                         }
                     },
-                    // US1 FR-003: a chapter row is "all memorized" only when it has verses AND
-                    // every one of them is in the memorized set — an empty chapter is never
-                    // reported as fully memorized.
-                    isChapterMemorized = { chapter ->
-                        val chapterVerseIds = verses.filter { it.chapterId == chapter.id }.map { it.id }
-                        chapterVerseIds.isNotEmpty() && chapterVerseIds.all { it in state.memorizedVerseIds }
-                    },
+                    isChapterMemorized = { chapter -> chapterMemorizedById[chapter.id] == true },
                     onMarkChapterMemorized = onMarkChapterMemorized,
                 )
             }
@@ -480,7 +494,7 @@ private fun Frontispiece(
                 textAlign = TextAlign.Center,
             )
         }
-        val totals = stringResource(Res.string.verses_count, header.verseCount) +
+        val totals = pluralStringResource(Res.plurals.verses_count, header.verseCount, header.verseCount) +
                 "  ·  " + formatDuration(header.totalDurationMs)
         Text(
             text = totals,

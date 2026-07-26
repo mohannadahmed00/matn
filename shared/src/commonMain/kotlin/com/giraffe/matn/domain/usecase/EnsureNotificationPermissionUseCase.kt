@@ -20,6 +20,7 @@ import com.giraffe.matn.domain.repository.NotificationPermissionAskedRepository
  * this once per session start, off the queue-building path, and only reacts to
  * [Result.ShowRationale] by surfacing UI.
  */
+@org.koin.core.annotation.Factory
 class EnsureNotificationPermissionUseCase(
     private val notificationPermission: NotificationPermission,
     private val askedRepository: NotificationPermissionAskedRepository,

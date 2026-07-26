@@ -19,6 +19,7 @@ private const val VALUE_FALSE = "false"
  * §1). Stored values are `"true"` / `"false"`; an absent row resolves to
  * [OnboardingStatus.NOT_COMPLETED] (the default — never throws).
  */
+@org.koin.core.annotation.Single(binds = [OnboardingRepository::class])
 class OnboardingRepositoryImpl(
     private val db: ContentDatabase,
 ) : OnboardingRepository {

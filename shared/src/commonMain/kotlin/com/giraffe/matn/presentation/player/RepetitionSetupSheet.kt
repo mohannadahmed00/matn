@@ -27,6 +27,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -39,11 +41,15 @@ import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.repetition_setup_ab_toggle
 import matn.shared.generated.resources.repetition_setup_end_verse
+import matn.shared.generated.resources.repetition_setup_repeat_decrease
+import matn.shared.generated.resources.repetition_setup_repeat_increase
 import matn.shared.generated.resources.repetition_setup_segment_repeat
 import matn.shared.generated.resources.repetition_setup_start_action
 import matn.shared.generated.resources.repetition_setup_start_verse
 import matn.shared.generated.resources.repetition_setup_title
 import matn.shared.generated.resources.repetition_setup_verse_repeat
+import matn.shared.generated.resources.player_next
+import matn.shared.generated.resources.player_previous
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -234,8 +240,14 @@ private fun IndexStepper(
     incrementEnabled: Boolean,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val nextLabel = stringResource(Res.string.player_next)
+    val previousLabel = stringResource(Res.string.player_previous)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onIncrement, enabled = incrementEnabled) {
+        IconButton(
+            onClick = onIncrement,
+            enabled = incrementEnabled,
+            modifier = Modifier.semantics { contentDescription = nextLabel },
+        ) {
             Text(">", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
         }
         Surface(color = scheme.secondaryContainer, shape = MatnShapes.full) {
@@ -248,7 +260,11 @@ private fun IndexStepper(
                     .size(width = 20.dp, height = 20.dp),
             )
         }
-        IconButton(onClick = onDecrement, enabled = decrementEnabled) {
+        IconButton(
+            onClick = onDecrement,
+            enabled = decrementEnabled,
+            modifier = Modifier.semantics { contentDescription = previousLabel },
+        ) {
             Text("<", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
         }
     }
@@ -266,6 +282,8 @@ fun RepeatCountStepper(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val increaseLabel = stringResource(Res.string.repetition_setup_repeat_increase)
+    val decreaseLabel = stringResource(Res.string.repetition_setup_repeat_decrease)
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         IconButton(
             onClick = {
@@ -276,6 +294,7 @@ fun RepeatCountStepper(
                     },
                 )
             },
+            modifier = Modifier.semantics { contentDescription = decreaseLabel },
         ) {
             Text("−", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
         }
@@ -300,6 +319,7 @@ fun RepeatCountStepper(
                     },
                 )
             },
+            modifier = Modifier.semantics { contentDescription = increaseLabel },
         ) {
             Text("+", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
         }

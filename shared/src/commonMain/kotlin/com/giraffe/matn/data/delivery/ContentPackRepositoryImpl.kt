@@ -30,11 +30,21 @@ import kotlinx.coroutines.sync.withLock
  * a no-op returning `Reclaimed(0)`, and a remove racing an in-flight install of the same matn
  * **wins** (cancel first, then remove).
  */
+@org.koin.core.annotation.Single(binds = [ContentPackRepository::class])
 class ContentPackRepositoryImpl(
     private val db: ContentDatabase,
     private val engine: ContentDeliveryEngine,
     private val storage: DeviceStorage,
 ) : ContentPackRepository {
+
+    /**
+     * Guards [packLocks] and [activeInstalls] themselves (not the pack operations those locks
+     * serialize). Without this, `getOrPut` on a plain `MutableMap`/`MutableSet` from concurrent
+     * coroutines (these suspend functions can resume on different `Dispatchers.Default`/`IO`
+     * threads) is undefined behavior and can hand two callers distinct `Mutex` instances for the
+     * same pack, silently defeating the per-pack mutual exclusion this class documents above.
+     */
+    private val stateGuard = Mutex()
 
     /** Per-pack lock map; the same mutex is reused across install/cancel/remove for a pack. */
     private val packLocks: MutableMap<String, Mutex> = mutableMapOf()
@@ -47,8 +57,14 @@ class ContentPackRepositoryImpl(
      */
     private val activeInstalls: MutableSet<String> = mutableSetOf()
 
-    private fun lockFor(packId: String): Mutex =
-        packLocks.getOrPut(packId) { Mutex() }
+    private suspend fun lockFor(packId: String): Mutex =
+        stateGuard.withLock { packLocks.getOrPut(packId) { Mutex() } }
+
+    private suspend fun markInstallActive(packId: String) = stateGuard.withLock { activeInstalls.add(packId) }
+
+    private suspend fun markInstallInactive(packId: String) = stateGuard.withLock { activeInstalls.remove(packId) }
+
+    private suspend fun isInstallActive(packId: String): Boolean = stateGuard.withLock { packId in activeInstalls }
 
     // ------------------------------------------------------------------ catalog reads
 
@@ -74,20 +90,16 @@ class ContentPackRepositoryImpl(
         )
     }
 
-    private fun loadAllCatalog(): List<CatalogRow> {
-        val packRows = db.contentQueries.selectAllContentPacks().executeAsList()
-        return packRows.mapNotNull { packRow ->
-            val matn = db.contentQueries.selectMatnById(packRow.matn_id).executeAsOneOrNull()
-                ?: return@mapNotNull null
+    private fun loadAllCatalog(): List<CatalogRow> =
+        db.contentQueries.selectAllContentPacksWithTitle().executeAsList().map { row ->
             CatalogRow(
-                matnId = packRow.matn_id,
-                packId = packRow.pack_id,
-                declaredSizeBytes = packRow.declared_size_bytes,
-                isStarter = packRow.is_starter != 0L,
-                title = matn.title,
+                matnId = row.matn_id,
+                packId = row.pack_id,
+                declaredSizeBytes = row.declared_size_bytes,
+                isStarter = row.is_starter != 0L,
+                title = row.matn_title,
             )
         }
-    }
 
     // ---------------------------------------------------------- availability derivation
 
@@ -108,24 +120,26 @@ class ContentPackRepositoryImpl(
             }
             val bytes = storage.sizeOfDirectory(path)
             // A previously active install has completed — drop it from the active set.
-            activeInstalls.remove(packId)
+            markInstallInactive(packId)
             return ContentAvailability.Installed(bytes)
         }
         // Not installed via the platform's completeness flag. If we asked the engine to install
         // this pack (and it has not yet completed/failed/cancelled), the in-flight transfer is
         // Installing; surface the engine's latest progress snapshot.
-        if (packId in activeInstalls) {
+        if (isInstallActive(packId)) {
             val progress = engine.observe(packId).first()
             return ContentAvailability.Installing(progress)
         }
         return ContentAvailability.NotInstalled(null)
     }
 
-    override fun observeAvailability(matnId: String): Flow<ContentAvailability> = flow {
-        val row = loadCatalogRow(matnId) ?: run {
-            emit(ContentAvailability.NotInstalled(null))
-            return@flow
-        }
+    /**
+     * Shared by [observeAvailability] (which resolves [row] via [loadCatalogRow]) and
+     * [observeLibraryAvailability] (which already has every [row] from a single [loadAllCatalog]
+     * call) — factored out so the library-wide observer doesn't re-run the per-matn catalog lookup
+     * a second time for every row.
+     */
+    private fun observeAvailabilityForRow(row: CatalogRow): Flow<ContentAvailability> = flow {
         if (row.isStarter) {
             // The starter is permanently Installed with its measured declared size — no transfer
             // ever applies (data-model §2.1 rule 1).
@@ -143,13 +157,22 @@ class ContentPackRepositoryImpl(
     }.catch { emit(ContentAvailability.NotInstalled(null)) }
         .distinctUntilChanged()
 
+    override fun observeAvailability(matnId: String): Flow<ContentAvailability> = flow {
+        val row = loadCatalogRow(matnId) ?: run {
+            emit(ContentAvailability.NotInstalled(null))
+            return@flow
+        }
+        emitAll(observeAvailabilityForRow(row))
+    }.catch { emit(ContentAvailability.NotInstalled(null)) }
+        .distinctUntilChanged()
+
     override fun observeLibraryAvailability(): Flow<Map<String, ContentAvailability>> = flow {
         val catalog = loadAllCatalog()
         if (catalog.isEmpty()) {
             emit(emptyMap())
             return@flow
         }
-        val flows = catalog.map { row -> observeAvailability(row.matnId) }
+        val flows = catalog.map { row -> observeAvailabilityForRow(row) }
         emitAll(
             combine(flows) { arr ->
                 catalog.zip(arr.toList()).associate { (row, avail) -> row.matnId to avail }

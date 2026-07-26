@@ -7,6 +7,7 @@ import com.giraffe.matn.domain.repository.NoteRepository
 
 data class SaveNoteParams(val verseId: String, val text: String)
 
+@org.koin.core.annotation.Factory
 class SaveNoteUseCase(private val repo: NoteRepository) : UseCase<SaveNoteParams, Note> {
     override suspend fun invoke(params: SaveNoteParams): Resource<Note> = repo.save(params.verseId, params.text)
 }

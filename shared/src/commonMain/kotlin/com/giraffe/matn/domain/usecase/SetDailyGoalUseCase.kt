@@ -4,6 +4,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.repository.DailyGoalRepository
 
+@org.koin.core.annotation.Factory
 class SetDailyGoalUseCase(private val repo: DailyGoalRepository) : UseCase<Int, Unit> {
     override suspend fun invoke(params: Int): Resource<Unit> = repo.setGoal(params)
 }

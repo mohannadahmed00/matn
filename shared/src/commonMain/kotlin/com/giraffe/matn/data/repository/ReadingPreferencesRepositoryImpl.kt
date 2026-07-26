@@ -21,6 +21,7 @@ private const val KEY_READING_FONT_SIZE = "reading_font_size"
  * An absent or unrecognized stored value falls back to [ReadingFontSize.DEFAULT] (MEDIUM) —
  * the preference never crashes the UI (FR-016/SC-007).
  */
+@org.koin.core.annotation.Single(binds = [ReadingPreferencesRepository::class])
 class ReadingPreferencesRepositoryImpl(
     private val db: ContentDatabase,
 ) : ReadingPreferencesRepository {

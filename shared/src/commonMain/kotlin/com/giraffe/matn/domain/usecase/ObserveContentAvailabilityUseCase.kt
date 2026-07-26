@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
  * [ContentPackRepository.observeAvailability] — no logic (content-delivery-contract.md §4).
  * Mirrors the shape of [ObserveContinueLearningUseCase].
  */
+@org.koin.core.annotation.Factory
 class ObserveContentAvailabilityUseCase(
     private val repository: ContentPackRepository,
 ) : FlowUseCase<String, ContentAvailability> {

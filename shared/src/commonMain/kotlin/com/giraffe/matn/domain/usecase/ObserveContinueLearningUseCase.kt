@@ -6,6 +6,7 @@ import com.giraffe.matn.domain.repository.SessionStateRepository
 import kotlinx.coroutines.flow.Flow
 
 /** Streams the Home-screen Continue Learning offer (contracts §5). Pure delegation — no logic. */
+@org.koin.core.annotation.Factory
 class ObserveContinueLearningUseCase(
     private val repository: SessionStateRepository,
 ) : FlowUseCase<Unit, ContinueLearningEntry?> {

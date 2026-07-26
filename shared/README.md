@@ -37,14 +37,16 @@ targets.
 The Phase 1 tests run entirely against an in-memory SQLDelight driver — no
 device, emulator, network, or real audio files are required.
 
-### Platform wiring (Koin)
+### Platform wiring (Koin Annotations)
 
-The shared `contentModule()` wires the database (`ContentDatabase`), the three
-repositories (`MatnRepository`, `VerseRepository`, `AudioAssetRepository`), and
-the `ContentSeedLoader`. The platform `DatabaseDriverFactory` is an
-`expect`/`actual` whose construction depends on the host (Android `Context` /
-iOS bundle), so each app must register a `single { DatabaseDriverFactory(...) }`
-binding in its own Koin module before starting Koin so that `contentModule()`
-can resolve `DatabaseDriverFactory`.
+DI uses the [Koin Compiler Plugin](https://github.com/InsertKoinIO/koin-compiler-plugin)
+(`@Module`/`@Single`/`@Factory` — no KSP). The shared `ContentModule` wires the
+database (`ContentDatabase`), the three repositories (`MatnRepository`,
+`VerseRepository`, `AudioAssetRepository`), and the `ContentSeedLoader`. The
+platform `DatabaseDriverFactory` is an `expect`/`actual` whose construction
+depends on the host (Android `Context` / iOS bundle), so `initMatnKoin` takes
+it (and the other platform singletons) as a constructor argument to
+`PlatformModule`, which exposes each one as a `@Single` provider so
+`ContentModule`'s definitions can resolve `DatabaseDriverFactory`.
 
 See `specs/001-foundation-data-model/` for the full design documents.

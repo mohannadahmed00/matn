@@ -6,6 +6,7 @@ import com.giraffe.matn.domain.repository.SessionStateRepository
 
 /** Dismisses the Continue Learning entry by clearing the last-listened pointer and nothing else
  *  (FR-017a). Pure delegation — no logic, no session-row deletion. */
+@org.koin.core.annotation.Factory
 class DismissContinueLearningUseCase(
     private val repository: SessionStateRepository,
 ) : UseCase<Unit, Unit> {

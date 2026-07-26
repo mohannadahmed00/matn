@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
  * totals (FR-002/FR-004). An empty library is a valid success (`emptyList()`), surfaced by the
  * ViewModel as the localized empty state (SC-008), not an error.
  */
+@org.koin.core.annotation.Factory
 class ObserveLibraryUseCase(
     private val repo: MatnRepository,
 ) : FlowUseCase<Unit, List<MatnSummary>> {

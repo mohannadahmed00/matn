@@ -10,6 +10,7 @@ import com.giraffe.matn.domain.repository.AppearancePreferencesRepository
  * underlying SQLDelight query is synchronous and falls back to [ThemeMode.SYSTEM] rather than
  * failing.
  */
+@org.koin.core.annotation.Factory
 class GetThemeModeNowUseCase(
     private val repo: AppearancePreferencesRepository,
 ) {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.combine
  * [BookmarkRepository.observeBookmarkedVerseIds] and [NoteRepository.observeNotedVerseIds] into
  * one map keyed by the union of both id sets (T044 — extends US2's T032 bookmark-only version).
  */
+@org.koin.core.annotation.Factory
 class ObserveVerseAnnotationsUseCase(
     private val bookmarkRepository: BookmarkRepository,
     private val noteRepository: NoteRepository,

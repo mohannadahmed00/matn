@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@org.koin.core.annotation.Single(binds = [ContentSeedLoader::class])
 class ContentSeedLoaderImpl(private val db: ContentDatabase) : ContentSeedLoader {
 
     override suspend fun load(payload: SeedMatn): Resource<Matn> {

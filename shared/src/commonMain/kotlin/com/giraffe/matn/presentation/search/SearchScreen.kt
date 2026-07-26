@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -105,7 +107,11 @@ fun SearchScreenContent(
                 ),
                 trailingIcon = if (state.query.isNotEmpty()) {
                     {
-                        IconButton(onClick = onClearQuery) {
+                        val clearLabel = stringResource(Res.string.search_clear)
+                        IconButton(
+                            onClick = onClearQuery,
+                            modifier = Modifier.semantics { contentDescription = clearLabel },
+                        ) {
                             Text("×", style = MaterialTheme.typography.titleLarge, color = scheme.onSurfaceVariant)
                         }
                     }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+@org.koin.core.annotation.Single(binds = [VerseRepository::class])
 class VerseRepositoryImpl(private val db: ContentDatabase) : VerseRepository {
 
     override fun observeVerses(matnId: String): Flow<List<Verse>> =

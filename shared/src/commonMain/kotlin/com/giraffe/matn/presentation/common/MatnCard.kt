@@ -25,7 +25,7 @@ import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.verses_count
-import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 
 /**
  * One matn card in the library grid — extracted from `HomeScreen.kt` (specs/010-design-system-adoption
@@ -77,7 +77,7 @@ fun MatnCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = MatnSpacing.unit / 2),
         )
-        val totals = stringResource(Res.string.verses_count, summary.verseCount) +
+        val totals = pluralStringResource(Res.plurals.verses_count, summary.verseCount, summary.verseCount) +
             " · " + formatDuration(summary.totalDurationMs)
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit / 2),

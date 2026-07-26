@@ -8,6 +8,7 @@ private const val KEY_NOTIFICATION_PERMISSION_ASKED = "notification_permission_a
 private const val VALUE_TRUE = "true"
 
 /** Implements [NotificationPermissionAskedRepository] over `app_setting` (data-model §1). */
+@org.koin.core.annotation.Single(binds = [NotificationPermissionAskedRepository::class])
 class NotificationPermissionAskedRepositoryImpl(
     private val db: ContentDatabase,
 ) : NotificationPermissionAskedRepository {

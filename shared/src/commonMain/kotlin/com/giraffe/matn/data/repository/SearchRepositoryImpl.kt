@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.map
  * the corpus, [ArabicNormalizer] does the matching, and results are assembled in the exact
  * deterministic order the contract fixes (FR-006).
  */
+@org.koin.core.annotation.Single(binds = [SearchRepository::class])
 class SearchRepositoryImpl(private val db: ContentDatabase) : SearchRepository {
 
     override fun search(query: String): Flow<List<SearchResult>> {

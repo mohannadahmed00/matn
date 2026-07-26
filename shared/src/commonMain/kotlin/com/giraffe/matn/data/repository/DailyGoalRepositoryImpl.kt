@@ -18,6 +18,7 @@ private const val DEFAULT_DAILY_GOAL = 10
  * unparseable stored value — or one below 1 — resolves to [DEFAULT_DAILY_GOAL]; the preference
  * never crashes the UI (FR-009/Q3).
  */
+@org.koin.core.annotation.Single(binds = [DailyGoalRepository::class])
 class DailyGoalRepositoryImpl(
     private val db: ContentDatabase,
 ) : DailyGoalRepository {

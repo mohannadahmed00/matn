@@ -6,6 +6,7 @@ import com.giraffe.matn.db.ContentDatabase
 import com.giraffe.matn.domain.model.AudioAsset
 import com.giraffe.matn.domain.repository.AudioAssetRepository
 
+@org.koin.core.annotation.Single(binds = [AudioAssetRepository::class])
 class AudioAssetRepositoryImpl(private val db: ContentDatabase) : AudioAssetRepository {
 
     override suspend fun getAudioForVerse(
