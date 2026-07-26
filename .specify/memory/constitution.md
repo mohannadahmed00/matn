@@ -58,25 +58,31 @@ Added sections:
 Removed sections: None
 
 Templates & artifacts reviewed:
-  ✅ .specify/templates/plan-template.md — "Constitution Check" gate references this file
-       dynamically; no hard-coded principle text to update.
-  ✅ .specify/templates/spec-template.md — no constitution-coupled sections; no change needed.
-  ✅ .specify/templates/tasks-template.md — task categories compatible with principles;
-       the new UI rules surface as presentation-task expectations, no template edit required.
-  ✅ .specify/templates/checklist-template.md — generic; no change needed.
-  ⚠ .specify/templates/commands/*.md — directory not present in repo; nothing to reconcile.
-  ⚠ docs/PRODUCT-SPEC.md — updated in the same PR, and materially: "online catalog + selective
-       download" moves out of § Future-Proof Engineering (V2) into v1; § Storage & Downloads no
-       longer bundles anything; Phase 6 library-wide search narrows to catalog titles plus full
-       text within downloaded matns.
+  (✅ = checked, no action outstanding. ⚠ = checked, unresolved finding. Absence of a file is not
+   a finding and is not listed.)
+
+  Checked for 2.0.0:
+  ✅ .specify/templates/* — no template hard-codes the module list, the target platforms, or the
+       audio asset model, so this amendment required no propagation.
+  ✅ docs/PRODUCT-SPEC.md — updated in the same PR, and the most consequential doc change of the
+       three: "online catalog + selective download" moves out of § Future-Proof Engineering (V2)
+       into v1; § Storage & Downloads no longer bundles anything; Phase 6 library-wide search
+       narrows to catalog titles plus full text within downloaded matns.
   ✅ docs/ROADMAP.md — updated in the same PR: Phases 1–10 marked complete, and the single
        "Phase 11 — Teacher Dashboard & Firebase Upload" entry rewritten as Phases 11–13 under a
        new "Content Delivery & Authoring" section. Phase 13 supersedes Phase 8's delivery model.
   ✅ docs/DESIGN-SOURCE.md — updated in the same PR: open issues #2 and #3 resolved, both Upload
        screens added to the phase-mapped registry, stale "current-code gap" note closed.
        Holds the volatile Stitch IDs so this constitution does not.
-  ✅ .specify/templates/* — re-checked for this amendment: no template hard-codes the module list,
-       the target platforms, or the audio asset model, so nothing required propagation.
+
+  Carried from 1.4.0 (Principle VIII), retained as history — "the new UI rules" below means
+  Principle VIII, not anything in this amendment:
+  ✅ .specify/templates/plan-template.md — "Constitution Check" gate references this file
+       dynamically; no hard-coded principle text to update.
+  ✅ .specify/templates/spec-template.md — no constitution-coupled sections; no change needed.
+  ✅ .specify/templates/tasks-template.md — task categories compatible with principles;
+       the new UI rules surface as presentation-task expectations, no template edit required.
+  ✅ .specify/templates/checklist-template.md — generic; no change needed.
 
 Deferred TODOs:
   - ~~"Upload Matn (Timestamp Map)" screen should be retired in Stitch.~~ Closed 2026-07-26: the
@@ -302,9 +308,8 @@ prevents an out-of-date mockup from quietly reversing a locked architectural dec
     engine interfaces below, never in duplicated UI.
   - **Producer client** — `teacherApp` (JVM), the content authoring tool built in roadmap Phases 11
     and 12. From Phase 13 it is the origin of *all* student-visible content: nothing ships in a
-    client binary.
-    It depends on `shared` for the domain model and design tokens but has its own UI surface, and
-    MUST NOT be reachable from any student client.
+    client binary. It depends on `shared` for the domain model and design tokens but has its own
+    UI surface, and MUST NOT be reachable from any student client.
   - Adding a new client module requires updating this list in the same PR.
 - **Language/UI**: Kotlin with coroutines/Flow for async and state; Compose Material 3 for UI.
 - **Persistence & audio** are accessed only through domain-defined interfaces; concrete engines
