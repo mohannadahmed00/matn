@@ -363,7 +363,7 @@ sign-out revokes write access.
       with an injected clock: refresh happens inside the 5-minute pre-expiry window; two concurrent
       callers cause exactly one refresh; `INVALID_REFRESH_TOKEN` clears the `SecretStore` and yields
       `RemoteError.Unauthorized`.
-- [ ] T036 [P] [US1] Create `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/JvmSecretStoreTest.kt`:
+- [X] T036 [P] [US1] Create `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/JvmSecretStoreTest.kt`:
       `put` → `get` returns the same value; `clear` → `get` returns `null`; the stored file does not
       contain the plaintext value.
 
@@ -383,7 +383,7 @@ sign-out revokes write access.
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/identity/TokenRefresher.kt` holding
       the current session in memory, refreshing when within 5 minutes of expiry, single-flight under
       concurrent callers (use a `Mutex`), and exposing `suspend fun currentIdToken(): Resource<String>`.
-- [ ] T041 [US1] Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/platform/JvmSecretStore.kt`
+- [X] T041 [US1] Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/platform/JvmSecretStore.kt`
       implementing `SecretStore` per `research.md` D7: Windows via
       `com.sun.jna.platform.win32.Crypt32Util.cryptProtectData`/`cryptUnprotectData` writing
       ciphertext to the app-data directory; macOS via `security add-generic-password` /
