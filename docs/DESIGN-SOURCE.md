@@ -92,7 +92,7 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
 | Bookmarks & Notes | `bc99ab7f8110479086326271d0aa0310` | **6** |
 | Progress & Goals | `f059cccd2f634bc9ba2cf4d620e5df80` | **7** |
 | Splash Screen | `6aba0b42e95d43e5b6f81928f3e3f7c6` | **9** (first-launch / onboarding) |
-| Upload Matn (Per-Verse) | `4f1bee3d7518487b986c7c63cb3c07ff` | **11–12** — teacher client (`:teacherApp`); its verse list / text / reorder regions are **11**, its per-row audio column is **12** |
+| Upload Matn (Per-Verse) | `4f1bee3d7518487b986c7c63cb3c07ff` | **11–12** — teacher client (`:teacherApp`); its verse list / text / reorder regions are **11** (implemented 2026-07-28), its per-row audio column is **12** |
 | Upload Matn (Timestamp Map) | `f55899af78974175b345f3c3cd048387` | **12** — teacher client; appearance only, adopted as an authoring-time splitter. See *Open issues* #2 before implementing |
 
 > The two Upload screens are the only entries here that belong to the **teacher** client rather
@@ -175,7 +175,10 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
      not part of the student search screen; ignored during implementation. **Reclassified
      2026-07-26:** with Phases 11–13 adding a real teacher client, that chrome is no longer noise —
      it is the closest thing the design set has to a `:teacherApp` navigation shell, and Phase 11
-     should use it as reference rather than inventing one.
+     should use it as reference rather than inventing one. **Closed 2026-07-28** — Phase 11 built
+     `PortalShell` from exactly this chrome; see `specs/011-teacher-authoring-upload/design-notes.md`
+     for the full write-up and its recorded deviations (no Category field, mirrored Arabic/English
+     chrome as original work, no Material Icons dependency).
 
 8. **Phase 7 (Progress & Daily Goals) — implemented 2026-07-24.** *Progress & Goals*
    (`f059cccd…`) and the daily-goal ring region of *Home / Library* (`618643f8…`) were fetched —

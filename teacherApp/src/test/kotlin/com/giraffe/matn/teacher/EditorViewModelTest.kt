@@ -301,4 +301,25 @@ class EditorViewModelTest {
         assertTrue(vm.state.value.importError)
         assertEquals(null, vm.state.value.importPreview)
     }
+
+    /** T101 (`quickstart.md` §5, FR-025/SC-009): a proxy for the manual frame-timing pass this
+     * environment cannot run (no display). Confirms the data-layer operations behind "import 500
+     * lines, drag 400→5" stay correct and cheap at scale — `VerseRow` holding no text state of its
+     * own (verified by inspection) is what keeps the actual UI recomposition scoped to one row. */
+    @Test
+    fun `importing 500 lines then moving verse 400 to position 5 stays correct and fast`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        val fiveHundredLines = (1..500).joinToString("\n") { "verse text $it" }
+
+        val importElapsed = kotlin.time.measureTime { vm.onImportRequested(fiveHundredLines.encodeToByteArray()) }
+        vm.onImportConfirm()
+        val moveElapsed = kotlin.time.measureTime { vm.onMoveVerse(399, 4) }
+
+        val verses = vm.state.value.draft.verses
+        assertEquals(500, verses.size)
+        assertEquals((1..500).toList(), verses.map { it.displayNumber })
+        assertEquals("verse text 400", verses[4].arabicText)
+        assertTrue(importElapsed.inWholeMilliseconds < 1000, "parsing+staging 500 lines took $importElapsed")
+        assertTrue(moveElapsed.inWholeMilliseconds < 1000, "reordering 500 verses took $moveElapsed")
+    }
 }

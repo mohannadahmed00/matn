@@ -13,6 +13,7 @@ object ArabicStrings : TeacherStrings {
     override val languageSwitch = "English"
     override val secretStoreUnprotectedWarning =
         "تعذّر حفظ جلستك بشكل آمن على هذا الجهاز. سجّل الدخول مجددًا في المرة القادمة."
+    override val screenNotYetAvailable = "هذه الشاشة غير متوفرة في هذا الإصدار بعد."
 
     override val signInTitle = "تسجيل الدخول إلى متن"
     override val emailLabel = "البريد الإلكتروني"

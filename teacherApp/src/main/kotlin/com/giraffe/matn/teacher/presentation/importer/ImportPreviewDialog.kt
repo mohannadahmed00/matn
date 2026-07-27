@@ -11,7 +11,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.giraffe.matn.domain.catalog.ImportPreview
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
@@ -34,7 +33,7 @@ fun ImportPreviewDialog(preview: ImportPreview, onCancel: () -> Unit, onConfirm:
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
+                LazyColumn(modifier = Modifier.heightIn(max = MatnSpacing.unit * 25)) {
                     items(preview.lines.take(10)) { line ->
                         Text(line, style = MaterialTheme.typography.bodySmall, modifier = Modifier.heightIn(min = MatnSpacing.unit * 3))
                     }

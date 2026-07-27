@@ -119,7 +119,7 @@ and the shared backend client. Covers: Firebase project setup; the Ktor REST cli
 (`shared/src/commonMain/kotlin/com/giraffe/matn/data/seed/SeedContent.kt`) so Phase 13's sync is a
 projection rather than a translation; teacher sign-in; matn metadata entry (title, author,
 description, cover image, chapter/section structure); and verse *text* entry — ordered list,
-drag-to-reorder, per-row Arabic entry or bulk CSV import, from the list/text regions of
+drag-to-reorder, per-row Arabic entry or bulk text import, from the list/text regions of
 `stitch-designs/11-Upload-Per-Verse`.
 
 Validation reuses the rules already encoded in `ContentSeedLoaderImpl.validate()` (`InvalidId`,

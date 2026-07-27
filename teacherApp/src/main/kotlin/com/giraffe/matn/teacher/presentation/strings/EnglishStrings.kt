@@ -13,6 +13,7 @@ object EnglishStrings : TeacherStrings {
     override val languageSwitch = "العربية"
     override val secretStoreUnprotectedWarning =
         "Your session could not be stored securely on this device. Sign in again next time you open the app."
+    override val screenNotYetAvailable = "This screen isn't available in this version yet."
 
     override val signInTitle = "Sign in to Matn"
     override val emailLabel = "Email"

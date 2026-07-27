@@ -135,7 +135,7 @@ private fun TeacherApp() {
                                     destination = PortalDestination.UPLOAD_MATN
                                 },
                             )
-                            else -> Text(destination.name)
+                            else -> Text(strings.screenNotYetAvailable)
                         }
                     }
                 }

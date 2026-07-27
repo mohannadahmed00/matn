@@ -746,32 +746,38 @@ two; proceeding appends 48 editable verses in file order.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T094 [P] Complete `specs/011-teacher-authoring-upload/design-notes.md` (started in T033a) with
+- [X] T094 [P] Complete `specs/011-teacher-authoring-upload/design-notes.md` (started in T033a) with
       the two Principle VIII deviations from `contracts/teacher-ui-contract.md` §1: Category omitted
       (no `SeedMatn` field), and the Arabic mirrored portal chrome as original work. Add any further
       deviation the implemented screens turned out to need. Follow the format of
       `specs/008-storage-downloads/design-notes.md`.
-- [ ] T095 [P] Fix `docs/ROADMAP.md` line 122: "bulk CSV import" → "bulk text import", matching
+- [X] T095 [P] Fix `docs/ROADMAP.md` line 122: "bulk CSV import" → "bulk text import", matching
       FR-023a.
-- [ ] T096 [P] Add the two Upload screens' Phase 11 status to `docs/DESIGN-SOURCE.md`'s phase-mapped
+- [X] T096 [P] Add the two Upload screens' Phase 11 status to `docs/DESIGN-SOURCE.md`'s phase-mapped
       registry, and close open issue #7 with a pointer to `design-notes.md`.
-- [ ] T097 [P] Add a CI job running
+- [X] T097 [P] Add a CI job running
       `firebase emulators:exec --only firestore,storage,auth "./gradlew :shared:jvmTest --tests '*SecurityRules*'"`.
       Without it the T069 tests exist but never execute and FR-042 is satisfied on paper only.
-- [ ] T098 Audit every icon-only control in `:teacherApp` for an accessibility label in the active
+- [X] T098 Audit every icon-only control in `:teacherApp` for an accessibility label in the active
       language, following the pattern in
       `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/common/A11yLabels.kt`.
-- [ ] T099 Audit previews against `contracts/teacher-ui-contract.md` §5: every state-rendering
+- [X] T099 Audit previews against `contracts/teacher-ui-contract.md` §5: every state-rendering
       composable has one, and every screen-level composable has both languages.
-- [ ] T100 Grep `:teacherApp` for raw hex colours, bare `.dp`/`.sp` literals, and hard-coded
+- [X] T100 Grep `:teacherApp` for raw hex colours, bare `.dp`/`.sp` literals, and hard-coded
       user-visible strings. Any hit is a blocking review failure — replace with tokens or
       `TeacherStrings`.
-- [ ] T101 Run the performance check in `quickstart.md` §5: import 500 verses, then type, scroll, and
+- [~] T101 Run the performance check in `quickstart.md` §5: import 500 verses, then type, scroll, and
       drag from position 400 to 5. If typing stutters, verse text state has leaked into the row
-      composable instead of the ViewModel.
+      composable instead of the ViewModel. **Partially substituted** — no display in this
+      environment for the real frame-timing HUD pass; see design-notes.md T101/T102 note for the
+      automated data-layer proxy (correctness + timing at 500-verse scale) and the structural
+      confirmation that `VerseRow` holds no text state of its own.
 - [ ] T102 Run the full `quickstart.md` §3 manual walkthrough (all six user stories) and confirm each
-      acceptance scenario in `spec.md`.
-- [ ] T103 Confirm the constitution's Stack section already lists `teacherApp` as the producer
+      acceptance scenario in `spec.md`. **Not performable in this environment** — see design-notes.md
+      T102 note (needs a live Firebase project + real teacher account + interactive GUI/display, none
+      of which are available here). Automated coverage is the substitute; see the same note for the
+      scenario-by-scenario mapping.
+- [X] T103 Confirm the constitution's Stack section already lists `teacherApp` as the producer
       client, so no amendment is needed; if it does not, update it in this PR.
 
 ---

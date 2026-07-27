@@ -72,3 +72,102 @@ material and out of scope here.
   storage-usage regions common to both fetched screens exactly as captured.
 - Do **not** build any audio-upload control in `:teacherApp` in this phase (FR-045) — `VerseRow`
   stops at the text field.
+
+## T094 — Post-implementation notes (2026-07-28)
+
+Recorded after all six user stories landed, per the Phase 6/7/8 precedent of closing the design gap
+log with what was actually built vs. what the fetched captures showed.
+
+### Deviation 3 — no Material Icons dependency; icon slots render as text/glyphs
+
+The captures show icon glyphs in several chrome slots (nav-rail destinations, the drag handle, the
+delete-verse action, the header search field). `:teacherApp` deliberately carries no Material Icons
+dependency (Ground Rule 3 — fixed dependency set, Ktor 3.2.3 and jna-platform 5.6.0 only). Every
+icon slot in `PortalShell.kt` and `VerseRow.kt` therefore renders the equivalent plain-text label or
+a Unicode glyph (e.g. a `"⋮⋮"` drag handle, a text "Delete" action) instead of a vector icon. This
+is a fidelity gap from the capture, not an oversight — adding an icon library was rejected in favor
+of staying within the frozen dependency set.
+
+### Deviation 4 — V8 EmptyMatn / V9 DocumentTooLarge scoped to the teacher tool only
+
+`ContentIntegrityValidator` (T014) implements V1-V9 from `contracts/validation-contract.md`, but two
+of those rules — `EmptyMatn` and `DocumentTooLarge` — are publish-time policy for content the
+teacher tool produces, not properties the student-facing bundled-seed loader should enforce
+retroactively. `ContentSeedLoaderImpl.validate()` (`shared/src/commonMain/kotlin/com/giraffe/matn/
+data/seed/ContentSeedLoaderImpl.kt`) filters both errors out of the problems it returns, so existing
+bundled matns (which predate this phase and were never subject to these limits) continue to load
+unchanged. This was confirmed with the user directly (an AskUserQuestion decision) after discovering
+the two rules would otherwise break `ProgressRepositoryTest`, a pre-existing student-app test.
+
+### T078 — not performed in this environment
+
+Deploying the Firestore/Storage security rules and running `SecurityRulesTest`'s 24 emulator-gated
+cases against a live Firebase project/emulator requires real Firebase credentials that are not
+available in this environment (no `FIREBASE_EMULATOR_HOST`, no service account). The test file
+exists and is env-gated (`assumeTrue`), but T097's CI job is what actually exercises it — until that
+job runs against emulators, FR-042 is verified by code review only, not by execution.
+
+### T101/T102 — performance check and manual walkthrough, environment limits
+
+Both tasks call for driving the live desktop app interactively (frame-timing HUD, real clicks) and,
+for T102, a live Firebase project with a provisioned teacher account. This environment has no
+display and no Firebase credentials, so neither can be executed as written. What was done instead:
+
+- **T101**: `EditorViewModelTest`'s `importing 500 lines then moving verse 400 to position 5 stays
+  correct and fast` builds a 500-line file, imports it, and moves verse 400 to position 5 — asserting
+  both correctness (500 verses, `1..500` numbering, the right text at the right index) and that the
+  underlying `VerseTextImport.parse`/`VerseOrdering.append`/`VerseOrdering.move` calls each complete
+  in well under a second. This is a proxy for the data-layer half of the frame budget, not a
+  substitute for watching real frame times; the on-screen "no frame over 32 ms while typing/
+  scrolling/dragging" observation itself needs a running GUI. Structurally, `VerseRow` (verified by
+  reading `VerseRow.kt`) holds no `remember`/`mutableStateOf` of its own for verse text — the
+  ViewModel is the sole owner of `arabicText` — which is the actual precondition for the list not
+  recomposing wholesale on a keystroke; this was true before T101 and confirmed again here.
+- **T102**: not run end-to-end. The scenario-by-scenario substitute, mapping each `quickstart.md` §3
+  bullet to the automated test that exercises its logic (everything below the actual click/keystroke
+  and everything not requiring a live Firebase project):
+  - **3.1 Sign in**: `SignInViewModelTest` (`success clears submitting and error, and sets the
+    session`, `failure surfaces the error and leaves the typed email in state`) covers #1/#4.
+    #2 ("still signed in" after relaunch) is `RestoreSessionUseCase` + `TokenRefresher`
+    (`TokenRefresherTest`), not re-tested per screen. #5 (offline sign-in message) and #6 (language
+    switch/mirroring) have no automated coverage — #6 is visual by nature; #5 needs a real network
+    failure.
+  - **3.2 Create a draft**: `EditorViewModelTest`'s save/missing-field/cover-error cases cover #2/#5.
+    #3 (reload after relaunch) is `LoadMatnForEditUseCase` plumbing, exercised via
+    `reloading after a conflict replaces the draft with the server version` (same code path, different
+    trigger). #4 (oversized cover) is `JvmFileChooser`'s size ceiling — a pure function, not
+    ViewModel-level, and not separately unit-tested. Autosave timing (FR-031a) is
+    `DraftAutosaveSchedulerTest`'s four cases (5 s idle, 60 s ceiling, coalescing, never-fires-when-
+    published).
+  - **3.3 Enter verse text**: `adding a verse appends...`, `editing a verse's text updates only that
+    verse`, `reordering verses renumbers 1 through n`, `deleting a verse leaves no numbering gap`,
+    `assigning a nonexistent chapter id is rejected` cover #1–#4. #5 (save/reload round-trip) is the
+    same `FirestoreCatalogRepository` path as 3.2 #3.
+  - **3.4 Validate and publish**: `checking for problems populates the validation report`,
+    `requesting publish shows the confirm dialog...`, `confirming publish on a valid draft flips
+    publicationState to PUBLISHED` cover #1–#3. #4/#5 (anonymous read allowed/denied by publish
+    state) are `SecurityRulesTest`'s R-series cases, gated on a live emulator (see T097).
+  - **3.5 Manage the catalog**: `LibraryViewModelTest` (loaded/empty/error rendering) covers #1.
+    #2 reuses the 3.2 #3 path. #3/#4/#5 (edit-published-and-stays-visible, unpublish, republish with
+    stable ids) are `SecurityRulesTest`'s W-series cases plus `FirestoreCatalogRepository`'s
+    `unpublish`/`publish` methods — not independently unit-tested beyond the security-rules matrix.
+    The conflict case is `reloading after a conflict replaces the draft with the server version and
+    clears the failure`.
+  - **3.6 Bulk import**: `VerseTextImportTest`'s six cases plus `EditorViewModelTest`'s
+    `a valid import stages a preview...`, `confirming an import appends...`,
+    `cancelling an import leaves the verse list untouched`, and
+    `an invalid-encoding import surfaces an error...` cover all five bullets directly.
+  - Left with **zero automated coverage**: the credential-plaintext check (SC-013, needs reading the
+    actual DPAPI-encrypted file on disk), the offline/network-disconnected sign-in message, and every
+    purely visual observation (RTL mirroring, language-switch relabeling). These need the literal
+    manual pass and are flagged here rather than claimed.
+
+### RTL (FR-006a/b)
+
+No new left/right-anchored APIs were introduced in `:teacherApp` — every new composable
+(`ImportPreviewDialog`, `ValidationPanel`, `PublishConfirmDialog`, `VerseRow`, `PortalShell`, and the
+editor/library screens) uses `Row`/`Column` with `Arrangement`/`Alignment.CenterStart`/`CenterEnd`,
+which mirror automatically under `MatnTheme(layoutDirection = ...)`'s explicit per-language
+direction (research D6). No live on-device RTL pass was possible in this environment (no Android
+emulator, no Xcode/macOS) — verified by source audit only (grep for `.Left`/`.Right`/hardcoded
+`left =`/`right =`: zero hits in `:teacherApp`).

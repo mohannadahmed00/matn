@@ -28,6 +28,7 @@ interface TeacherStrings {
     val signOut: String
     val languageSwitch: String
     val secretStoreUnprotectedWarning: String
+    val screenNotYetAvailable: String
 
     // Sign-in (US1)
     val signInTitle: String
