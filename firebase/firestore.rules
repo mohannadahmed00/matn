@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isTeacher() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
+    }
+
+    match /matns/{matnId} {
+      // FR-040: published matns are readable by anyone; drafts only by the teacher.
+      allow read: if resource.data.published == true || isTeacher();
+
+      // FR-041: every mutation requires the teacher marker. Anonymous callers get nothing.
+      allow create, update, delete: if isTeacher();
+    }
+
+    match /teachers/{uid} {
+      // Provisioned by hand in the console (research D14). No client may read or write it —
+      // the rules' own exists() check is a privileged read and is unaffected by this.
+      allow read, write: if false;
+    }
+
+    // Anything not matched above is denied by default. Stated explicitly so a future
+    // collection cannot be added without a deliberate rule.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

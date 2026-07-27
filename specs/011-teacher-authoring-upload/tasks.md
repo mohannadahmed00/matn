@@ -317,12 +317,12 @@ Read `contracts/rest-contract.md` §1–§4 and `contracts/firestore-schema.md` 
 
 ### 2D — Security rules
 
-- [ ] T031 [P] Create `firebase/firestore.rules` with the exact rule text from
+- [X] T031 [P] Create `firebase/firestore.rules` with the exact rule text from
       `contracts/security-rules.md` §1. Do not paraphrase it — the `teachers/{uid}` deny block is
       what stops an anonymous caller granting themselves write access.
-- [ ] T032 [P] Create `firebase/storage.rules` with the exact rule text from
+- [X] T032 [P] Create `firebase/storage.rules` with the exact rule text from
       `contracts/security-rules.md` §2.
-- [ ] T033a **Fetch the canonical designs — blocking gate on all UI tasks (Principle VIII).** Using
+- [X] T033a **Fetch the canonical designs — blocking gate on all UI tasks (Principle VIII).** Using
       the configured `stitch` MCP server, fetch screen `4f1bee3d7518487b986c7c63cb3c07ff`
       (*Upload Matn (Per-Verse)*) and `fa8b63b0…` (*Search Matn*, for its producer/portal chrome —
       see `docs/DESIGN-SOURCE.md` open issue #7). Write what you find to
@@ -332,7 +332,7 @@ Read `contracts/rest-contract.md` §1–§4 and `contracts/firestore-schema.md` 
       a reference, not a substitute — the MCP fetch is what the constitution requires.
       **T046, T059, T065, T075, T086, and T092 MUST NOT begin until this task is done.** Inventing a
       layout for a screen that has a design is a blocking review failure.
-- [ ] T033 [P] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/EmulatorTestSupport.kt` with
+- [X] T033 [P] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/EmulatorTestSupport.kt` with
       `fun emulatorHostOrNull(): String? = System.getenv("FIREBASE_EMULATOR_HOST")` and a helper
       that skips a test when it is `null`. Every emulator test uses this so `./gradlew test` stays
       green on a machine with no Firebase CLI.

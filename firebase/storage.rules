@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isTeacher() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/teachers/$(request.auth.uid));
+    }
+
+    match /matns/{matnId}/{fileName} {
+      // Cover images are public: a student must be able to render a catalog entry
+      // before downloading anything, and before they have any account at all.
+      allow read: if true;
+
+      // FR-041: writes require the teacher marker. Cover images only in this phase —
+      // audio arrives in Phase 12 and will extend the path match, not this predicate.
+      allow write: if isTeacher()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(png|jpeg|webp)');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
