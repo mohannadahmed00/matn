@@ -2,6 +2,14 @@ package com.giraffe.matn.teacher.di
 
 import com.giraffe.matn.data.remote.FirebaseConfig
 import com.giraffe.matn.data.remote.createHttpClient
+import com.giraffe.matn.data.remote.identity.IdentityToolkitClient
+import com.giraffe.matn.data.remote.identity.TokenRefresher
+import com.giraffe.matn.data.repository.IdentityTeacherAuthRepository
+import com.giraffe.matn.domain.auth.TeacherAuthRepository
+import com.giraffe.matn.domain.secret.SecretStore
+import com.giraffe.matn.domain.usecase.RestoreSessionUseCase
+import com.giraffe.matn.domain.usecase.SignInUseCase
+import com.giraffe.matn.domain.usecase.SignOutUseCase
 import io.ktor.client.HttpClient
 import org.koin.core.Koin
 import org.koin.core.annotation.ComponentScan
@@ -10,6 +18,8 @@ import org.koin.core.annotation.Single
 import org.koin.dsl.koinApplication
 import java.io.File
 import java.util.Properties
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Explicit provider functions for every teacher-side dependency, per Ground Rule 11: teacher-side
@@ -20,6 +30,7 @@ import java.util.Properties
  * `com.giraffe.matn.teacher` only, so it is safe to scan `:teacherApp`'s own ViewModels/platform
  * classes. Later tasks add their provider function here as they create each class.
  */
+@OptIn(ExperimentalTime::class)
 @Module
 @ComponentScan("com.giraffe.matn.teacher")
 class TeacherModule {
@@ -39,6 +50,31 @@ class TeacherModule {
 
     @Single
     fun httpClient(): HttpClient = createHttpClient()
+
+    @Single
+    fun identityToolkitClient(httpClient: HttpClient, firebaseConfig: FirebaseConfig): IdentityToolkitClient =
+        IdentityToolkitClient(httpClient, firebaseConfig)
+
+    @Single
+    fun tokenRefresher(client: IdentityToolkitClient, secretStore: SecretStore): TokenRefresher =
+        TokenRefresher(client, secretStore, nowMillis = { Clock.System.now().toEpochMilliseconds() })
+
+    @Single
+    fun teacherAuthRepository(
+        client: IdentityToolkitClient,
+        tokenRefresher: TokenRefresher,
+        secretStore: SecretStore,
+    ): TeacherAuthRepository = IdentityTeacherAuthRepository(client, tokenRefresher, secretStore)
+
+    @Single
+    fun signInUseCase(repository: TeacherAuthRepository): SignInUseCase = SignInUseCase(repository)
+
+    @Single
+    fun signOutUseCase(repository: TeacherAuthRepository): SignOutUseCase = SignOutUseCase(repository)
+
+    @Single
+    fun restoreSessionUseCase(repository: TeacherAuthRepository): RestoreSessionUseCase =
+        RestoreSessionUseCase(repository)
 }
 
 /** Starts a Koin instance scoped to `:teacherApp` with only [TeacherModule] — never `:shared`'s

@@ -5,6 +5,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.secret.SecretStore
 import com.sun.jna.Platform
 import com.sun.jna.platform.win32.Crypt32Util
+import org.koin.core.annotation.Single
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
@@ -13,7 +14,12 @@ import java.nio.file.attribute.PosixFilePermission
  * [SecretStore] dispatched per OS (research D7, FR-003a): Windows DPAPI via `jna-platform`'s
  * `Crypt32Util`, macOS `security(1)`, Linux `secret-tool` when present on `PATH`, and otherwise an
  * owner-readable file with [isProtected] `false` — the UI surfaces that as a visible warning.
+ *
+ * A `:teacherApp`-native class, so `@Single` here is safe (Ground Rule 11 only forbids annotating
+ * teacher-side classes that live in `:shared`, where `ContentModule`'s `@ComponentScan` would pull
+ * them into the student apps' graph).
  */
+@Single(binds = [SecretStore::class])
 class JvmSecretStore : SecretStore {
 
     override val isProtected: Boolean = Platform.isWindows() || Platform.isMac() || linuxSecretToolAvailable()

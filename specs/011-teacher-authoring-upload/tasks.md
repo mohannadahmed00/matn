@@ -399,24 +399,24 @@ sign-out revokes write access.
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/`: `SignInUseCase.kt`,
       `SignOutUseCase.kt`, `RestoreSessionUseCase.kt`, each implementing the `UseCase` contract from
       `core/usecase/UseCase.kt`.
-- [ ] T044 [US1] Create
+- [X] T044 [US1] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/signin/SignInViewModel.kt`
       extending `BaseViewModel<SignInUiState>`, with `SignInUiState(email, password, isSubmitting, error: RemoteError?, secretStoreUnprotected)`
       and intents `onEmailChange`, `onPasswordChange`, `onSubmit`.
-- [ ] T045 [US1] Create
+- [X] T045 [US1] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/signin/SignInScreen.kt` with a
       stateless `SignInContent(state, onEmailChange, onPasswordChange, onSubmit)` and a thin
       `SignInScreen(viewModel)` holder. Add `@Preview`s: idle, error, unprotected-store — each in
       Arabic/RTL and English/LTR (six previews).
-- [ ] T046 [US1] Create
+- [X] T046 [US1] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/shell/PortalShell.kt` — the
       navigation chrome from `contracts/teacher-ui-contract.md` §3.2: destinations, teacher display
       name, storage-usage row (a placeholder value until T086 wires real usage from T052's
       `totalUsageBytes`), language switch, sign-out. Mirrors with the ambient layout direction.
       `@Preview` in both languages. Requires T033a.
-- [ ] T047 [US1] Wire routing in `TeacherMain.kt`: no session → `SignInScreen`; session →
+- [X] T047 [US1] Wire routing in `TeacherMain.kt`: no session → `SignInScreen`; session →
       `PortalShell`. Call `RestoreSessionUseCase` on launch.
-- [ ] T048 [P] [US1] Create
+- [X] T048 [P] [US1] Create
       `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/SignInViewModelTest.kt` with a fake
       `TeacherAuthRepository`: success sets the session; failure surfaces the error and leaves the
       typed email in state.
