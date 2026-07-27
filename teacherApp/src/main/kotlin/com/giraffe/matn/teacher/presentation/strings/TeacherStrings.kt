@@ -41,6 +41,11 @@ interface TeacherStrings {
     val libraryEmptyAction: String
     val libraryLoading: String
     val libraryRetry: String
+    val publicationStatusDraft: String
+    val publicationStatusPublished: String
+    val audioCompletenessNone: String
+    val audioCompletenessPartial: String
+    val audioCompletenessComplete: String
 
     // Editor — metadata (US2)
     val uploadNewMatnHeading: String

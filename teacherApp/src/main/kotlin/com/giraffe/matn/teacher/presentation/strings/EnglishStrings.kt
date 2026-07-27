@@ -24,6 +24,11 @@ object EnglishStrings : TeacherStrings {
     override val libraryEmptyAction = "Create your first matn"
     override val libraryLoading = "Loading your library…"
     override val libraryRetry = "Retry"
+    override val publicationStatusDraft = "Draft"
+    override val publicationStatusPublished = "Published"
+    override val audioCompletenessNone = "No audio"
+    override val audioCompletenessPartial = "Partial audio"
+    override val audioCompletenessComplete = "Audio complete"
 
     override val uploadNewMatnHeading = "Upload New Matn"
     override val uploadNewMatnLead =

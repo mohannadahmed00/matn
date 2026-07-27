@@ -11,12 +11,14 @@ import com.giraffe.matn.data.repository.IdentityTeacherAuthRepository
 import com.giraffe.matn.domain.auth.TeacherAuthRepository
 import com.giraffe.matn.domain.catalog.CatalogRepository
 import com.giraffe.matn.domain.secret.SecretStore
+import com.giraffe.matn.domain.usecase.ListAuthoredMatnsUseCase
 import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
 import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.RestoreSessionUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.SignInUseCase
 import com.giraffe.matn.domain.usecase.SignOutUseCase
+import com.giraffe.matn.domain.usecase.UnpublishMatnUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
 import io.ktor.client.HttpClient
@@ -111,6 +113,12 @@ class TeacherModule {
 
     @Single
     fun publishMatnUseCase(repository: CatalogRepository): PublishMatnUseCase = PublishMatnUseCase(repository)
+
+    @Single
+    fun listAuthoredMatnsUseCase(repository: CatalogRepository): ListAuthoredMatnsUseCase = ListAuthoredMatnsUseCase(repository)
+
+    @Single
+    fun unpublishMatnUseCase(repository: CatalogRepository): UnpublishMatnUseCase = UnpublishMatnUseCase(repository)
 }
 
 /** Starts a Koin instance scoped to `:teacherApp` with only [TeacherModule] — never `:shared`'s

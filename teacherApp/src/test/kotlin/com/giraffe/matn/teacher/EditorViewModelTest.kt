@@ -7,6 +7,7 @@ import com.giraffe.matn.domain.catalog.CatalogRepository
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.MatnDraftFactory
 import com.giraffe.matn.domain.error.RemoteError
+import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
 import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
@@ -28,11 +29,12 @@ import kotlin.test.assertTrue
 
 private class FakeCatalogRepository(
     private val saveResult: (MatnDraft) -> Resource<MatnDraft>,
+    private val loadResult: (String) -> Resource<MatnDraft> = { Resource.Failure(AppError.NotFound) },
 ) : CatalogRepository {
     var saveCallCount = 0
 
     override fun observeAuthored(): Flow<List<CatalogEntry>> = flowOf(emptyList())
-    override suspend fun load(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
+    override suspend fun load(matnId: String): Resource<MatnDraft> = loadResult(matnId)
     override suspend fun save(draft: MatnDraft): Resource<MatnDraft> {
         saveCallCount++
         return saveResult(draft)
@@ -65,6 +67,7 @@ class EditorViewModelTest {
             uploadCoverImage = UploadCoverImageUseCase(repo),
             validateMatn = ValidateMatnUseCase(),
             publishMatn = PublishMatnUseCase(repo),
+            loadMatnForEdit = LoadMatnForEditUseCase(repo),
             newId = { "gen-id-${counter++}" },
             nowMillis = { 0L },
         )
@@ -208,6 +211,38 @@ class EditorViewModelTest {
 
         assertEquals(com.giraffe.matn.domain.catalog.PublicationState.PUBLISHED, vm.state.value.draft.publicationState)
         assertTrue(vm.state.value.saveState is SaveState.Saved)
+    }
+
+    @Test
+    fun `saving a published matn down to zero verses is refused with EmptyMatn and no repository call`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+        val draft = newDraft().copy(
+            publicationState = com.giraffe.matn.domain.catalog.PublicationState.PUBLISHED,
+            verses = emptyList(),
+        )
+        val vm = newViewModel(repo, draft = draft)
+
+        vm.onSaveDraft()
+
+        assertTrue(vm.state.value.validation?.blocking?.any { it is com.giraffe.matn.domain.error.ContentIntegrityError.EmptyMatn } == true)
+        assertEquals(0, repo.saveCallCount)
+    }
+
+    @Test
+    fun `reloading after a conflict replaces the draft with the server version and clears the failure`() = runTest {
+        val serverDraft = newDraft().copy(title = "Server Title", remoteUpdateTime = "server-token")
+        val repo = FakeCatalogRepository(
+            saveResult = { Resource.Failure(RemoteError.Conflict) },
+            loadResult = { Resource.Success(serverDraft) },
+        )
+        val vm = newViewModel(repo)
+        vm.onSaveDraft()
+        assertEquals(SaveState.Failed(RemoteError.Conflict), vm.state.value.saveState)
+
+        vm.onReloadAfterConflict()
+
+        assertEquals("Server Title", vm.state.value.draft.title)
+        assertEquals(SaveState.Idle, vm.state.value.saveState)
     }
 
     @Test

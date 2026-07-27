@@ -17,9 +17,11 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -28,6 +30,11 @@ data class FirestoreDocument(
     val name: String,
     val fields: Map<String, FirestoreValue>,
     val updateTime: String?,
+)
+
+data class FirestoreDocumentList(
+    val documents: List<FirestoreDocument>,
+    val nextPageToken: String?,
 )
 
 /**
@@ -74,6 +81,33 @@ class FirestoreRestClient(
                 if (updateTimePrecondition != null) parameter("currentDocument.updateTime", updateTimePrecondition)
                 if (requireNotExists) parameter("currentDocument.exists", "false")
             }
+        }
+    }
+
+    /** Overview reads (FR-012, FR-035): [mask] keeps verse arrays off the wire entirely — see
+     * `contracts/firestore-schema.md` §4.1. */
+    suspend fun listDocuments(collection: String, mask: List<String>, pageToken: String? = null): Resource<FirestoreDocumentList> {
+        val tokenResult = tokenRefresher.currentIdToken()
+        if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
+        val token = (tokenResult as Resource.Success).data
+        return try {
+            val response = httpClient.get("$documentsBaseUrl/$collection") {
+                headers { append(HttpHeaders.Authorization, "Bearer $token") }
+                mask.forEach { field -> parameter("mask.fieldPaths", field) }
+                parameter("pageSize", "100")
+                pageToken?.let { parameter("pageToken", it) }
+            }
+            if (response.status.isSuccess()) {
+                val json = response.body<JsonObject>()
+                val documents = (json["documents"]?.jsonArray ?: JsonArray(emptyList())).map { it.jsonObject.toFirestoreDocument() }
+                Resource.Success(FirestoreDocumentList(documents, json["nextPageToken"]?.jsonPrimitive?.contentOrNull))
+            } else {
+                Resource.Failure(RemoteErrorMapper.mapHttpError(response.status.value, response.bodyAsText()))
+            }
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            Resource.Failure(RemoteErrorMapper.mapThrowable(t))
         }
     }
 

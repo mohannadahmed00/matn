@@ -655,33 +655,33 @@ restores it with identifiers unchanged.
 
 ### Tests for User Story 5
 
-- [ ] T079 [P] [US5] Create `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/LibraryViewModelTest.kt`
+- [X] T079 [P] [US5] Create `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/LibraryViewModelTest.kt`
       with a fake repository: loaded, empty, and error states each render the expected state object.
-- [ ] T080 [P] [US5] Add a conflict test to
+- [X] T080 [P] [US5] Add a conflict test to
       `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/FirestoreRestClientTest.kt`: a save with a
       stale `updateTime` yields `RemoteError.Conflict` and does **not** retry automatically.
 
 ### Implementation for User Story 5
 
-- [ ] T081 [P] [US5] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/CatalogEntry.kt`
+- [X] T081 [P] [US5] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/CatalogEntry.kt`
       — the `data class` in `data-model.md` §7.
-- [ ] T082 [US5] Add `suspend fun listDocuments(collection: String, mask: List<String>, pageToken: String?)`
+- [X] T082 [US5] Add `suspend fun listDocuments(collection: String, mask: List<String>, pageToken: String?)`
       to `FirestoreRestClient`, sending the field mask from `contracts/firestore-schema.md` §4.1 so
       verse arrays are never transferred.
-- [ ] T083 [US5] Implement `observeAuthored` and `unpublish` in `FirestoreCatalogRepository`
+- [X] T083 [US5] Implement `observeAuthored` and `unpublish` in `FirestoreCatalogRepository`
       (replacing the remaining `TODO()`s from T054).
-- [ ] T084 [P] [US5] Create use cases
+- [X] T084 [P] [US5] Create use cases
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/ListAuthoredMatnsUseCase.kt` and
       `UnpublishMatnUseCase.kt`.
-- [ ] T084a [P] [US5] Create
+- [X] T084a [P] [US5] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/usecase/CatalogUseCaseTest.kt` against a fake
       `CatalogRepository` (Principle V): `ListAuthoredMatnsUseCase` emits entries with both
       publication states and an empty list without error; `UnpublishMatnUseCase` returns a draft-state
       matn whose `id` and every verse `id` are **unchanged** from the published input (FR-038).
-- [ ] T085 [P] [US5] Create two shared components in
+- [X] T085 [P] [US5] Create two shared components in
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/common/`: `PublicationBadge.kt`
       and `AudioCompletenessBadge.kt`, each stateless with a `@Preview` per value.
-- [ ] T086 [US5] Create
+- [X] T086 [US5] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/library/LibraryViewModel.kt`
       and `LibraryScreen.kt` (stateless `LibraryContent` + thin holder). `@Preview`: loaded, **empty
       first-run**, loading, error — in both languages. The empty state is required by
@@ -689,18 +689,18 @@ restores it with identifiers unchanged.
       into `PortalShell` here, using `StorageRestClient.totalUsageBytes("matns/")` from T052 and the
       existing `presentation/common/ByteFormatter.kt` for display, replacing T046's placeholder. A
       failed usage read shows nothing rather than an error — it is informational only.
-- [ ] T087 [P] [US5] Create
+- [X] T087 [P] [US5] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/publish/UnpublishConfirmDialog.kt`
       stating that students will no longer see the matn and that it can be republished unchanged.
       `@Preview` in both languages.
-- [ ] T088 [US5] Add the published-editing banner to `EditorContent` and enforce in `EditorViewModel`
+- [X] T088 [US5] Add the published-editing banner to `EditorContent` and enforce in `EditorViewModel`
       that `DraftAutosaveScheduler` is not notified while `publicationState == PUBLISHED` (FR-031b).
       Also add the **empty-published guard (FR-030, second clause)**: saving a matn whose
       `publicationState == PUBLISHED` with an empty verse list is refused, with the
       `EmptyMatn` message shown and no repository call made. Without this, deleting every verse from a
       published matn would leave students an empty published matn. Add a case to
       `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/EditorViewModelTest.kt` covering it.
-- [ ] T089 [US5] Add conflict handling to `EditorViewModel`: on `RemoteError.Conflict`, show the
+- [X] T089 [US5] Add conflict handling to `EditorViewModel`: on `RemoteError.Conflict`, show the
       message from `contracts/teacher-ui-contract.md` §6 with a reload action. Never overwrite
       silently.
 

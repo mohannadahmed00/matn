@@ -24,6 +24,11 @@ object ArabicStrings : TeacherStrings {
     override val libraryEmptyAction = "أنشئ أول متن"
     override val libraryLoading = "جارٍ تحميل مكتبتك…"
     override val libraryRetry = "إعادة المحاولة"
+    override val publicationStatusDraft = "مسودة"
+    override val publicationStatusPublished = "منشور"
+    override val audioCompletenessNone = "بلا صوت"
+    override val audioCompletenessPartial = "صوت جزئي"
+    override val audioCompletenessComplete = "صوت مكتمل"
 
     override val uploadNewMatnHeading = "رفع متن جديد"
     override val uploadNewMatnLead =

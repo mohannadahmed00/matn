@@ -77,6 +77,7 @@ data class EditorIntents(
     val onConfirmPublish: () -> Unit,
     val onDismissPublishConfirm: () -> Unit,
     val onProblemSelected: (String) -> Unit,
+    val onReloadAfterConflict: () -> Unit,
 )
 
 /** `contracts/teacher-ui-contract.md` §3.4. Metadata, chapters, the verse list, and validation. */
@@ -215,7 +216,13 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SaveStateIndicator(state.saveState)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
+                    SaveStateIndicator(state.saveState)
+                    val failedError = (state.saveState as? SaveState.Failed)?.error
+                    if (failedError == com.giraffe.matn.domain.error.RemoteError.Conflict) {
+                        TextButton(onClick = intents.onReloadAfterConflict) { Text(strings.errorConflictAction) }
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
                     OutlinedButton(onClick = intents.onCheckForProblems) { Text(strings.checkForProblems) }
                     Button(onClick = intents.onSaveDraft) { Text(strings.saveAsDraft) }
@@ -342,6 +349,7 @@ fun EditorScreen(
             uploadCoverImage = koin.get(),
             validateMatn = koin.get(),
             publishMatn = koin.get(),
+            loadMatnForEdit = koin.get(),
             newId = { Uuid.random().toString() },
             nowMillis = { Clock.System.now().toEpochMilliseconds() },
         )
@@ -372,6 +380,7 @@ fun EditorScreen(
             onConfirmPublish = viewModel::onConfirmPublish,
             onDismissPublishConfirm = viewModel::onDismissPublishConfirm,
             onProblemSelected = viewModel::onProblemSelected,
+            onReloadAfterConflict = viewModel::onReloadAfterConflict,
         ),
         modifier = modifier,
     )
@@ -398,7 +407,7 @@ private val noOpIntents = EditorIntents(
     onPickCover = {}, onRemoveCover = {}, onAddChapter = {}, onEditChapterTitle = { _, _ -> },
     onDeleteChapter = {}, onAddVerse = {}, onVerseTextChange = { _, _ -> }, onDeleteVerse = {},
     onMoveVerse = { _, _ -> }, onSaveDraft = {}, onCheckForProblems = {}, onRequestPublish = {},
-    onConfirmPublish = {}, onDismissPublishConfirm = {}, onProblemSelected = {},
+    onConfirmPublish = {}, onDismissPublishConfirm = {}, onProblemSelected = {}, onReloadAfterConflict = {},
 )
 
 @Preview

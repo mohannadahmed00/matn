@@ -1,5 +1,7 @@
 package com.giraffe.matn.data.remote.firestore
 
+import com.giraffe.matn.domain.catalog.AudioCompleteness
+import com.giraffe.matn.domain.catalog.CatalogEntry
 import com.giraffe.matn.domain.catalog.DraftChapter
 import com.giraffe.matn.domain.catalog.DraftVerse
 import com.giraffe.matn.domain.catalog.MatnDraft
@@ -73,6 +75,30 @@ fun matnDraftFromFields(id: String, fields: Map<String, FirestoreValue>, updateT
         createdAt = timestamp("createdAt"),
         updatedAt = timestamp("updatedAt"),
         remoteUpdateTime = updateTime,
+    )
+}
+
+/** The overview projection (FR-012, FR-035) read via a field mask — verse arrays never travel. */
+@OptIn(ExperimentalTime::class)
+fun catalogEntryFromFields(id: String, fields: Map<String, FirestoreValue>): CatalogEntry {
+    fun string(key: String): String = (fields[key] as? FirestoreValue.StringValue)?.value.orEmpty()
+    fun nullableString(key: String): String? = (fields[key] as? FirestoreValue.StringValue)?.value
+    fun long(key: String): Long = (fields[key] as? FirestoreValue.IntegerValue)?.value ?: 0L
+    fun timestamp(key: String): Long =
+        (fields[key] as? FirestoreValue.TimestampValue)?.value?.let { Instant.parse(it).toEpochMilliseconds() } ?: 0L
+    fun bool(key: String): Boolean = (fields[key] as? FirestoreValue.BooleanValue)?.value ?: false
+
+    return CatalogEntry(
+        id = nullableString("id") ?: id,
+        title = string("title"),
+        author = string("author"),
+        description = string("description"),
+        coverImageRef = nullableString("coverImageRef"),
+        verseCount = long("verseCount").toInt(),
+        declaredSizeBytes = long("declaredSizeBytes"),
+        publicationState = if (bool("published")) PublicationState.PUBLISHED else PublicationState.DRAFT,
+        audioCompleteness = runCatching { AudioCompleteness.valueOf(string("audioCompleteness")) }.getOrDefault(AudioCompleteness.NONE),
+        updatedAt = timestamp("updatedAt"),
     )
 }
 

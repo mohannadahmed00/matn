@@ -102,4 +102,23 @@ class FirestoreRestClientTest {
 
         assertEquals(Resource.Failure(RemoteError.Conflict), result)
     }
+
+    @Test
+    fun `a save with a stale updateTime yields Conflict and does not retry automatically`() = runTest {
+        var requestCount = 0
+        val engine = MockEngine { _ ->
+            requestCount++
+            respond(
+                """{"error":{"code":400,"message":"the stored version is stale","status":"FAILED_PRECONDITION"}}""",
+                HttpStatusCode.BadRequest,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = FirestoreRestClient(createHttpClient(engine), config, freshTokenRefresher())
+
+        val result = client.patchDocument("matns/m1", mapOf("title" to FirestoreValue.StringValue("T")), updateTimePrecondition = "stale-token")
+
+        assertEquals(Resource.Failure(RemoteError.Conflict), result)
+        assertEquals(1, requestCount)
+    }
 }

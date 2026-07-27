@@ -11,6 +11,7 @@ import com.giraffe.matn.domain.catalog.VerseOrdering
 import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.model.StructureKind
+import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
 import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
@@ -53,6 +54,7 @@ class EditorViewModel(
     private val uploadCoverImage: UploadCoverImageUseCase,
     private val validateMatn: ValidateMatnUseCase,
     private val publishMatn: PublishMatnUseCase,
+    private val loadMatnForEdit: LoadMatnForEditUseCase,
     private val newId: () -> String,
     private val nowMillis: () -> Long,
 ) : BaseViewModel<EditorUiState>(EditorUiState(draft = initialDraft)) {
@@ -130,13 +132,24 @@ class EditorViewModel(
     /** FR-018: the field-level required-check for a draft save — distinct from full validation,
      * which is the publish-time gate (`contracts/validation-contract.md` §5). `structureKind` is a
      * non-null enum defaulted by [MatnDraftFactory], so it can never be blank the way title/author
-     * can; the check is kept here for FR-018 completeness. */
+     * can; the check is kept here for FR-018 completeness.
+     *
+     * FR-030's second clause: a **published** matn must never be saved down to zero verses —
+     * deleting every verse from a published matn would otherwise leave students an empty published
+     * matn. Refused with the same [ContentIntegrityError.EmptyMatn] message the validation panel
+     * already knows how to render, rather than a second ad hoc error surface. */
     fun onSaveDraft() {
         val draft = stateValue.draft
         val missingTitle = draft.title.isBlank()
         val missingAuthor = draft.author.isBlank()
         if (missingTitle || missingAuthor) {
             setState { it.copy(missingTitle = missingTitle, missingAuthor = missingAuthor) }
+            return
+        }
+        if (draft.publicationState == PublicationState.PUBLISHED && draft.verses.isEmpty()) {
+            setState {
+                it.copy(validation = ValidationReport(blocking = listOf(ContentIntegrityError.EmptyMatn(draft.id)), deferred = emptyList()))
+            }
             return
         }
         setState { it.copy(saveState = SaveState.Saving) }
@@ -179,6 +192,19 @@ class EditorViewModel(
                     else -> setState { it.copy(saveState = SaveState.Failed(RemoteError.Decode)) }
                 }
             },
+        )
+    }
+
+    /** FR-037/FR-043: a conflicting save is reported, never silently overwritten. This is the
+     * "Reload" action `messageFor`/`actionFor` offer for [RemoteError.Conflict] — re-fetches the
+     * server's current version and replaces the on-screen draft with it. */
+    fun onReloadAfterConflict() {
+        setState { it.copy(saveState = SaveState.Idle) }
+        runUseCase(
+            useCase = loadMatnForEdit,
+            params = stateValue.draft.id,
+            onSuccess = { reloaded -> setState { it.copy(draft = reloaded, validation = null) } },
+            onError = { error -> setState { it.copy(saveState = SaveState.Failed(error as? RemoteError ?: RemoteError.Decode)) } },
         )
     }
 
