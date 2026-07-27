@@ -355,11 +355,11 @@ sign-out revokes write access.
 
 ### Tests for User Story 1
 
-- [ ] T034 [P] [US1] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/IdentityToolkitClientTest.kt`
+- [X] T034 [P] [US1] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/IdentityToolkitClientTest.kt`
       using Ktor `MockEngine`: assert the `accounts:signInWithPassword` request shape (method, path,
       `key` query parameter, JSON body), and assert each `error.message` in
       `contracts/rest-contract.md` §3.2 maps to the right `RemoteError`.
-- [ ] T035 [P] [US1] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/TokenRefresherTest.kt`
+- [X] T035 [P] [US1] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/TokenRefresherTest.kt`
       with an injected clock: refresh happens inside the 5-minute pre-expiry window; two concurrent
       callers cause exactly one refresh; `INVALID_REFRESH_TOKEN` clears the `SecretStore` and yields
       `RemoteError.Unauthorized`.
@@ -369,17 +369,17 @@ sign-out revokes write access.
 
 ### Implementation for User Story 1
 
-- [ ] T037 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/auth/TeacherSession.kt`
+- [X] T037 [P] [US1] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/auth/TeacherSession.kt`
       — the `data class` in `data-model.md` §8.
-- [ ] T038 [P] [US1] Create
+- [X] T038 [P] [US1] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/auth/TeacherAuthRepository.kt` — the
       interface exactly as in `data-model.md` §9.
-- [ ] T039 [US1] Create
+- [X] T039 [US1] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/identity/IdentityToolkitClient.kt`
       with `suspend fun signInWithPassword(email: String, password: String): Resource<TeacherSession>`
       and `suspend fun refresh(refreshToken: String): Resource<TeacherSession>`, per
       `contracts/rest-contract.md` §3.1 and §3.3.
-- [ ] T040 [US1] Create
+- [X] T040 [US1] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/identity/TokenRefresher.kt` holding
       the current session in memory, refreshing when within 5 minutes of expiry, single-flight under
       concurrent callers (use a `Mutex`), and exposing `suspend fun currentIdToken(): Resource<String>`.
@@ -390,12 +390,12 @@ sign-out revokes write access.
       `find-generic-password` / `delete-generic-password`; Linux via `secret-tool` when on `PATH`;
       otherwise an owner-readable file with `isProtected = false`. Detect the OS from
       `System.getProperty("os.name")`.
-- [ ] T042 [US1] Create
+- [X] T042 [US1] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/IdentityTeacherAuthRepository.kt`
       implementing `TeacherAuthRepository` over `IdentityToolkitClient`, `TokenRefresher`, and
       `SecretStore`. **Persist the refresh token only**, and only after a successful sign-in. Sign-out
       clears the store and emits `null` from `observeSession()`.
-- [ ] T043 [P] [US1] Create three use cases in
+- [X] T043 [P] [US1] Create three use cases in
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/`: `SignInUseCase.kt`,
       `SignOutUseCase.kt`, `RestoreSessionUseCase.kt`, each implementing the `UseCase` contract from
       `core/usecase/UseCase.kt`.
@@ -420,7 +420,7 @@ sign-out revokes write access.
       `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/SignInViewModelTest.kt` with a fake
       `TeacherAuthRepository`: success sets the session; failure surfaces the error and leaves the
       typed email in state.
-- [ ] T048a [P] [US1] Create
+- [X] T048a [P] [US1] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/usecase/AuthUseCaseTest.kt` covering all three
       US1 use cases against a fake `TeacherAuthRepository` and a fake `SecretStore` (Principle V —
       new domain behaviour must land with tests): `SignInUseCase` returns the session on success and
