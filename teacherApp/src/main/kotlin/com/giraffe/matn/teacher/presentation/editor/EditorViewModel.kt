@@ -4,6 +4,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.catalog.DraftAutosaveScheduler
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.MatnDraftFactory
+import com.giraffe.matn.domain.catalog.VerseOrdering
 import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
@@ -74,6 +75,31 @@ class EditorViewModel(
             chapters = draft.chapters.filterNot { it.id == chapterId },
             verses = draft.verses.map { verse -> if (verse.chapterId == chapterId) verse.copy(chapterId = null) else verse },
         )
+    }
+
+    // ---- Verses (US3) — every reorder/add/delete goes through VerseOrdering so numbering
+    // (`displayNumber`, 1..n with no gaps) cannot drift (FR-019, FR-020). ----
+
+    fun onAddVerse() = mutateDraft { draft ->
+        val verse = MatnDraftFactory.newVerse(newId = newId, displayNumber = draft.verses.size + 1)
+        draft.copy(verses = VerseOrdering.append(draft.verses, verse))
+    }
+
+    fun onVerseTextChange(verseId: String, text: String) = mutateDraft { draft ->
+        draft.copy(verses = draft.verses.map { verse -> if (verse.id == verseId) verse.copy(arabicText = text) else verse })
+    }
+
+    fun onDeleteVerse(verseId: String) = mutateDraft { draft ->
+        val index = draft.verses.indexOfFirst { it.id == verseId }
+        if (index < 0) draft else draft.copy(verses = VerseOrdering.removeAt(draft.verses, index))
+    }
+
+    fun onMoveVerse(from: Int, to: Int) = mutateDraft { draft -> draft.copy(verses = VerseOrdering.move(draft.verses, from, to)) }
+
+    /** A non-existent [chapterId] is rejected — the draft is returned unchanged. */
+    fun onAssignChapter(verseId: String, chapterId: String?) = mutateDraft { draft ->
+        if (chapterId != null && draft.chapters.none { it.id == chapterId }) return@mutateDraft draft
+        draft.copy(verses = draft.verses.map { verse -> if (verse.id == verseId) verse.copy(chapterId = chapterId) else verse })
     }
 
     fun onCoverPicked(bytes: ByteArray, ext: String) {

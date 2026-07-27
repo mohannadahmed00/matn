@@ -537,35 +537,35 @@ numbering, and text survive.
 
 ### Tests for User Story 3
 
-- [ ] T062 [P] [US3] Create `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/VerseOrderingTest.kt`:
+- [X] T062 [P] [US3] Create `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/VerseOrderingTest.kt`:
       move forward, move backward, move to first, move to last, delete from the middle, add at the
       end — each asserting display numbers are exactly `1..n` with no gaps afterwards.
 
 ### Implementation for User Story 3
 
-- [ ] T063 [US3] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/VerseOrdering.kt`
+- [X] T063 [US3] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/VerseOrdering.kt`
       with pure functions `move(verses: List<DraftVerse>, from: Int, to: Int): List<DraftVerse>`,
       `renumber(verses: List<DraftVerse>): List<DraftVerse>`,
       `removeAt(verses: List<DraftVerse>, index: Int): List<DraftVerse>`, and
       `append(verses: List<DraftVerse>, verse: DraftVerse): List<DraftVerse>`. No Compose, no
       Android, no I/O.
-- [ ] T064 [US3] Create
+- [X] T064 [US3] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/common/VerseRow.kt` — a
       **stateless** row taking `(verse, isFlagged, onTextChange, onDelete, onMoveUp, onMoveDown, dragHandleModifier)`.
       Arabic text field renders RTL regardless of interface language (FR-021). `@Preview`: normal,
       focused, flagged — in both directions.
-- [ ] T065 [US3] Add the verse-list region to `EditorContent` in
+- [X] T065 [US3] Add the verse-list region to `EditorContent` in
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/editor/EditorScreen.kt`: a
       `LazyColumn` keyed by `verse.id`, an "add verse" action, a drag handle using
       `Modifier.pointerInput`, and move-up/move-down buttons as the keyboard-accessible equivalent.
       **All verse text state lives in the ViewModel** — the row must not hold its own mutable text
       state, or a 500-verse list will stutter (FR-025). **Requires T033a** — the verse-list region has
       a canonical design.
-- [ ] T066 [US3] Add verse intents to `EditorViewModel`: `onAddVerse`, `onVerseTextChange(id, text)`
+- [X] T066 [US3] Add verse intents to `EditorViewModel`: `onAddVerse`, `onVerseTextChange(id, text)`
       (debounced into state), `onDeleteVerse(id)`, `onMoveVerse(from, to)`,
       `onAssignChapter(verseId, chapterId)`. Every reorder/add/delete goes through `VerseOrdering`
       so numbering cannot drift.
-- [ ] T067 [P] [US3] Add tests to
+- [X] T067 [P] [US3] Add tests to
       `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/EditorViewModelTest.kt`: adding, editing,
       reordering, and deleting verses produce the expected state, and chapter assignment rejects a
       non-existent chapter id.

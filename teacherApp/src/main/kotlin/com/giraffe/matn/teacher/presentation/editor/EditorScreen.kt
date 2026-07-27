@@ -1,6 +1,7 @@
 package com.giraffe.matn.teacher.presentation.editor
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,9 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -19,8 +19,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +42,7 @@ import com.giraffe.matn.teacher.platform.JvmFileChooser
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.common.SaveStateIndicator
 import com.giraffe.matn.teacher.presentation.common.TeacherTextField
+import com.giraffe.matn.teacher.presentation.common.VerseRow
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
 import com.giraffe.matn.teacher.presentation.strings.TeacherLanguage
 import kotlin.time.Clock
@@ -44,22 +50,28 @@ import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-/** `contracts/teacher-ui-contract.md` §3.4. Metadata + chapters this phase; verses in Phase 5. */
+/** Every editor intent, bundled so `EditorContent`'s signature grows without a wall of positional
+ * lambdas (Phase 6/7 add publish/unpublish/import intents here rather than to the call site). */
+data class EditorIntents(
+    val onTitleChange: (String) -> Unit,
+    val onAuthorChange: (String) -> Unit,
+    val onDescriptionChange: (String) -> Unit,
+    val onStructureKindChange: (StructureKind) -> Unit,
+    val onPickCover: () -> Unit,
+    val onRemoveCover: () -> Unit,
+    val onAddChapter: (String) -> Unit,
+    val onEditChapterTitle: (String, String) -> Unit,
+    val onDeleteChapter: (String) -> Unit,
+    val onAddVerse: () -> Unit,
+    val onVerseTextChange: (String, String) -> Unit,
+    val onDeleteVerse: (String) -> Unit,
+    val onMoveVerse: (Int, Int) -> Unit,
+    val onSaveDraft: () -> Unit,
+)
+
+/** `contracts/teacher-ui-contract.md` §3.4. Metadata, chapters, and the verse list. */
 @Composable
-fun EditorContent(
-    state: EditorUiState,
-    onTitleChange: (String) -> Unit,
-    onAuthorChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit,
-    onStructureKindChange: (StructureKind) -> Unit,
-    onPickCover: () -> Unit,
-    onRemoveCover: () -> Unit,
-    onAddChapter: (String) -> Unit,
-    onEditChapterTitle: (String, String) -> Unit,
-    onDeleteChapter: (String) -> Unit,
-    onSaveDraft: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifier = Modifier) {
     val strings = LocalTeacherStrings.current
     val draft = state.draft
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -82,6 +94,7 @@ fun EditorContent(
                 )
             }
 
+            // Keyed by verse id — reorder/delete must not remount unrelated rows (FR-025).
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MatnSpacing.gutter)) {
                 item {
                     Column(
@@ -95,38 +108,75 @@ fun EditorContent(
 
                         TeacherTextField(
                             value = draft.title,
-                            onValueChange = onTitleChange,
+                            onValueChange = intents.onTitleChange,
                             label = strings.matnTitleLabel,
                             placeholder = strings.matnTitlePlaceholder,
                             isError = state.missingTitle,
                         )
                         TeacherTextField(
                             value = draft.author,
-                            onValueChange = onAuthorChange,
+                            onValueChange = intents.onAuthorChange,
                             label = strings.authorLabel,
                             placeholder = strings.authorPlaceholder,
                             isError = state.missingAuthor,
                         )
                         TeacherTextField(
                             value = draft.description,
-                            onValueChange = onDescriptionChange,
+                            onValueChange = intents.onDescriptionChange,
                             label = strings.descriptionLabel,
                             placeholder = strings.descriptionPlaceholder,
                             singleLine = false,
                         )
 
-                        StructureKindPicker(draft.structureKind, onStructureKindChange)
+                        StructureKindPicker(draft.structureKind, intents.onStructureKindChange)
                     }
                 }
 
                 item {
-                    CoverArtCard(draft.coverImageRef, onPickCover, onRemoveCover)
+                    CoverArtCard(draft.coverImageRef, intents.onPickCover, intents.onRemoveCover)
                 }
 
                 if (draft.structureKind == StructureKind.STRUCTURED) {
                     item {
-                        ChaptersSection(draft.chapters, onAddChapter, onEditChapterTitle, onDeleteChapter)
+                        ChaptersSection(draft.chapters, intents.onAddChapter, intents.onEditChapterTitle, intents.onDeleteChapter)
                     }
+                }
+
+                item {
+                    VerseListHeader(onAddVerse = intents.onAddVerse)
+                }
+
+                itemsIndexed(draft.verses, key = { _, verse -> verse.id }) { index, verse ->
+                    val rowHeightPx = with(LocalDensity.current) { (MatnSpacing.unit * 7).toPx() }
+                    var dragAccumPx by remember(verse.id) { mutableFloatStateOf(0f) }
+                    VerseRow(
+                        verse = verse,
+                        isFlagged = false,
+                        onTextChange = { text -> intents.onVerseTextChange(verse.id, text) },
+                        onDelete = { intents.onDeleteVerse(verse.id) },
+                        onMoveUp = { if (index > 0) intents.onMoveVerse(index, index - 1) },
+                        onMoveDown = { if (index < draft.verses.lastIndex) intents.onMoveVerse(index, index + 1) },
+                        dragHandleModifier = Modifier.pointerInput(verse.id, draft.verses.size) {
+                            detectDragGestures(
+                                onDragEnd = { dragAccumPx = 0f },
+                                onDragCancel = { dragAccumPx = 0f },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragAccumPx += dragAmount.y
+                                    when {
+                                        dragAccumPx > rowHeightPx && index < draft.verses.lastIndex -> {
+                                            intents.onMoveVerse(index, index + 1)
+                                            dragAccumPx = 0f
+                                        }
+                                        dragAccumPx < -rowHeightPx && index > 0 -> {
+                                            intents.onMoveVerse(index, index - 1)
+                                            dragAccumPx = 0f
+                                        }
+                                    }
+                                },
+                            )
+                        },
+                    )
                 }
             }
 
@@ -136,9 +186,22 @@ fun EditorContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SaveStateIndicator(state.saveState)
-                Button(onClick = onSaveDraft) { Text(strings.saveAsDraft) }
+                Button(onClick = intents.onSaveDraft) { Text(strings.saveAsDraft) }
             }
         }
+    }
+}
+
+@Composable
+private fun VerseListHeader(onAddVerse: () -> Unit) {
+    val strings = LocalTeacherStrings.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(strings.verseListHeading, style = MaterialTheme.typography.titleMedium)
+        TextButton(onClick = onAddVerse) { Text(strings.addVerse) }
     }
 }
 
@@ -241,19 +304,25 @@ fun EditorScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     EditorContent(
         state = state,
-        onTitleChange = viewModel::onTitleChange,
-        onAuthorChange = viewModel::onAuthorChange,
-        onDescriptionChange = viewModel::onDescriptionChange,
-        onStructureKindChange = viewModel::onStructureKindChange,
-        onPickCover = {
-            val bytes = JvmFileChooser.pickImage()
-            if (bytes != null) viewModel.onCoverPicked(bytes, "png")
-        },
-        onRemoveCover = viewModel::onRemoveCover,
-        onAddChapter = viewModel::onAddChapter,
-        onEditChapterTitle = viewModel::onEditChapterTitle,
-        onDeleteChapter = viewModel::onDeleteChapter,
-        onSaveDraft = viewModel::onSaveDraft,
+        intents = EditorIntents(
+            onTitleChange = viewModel::onTitleChange,
+            onAuthorChange = viewModel::onAuthorChange,
+            onDescriptionChange = viewModel::onDescriptionChange,
+            onStructureKindChange = viewModel::onStructureKindChange,
+            onPickCover = {
+                val bytes = JvmFileChooser.pickImage()
+                if (bytes != null) viewModel.onCoverPicked(bytes, "png")
+            },
+            onRemoveCover = viewModel::onRemoveCover,
+            onAddChapter = viewModel::onAddChapter,
+            onEditChapterTitle = viewModel::onEditChapterTitle,
+            onDeleteChapter = viewModel::onDeleteChapter,
+            onAddVerse = viewModel::onAddVerse,
+            onVerseTextChange = viewModel::onVerseTextChange,
+            onDeleteVerse = viewModel::onDeleteVerse,
+            onMoveVerse = viewModel::onMoveVerse,
+            onSaveDraft = viewModel::onSaveDraft,
+        ),
         modifier = modifier,
     )
 }
@@ -274,26 +343,33 @@ private fun previewDraft(structureKind: StructureKind = StructureKind.SIMPLE) = 
     remoteUpdateTime = null,
 )
 
+private val noOpIntents = EditorIntents(
+    onTitleChange = {}, onAuthorChange = {}, onDescriptionChange = {}, onStructureKindChange = {},
+    onPickCover = {}, onRemoveCover = {}, onAddChapter = {}, onEditChapterTitle = { _, _ -> },
+    onDeleteChapter = {}, onAddVerse = {}, onVerseTextChange = { _, _ -> }, onDeleteVerse = {},
+    onMoveVerse = { _, _ -> }, onSaveDraft = {},
+)
+
 @Preview
 @Composable
 private fun EditorNewDraftArabicPreview() = PreviewScaffold(TeacherLanguage.ARABIC) {
-    EditorContent(EditorUiState(previewDraft()), {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+    EditorContent(EditorUiState(previewDraft()), noOpIntents)
 }
 
 @Preview
 @Composable
 private fun EditorNewDraftEnglishPreview() = PreviewScaffold(TeacherLanguage.ENGLISH) {
-    EditorContent(EditorUiState(previewDraft()), {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+    EditorContent(EditorUiState(previewDraft()), noOpIntents)
 }
 
 @Preview
 @Composable
 private fun EditorLoadedStructuredArabicPreview() = PreviewScaffold(TeacherLanguage.ARABIC) {
-    EditorContent(EditorUiState(previewDraft(StructureKind.STRUCTURED)), {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+    EditorContent(EditorUiState(previewDraft(StructureKind.STRUCTURED)), noOpIntents)
 }
 
 @Preview
 @Composable
 private fun EditorLoadedStructuredEnglishPreview() = PreviewScaffold(TeacherLanguage.ENGLISH) {
-    EditorContent(EditorUiState(previewDraft(StructureKind.STRUCTURED)), {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+    EditorContent(EditorUiState(previewDraft(StructureKind.STRUCTURED)), noOpIntents)
 }

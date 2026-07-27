@@ -55,13 +55,16 @@ class EditorViewModelTest {
     @AfterTest
     fun tearDown() { Dispatchers.resetMain() }
 
-    private fun newViewModel(repo: CatalogRepository, draft: MatnDraft = newDraft()): EditorViewModel = EditorViewModel(
-        initialDraft = draft,
-        saveDraft = SaveDraftUseCase(repo),
-        uploadCoverImage = UploadCoverImageUseCase(repo),
-        newId = { "gen-id" },
-        nowMillis = { 0L },
-    )
+    private fun newViewModel(repo: CatalogRepository, draft: MatnDraft = newDraft()): EditorViewModel {
+        var counter = 0
+        return EditorViewModel(
+            initialDraft = draft,
+            saveDraft = SaveDraftUseCase(repo),
+            uploadCoverImage = UploadCoverImageUseCase(repo),
+            newId = { "gen-id-${counter++}" },
+            nowMillis = { 0L },
+        )
+    }
 
     @Test
     fun `a failed save preserves on-screen state and reports the error`() = runTest {
@@ -107,5 +110,69 @@ class EditorViewModelTest {
 
         assertTrue(vm.state.value.missingAuthor)
         assertEquals(0, repo.saveCallCount)
+    }
+
+    @Test
+    fun `adding a verse appends it with the next display number`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+
+        vm.onAddVerse()
+        vm.onAddVerse()
+
+        val verses = vm.state.value.draft.verses
+        assertEquals(listOf(1, 2), verses.map { it.displayNumber })
+    }
+
+    @Test
+    fun `editing a verse's text updates only that verse`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onAddVerse()
+        val secondId = vm.state.value.draft.verses[1].id
+
+        vm.onVerseTextChange(secondId, "نص جديد")
+
+        val verses = vm.state.value.draft.verses
+        assertEquals("", verses[0].arabicText)
+        assertEquals("نص جديد", verses[1].arabicText)
+    }
+
+    @Test
+    fun `reordering verses renumbers 1 through n`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onAddVerse()
+        vm.onAddVerse()
+
+        vm.onMoveVerse(0, 2)
+
+        val verses = vm.state.value.draft.verses
+        assertEquals(listOf(1, 2, 3), verses.map { it.displayNumber })
+    }
+
+    @Test
+    fun `deleting a verse leaves no numbering gap`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onAddVerse()
+        vm.onAddVerse()
+        val secondId = vm.state.value.draft.verses[1].id
+
+        vm.onDeleteVerse(secondId)
+
+        val verses = vm.state.value.draft.verses
+        assertEquals(2, verses.size)
+        assertEquals(listOf(1, 2), verses.map { it.displayNumber })
+    }
+
+    @Test
+    fun `assigning a nonexistent chapter id is rejected`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        val verseId = vm.state.value.draft.verses[0].id
+
+        vm.onAssignChapter(verseId, "no-such-chapter")
+
+        assertEquals(null, vm.state.value.draft.verses[0].chapterId)
     }
 }
