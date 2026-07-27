@@ -84,20 +84,20 @@ failure.
 
 **Purpose**: Make the build know about the new module and dependencies.
 
-- [ ] T001 Add Ktor and JNA entries to `gradle/libs.versions.toml`: under `[versions]` add
+- [X] T001 Add Ktor and JNA entries to `gradle/libs.versions.toml`: under `[versions]` add
       `ktor = "3.2.3"` and `jna = "5.6.0"`; under `[libraries]` add `ktor-client-core`
       (`io.ktor:ktor-client-core`), `ktor-client-cio` (`io.ktor:ktor-client-cio`),
       `ktor-client-contentNegotiation` (`io.ktor:ktor-client-content-negotiation`),
       `ktor-serialization-json` (`io.ktor:ktor-serialization-kotlinx-json`), `ktor-client-mock`
       (`io.ktor:ktor-client-mock`), all `version.ref = "ktor"`; and `jna-platform`
       (`net.java.dev.jna:jna-platform`, `version.ref = "jna"`).
-- [ ] T002 Add Ktor to `shared/build.gradle.kts`: `commonMain.dependencies` gets
+- [X] T002 Add Ktor to `shared/build.gradle.kts`: `commonMain.dependencies` gets
       `libs.ktor.client.core`, `libs.ktor.client.cio`, `libs.ktor.client.contentNegotiation`,
       `libs.ktor.serialization.json`; `commonTest.dependencies` gets `libs.ktor.client.mock`.
       Do not add an engine to any platform source set — CIO covers every target.
-- [ ] T003 Add `include(":teacherApp")` to `settings.gradle.kts`, directly after
+- [X] T003 Add `include(":teacherApp")` to `settings.gradle.kts`, directly after
       `include(":desktopApp")`.
-- [ ] T004 Create `teacherApp/build.gradle.kts` by copying `desktopApp/build.gradle.kts` and
+- [X] T004 Create `teacherApp/build.gradle.kts` by copying `desktopApp/build.gradle.kts` and
       changing: `mainClass = "com.giraffe.matn.teacher.TeacherMainKt"`,
       `packageName = "com.giraffe.matn.teacher"`. Add to `dependencies`: `project(":shared")`,
       `compose.desktop.currentOs`, `libs.kotlinx.coroutinesSwing`, `libs.compose.uiToolingPreview`,
@@ -118,10 +118,10 @@ failure.
       plugin misbehaves on a JVM-only module, drop the plugin and write `TeacherModule` (T030) as a
       hand-written Koin DSL `module { single { … } }` instead — functionally identical here, since
       T030 uses explicit provider functions rather than a component scan.
-- [ ] T005 [P] Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/TeacherMain.kt` with
+- [X] T005 [P] Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/TeacherMain.kt` with
       `fun main() = application { Window(onCloseRequest = ::exitApplication, title = "Matn — Teacher") { Text("Teacher portal") } }`.
       Placeholder only; T030 replaces the body.
-- [ ] T006 [P] Create the `firebase/` directory at the repo root with: `firebase.json` (pointing
+- [X] T006 [P] Create the `firebase/` directory at the repo root with: `firebase.json` (pointing
       `firestore.rules` → `firestore.rules`, `storage.rules` → `storage.rules`, and emulator ports
       auth 9099 / firestore 8080 / storage 9199), and `firebase.local.properties.template`
       containing empty `projectId=`, `apiKey=`, `storageBucket=`. Add

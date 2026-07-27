@@ -50,3 +50,6 @@ hs_err_pid*
 # AI assistant / tool config — kept local, not tracked
 .claude/
 .opencode/
+
+# Firebase project config — no secrets in the repo (research D13)
+firebase/firebase.local.properties
