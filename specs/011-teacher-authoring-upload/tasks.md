@@ -145,25 +145,25 @@ T018 until T017 is green.
 Read `contracts/validation-contract.md` before starting this group. Read
 `data-model.md` §1–§6 for exact field lists.
 
-- [ ] T007 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/MatnDraft.kt`
+- [X] T007 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/MatnDraft.kt`
       with four `data class`es — `MatnDraft`, `DraftChapter`, `DraftVerse`, `DraftAudio` — using
       exactly the fields in `data-model.md` §1–§3. Reuse the existing
       `com.giraffe.matn.domain.model.StructureKind` enum; do not declare a new one. Add computed
       properties `verseCount` (= `verses.size`) and `declaredSizeBytes`.
-- [ ] T008 [P] Create
+- [X] T008 [P] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/PublicationState.kt`:
       `enum class PublicationState { DRAFT, PUBLISHED }`.
-- [ ] T009 [P] Create
+- [X] T009 [P] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/AudioCompleteness.kt`:
       `enum class AudioCompleteness { NONE, PARTIAL, COMPLETE }` with
       `companion object { fun of(verses: List<DraftVerse>): AudioCompleteness }` per `data-model.md`
       §4. Empty list ⇒ `NONE`.
-- [ ] T010 Add two cases to the existing sealed interface in
+- [X] T010 Add two cases to the existing sealed interface in
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/error/ContentIntegrityError.kt`:
       `data class EmptyMatn(val matnId: String)` and
       `data class DocumentTooLarge(val matnId: String, val bytes: Long, val limitBytes: Long)`.
       Add only; change nothing existing.
-- [ ] T011 Create
+- [X] T011 Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/ContentIntegrityValidator.kt`
       with `fun validate(draft: MatnDraft): ValidationReport`. **Move** — do not rewrite — the eight
       rule blocks currently in the `private fun validate(payload: SeedMatn)` of
@@ -174,13 +174,13 @@ Read `contracts/validation-contract.md` before starting this group. Read
       (`EmptyMatn` when `verses.isEmpty()`) and V9 (`DocumentTooLarge` when estimated size
       > 900_000 bytes). Route `MissingAudio` and `DuplicateAudioRef` into `deferred`; everything
       else into `blocking`.
-- [ ] T012 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/ValidationReport.kt`:
+- [X] T012 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/ValidationReport.kt`:
       `data class ValidationReport(val blocking: List<ContentIntegrityError>, val deferred: List<ContentIntegrityError>) { val canPublish: Boolean get() = blocking.isEmpty(); val all: List<ContentIntegrityError> get() = blocking + deferred }`.
-- [ ] T013 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/seed/SeedMatnProjection.kt` with
+- [X] T013 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/seed/SeedMatnProjection.kt` with
       `fun SeedMatn.toDraft(): MatnDraft` and `fun MatnDraft.toSeedMatn(packId: String = "", declaredSizeBytes: Long = 0L): SeedMatn`.
       Map every field per `data-model.md` §11. `packId` and `isStarter` are not authored — leave at
       their defaults.
-- [ ] T013a Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/MatnDraftFactory.kt`
+- [X] T013a Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/MatnDraftFactory.kt`
       — the **only** place a new matn comes into existence. Provide
       `const val INSTITUTIONAL_RECITER_ID` (a fixed UUID string, the FR-007a constant) and
       `fun newDraft(newId: () -> String, nowMillis: () -> Long, title: String = "", author: String = "", structureKind: StructureKind = StructureKind.SIMPLE): MatnDraft`
@@ -191,28 +191,28 @@ Read `contracts/validation-contract.md` before starting this group. Read
       that is what makes them testable, and it matches how `ContentModule.kt` already passes
       `newId`/`clock` into `BookmarkRepositoryImpl`. Callers in `:teacherApp` pass
       `{ Uuid.random().toString() }` and `{ Clock.System.now().toEpochMilliseconds() }`.
-- [ ] T013b [P] Create
+- [X] T013b [P] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/MatnDraftFactoryTest.kt`: two
       `newDraft()` calls produce **distinct** ids; `defaultReciterId` is never blank and is identical
       across calls (FR-007a); `createdAt == updatedAt` on a fresh draft; a fresh draft is `DRAFT` with
       `remoteUpdateTime == null` (FR-008, FR-010).
-- [ ] T014 Change the `private fun validate(payload: SeedMatn)` in
+- [X] T014 Change the `private fun validate(payload: SeedMatn)` in
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/seed/ContentSeedLoaderImpl.kt` to a
       three-line body: `payload.toDraft()`, call `ContentIntegrityValidator.validate(...)`, return
       `report.all`. **The loader treats every problem as blocking, exactly as today** — return
       `blocking + deferred`, not just `blocking`. Delete the moved rule code. Do not change the
       method's signature, its callers, or anything else in the file.
-- [ ] T015 [P] Create
+- [X] T015 [P] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/ContentIntegrityValidatorTest.kt` with
       one test per rule V1–V9 (nine tests), each asserting the specific error type lands in the
       correct bucket. Add a tenth: a valid text-only matn ⇒ `blocking` empty, `deferred` holds one
       `MissingAudio` per verse, `canPublish == true`. Add four more for `AudioCompleteness.of()` —
       empty list ⇒ `NONE`, no verse with audio ⇒ `NONE`, some ⇒ `PARTIAL`, all ⇒ `COMPLETE` — which
       is what SC-007 measures and what Phase 13 relies on to decide student visibility.
-- [ ] T016 [P] Create `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/SeedMatnProjectionTest.kt`
+- [X] T016 [P] Create `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/SeedMatnProjectionTest.kt`
       asserting `SeedMatn → MatnDraft → SeedMatn` round-trips every field, for both a `SIMPLE` and a
       `STRUCTURED` matn.
-- [ ] T017 **Regression gate.** Run `./gradlew :shared:jvmTest :shared:testDebugUnitTest` — **not**
+- [X] T017 **Regression gate.** Run `./gradlew :shared:jvmTest :shared:testDebugUnitTest` — **not**
       `:shared:allTests`, whose `iosArm64`/`iosSimulatorArm64` test tasks cannot execute on Windows and
       will either fail for an unrelated reason or silently skip. (`allTests` is the macOS/CI form; use
       it there.) The pre-existing files

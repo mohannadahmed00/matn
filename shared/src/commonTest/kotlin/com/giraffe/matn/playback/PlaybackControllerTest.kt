@@ -212,16 +212,16 @@ class PlaybackControllerTest {
         ctrl.playFromStart("matn-1")
         engine.emit(AudioEngineEvent.Ready)
 
-        val beforeNext = currentTime
+        val beforeNext = testScheduler.currentTime
         engine.emit(AudioEngineEvent.TrackTransition(newIndex = 1))
         ctrl.next()
-        assertEquals(beforeNext, currentTime, "next() must not await a delay — the transition is synchronous")
+        assertEquals(beforeNext, testScheduler.currentTime, "next() must not await a delay — the transition is synchronous")
         // The state change is visible immediately, with no advanceTimeBy/advanceUntilIdle needed.
         assertEquals(PlaybackStatus.PLAYING, ctrl.state.value.status)
 
-        val beforePrevious = currentTime
+        val beforePrevious = testScheduler.currentTime
         ctrl.previous()
-        assertEquals(beforePrevious, currentTime, "previous() must not await a delay — the transition is synchronous")
+        assertEquals(beforePrevious, testScheduler.currentTime, "previous() must not await a delay — the transition is synchronous")
     }
 
     @Test
@@ -235,10 +235,10 @@ class PlaybackControllerTest {
         ctrl.playFromStart("matn-1")
         engine.emit(AudioEngineEvent.Ready)
         repeat(2) {
-            val before = currentTime
+            val before = testScheduler.currentTime
             engine.emit(AudioEngineEvent.TrackTransition(newIndex = it + 1))
             ctrl.next()
-            assertEquals(before, currentTime)
+            assertEquals(before, testScheduler.currentTime)
         }
     }
 
