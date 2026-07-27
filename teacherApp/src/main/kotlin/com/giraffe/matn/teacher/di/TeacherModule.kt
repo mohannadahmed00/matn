@@ -12,11 +12,13 @@ import com.giraffe.matn.domain.auth.TeacherAuthRepository
 import com.giraffe.matn.domain.catalog.CatalogRepository
 import com.giraffe.matn.domain.secret.SecretStore
 import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
+import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.RestoreSessionUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.SignInUseCase
 import com.giraffe.matn.domain.usecase.SignOutUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
+import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
 import io.ktor.client.HttpClient
 import org.koin.core.Koin
 import org.koin.core.annotation.ComponentScan
@@ -103,6 +105,12 @@ class TeacherModule {
 
     @Single
     fun uploadCoverImageUseCase(repository: CatalogRepository): UploadCoverImageUseCase = UploadCoverImageUseCase(repository)
+
+    @Single
+    fun validateMatnUseCase(): ValidateMatnUseCase = ValidateMatnUseCase()
+
+    @Single
+    fun publishMatnUseCase(repository: CatalogRepository): PublishMatnUseCase = PublishMatnUseCase(repository)
 }
 
 /** Starts a Koin instance scoped to `:teacherApp` with only [TeacherModule] — never `:shared`'s

@@ -2,7 +2,10 @@ package com.giraffe.matn.teacher.presentation.strings
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.LayoutDirection
+import com.giraffe.matn.domain.catalog.MatnDraft
+import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.domain.error.RemoteError
+import com.giraffe.matn.presentation.common.formatBytes
 
 /**
  * The teacher tool's own string table (research D5): Compose Multiplatform 1.11.1 exposes no
@@ -115,6 +118,18 @@ interface TeacherStrings {
     val errorServerMessage: String
     val errorServerAction: String
     val errorDecodeMessage: String
+
+    // Validation messages (T073, contracts/validation-contract.md §4). Name the verse number or
+    // chapter title — the teacher never sees a UUID.
+    val validationInvalidId: String // "Internal problem with %s — report this"
+    val validationDuplicateId: String
+    val validationDuplicateDisplayNumber: String // "Two verses share the number %s"
+    val validationDuplicateChapterOrder: String // "Chapters %s are at the same position"
+    val validationMissingAudio: String // "Verse %s has no recording yet"
+    val validationDuplicateAudioRef: String // "Verses %s point at the same recording"
+    val validationOrphanChapterRef: String // "Verse %s belongs to a chapter that no longer exists"
+    val validationEmptyMatn: String
+    val validationDocumentTooLarge: String // "This matn is too large to publish — %s of %s allowed"
 }
 
 /**
@@ -139,6 +154,40 @@ fun TeacherStrings.actionFor(error: RemoteError): String? = when (error) {
     RemoteError.Conflict -> errorConflictAction
     RemoteError.Server -> errorServerAction
     RemoteError.Forbidden, RemoteError.QuotaExceeded, RemoteError.Decode -> null
+}
+
+/**
+ * Maps a [ContentIntegrityError] to its teacher-facing message, resolving ids to what the teacher
+ * sees — the verse's [com.giraffe.matn.domain.catalog.DraftVerse.displayNumber] or the chapter's
+ * title — from [draft]. Never a UUID (FR-028).
+ */
+fun TeacherStrings.messageFor(error: ContentIntegrityError, draft: MatnDraft): String = when (error) {
+    is ContentIntegrityError.InvalidId -> validationInvalidId.replace("%s", error.detail)
+    is ContentIntegrityError.DuplicateId -> validationDuplicateId
+    is ContentIntegrityError.DuplicateDisplayNumber ->
+        validationDuplicateDisplayNumber.replace("%s", error.number.toString())
+    is ContentIntegrityError.DuplicateChapterOrder -> {
+        val titles = draft.chapters.filter { it.order == error.order }.joinToString(", ") { it.title }
+        validationDuplicateChapterOrder.replace("%s", titles)
+    }
+    is ContentIntegrityError.MissingAudio -> {
+        val number = draft.verses.find { it.id == error.verseId }?.displayNumber
+        validationMissingAudio.replace("%s", number?.toString().orEmpty())
+    }
+    is ContentIntegrityError.DuplicateAudioRef -> {
+        val numbers = draft.verses.filter { it.audio?.fileRef == error.fileRef }
+            .joinToString(", ") { it.displayNumber.toString() }
+        validationDuplicateAudioRef.replace("%s", numbers)
+    }
+    is ContentIntegrityError.OrphanChapterRef -> {
+        val number = draft.verses.find { it.id == error.verseId }?.displayNumber
+        validationOrphanChapterRef.replace("%s", number?.toString().orEmpty())
+    }
+    is ContentIntegrityError.StructureMismatch -> error.detail
+    is ContentIntegrityError.EmptyMatn -> validationEmptyMatn
+    is ContentIntegrityError.DocumentTooLarge ->
+        validationDocumentTooLarge.replaceFirst("%s", formatBytes(error.bytes)).replaceFirst("%s", formatBytes(error.limitBytes))
+    is ContentIntegrityError.Aggregate -> error.problems.joinToString("; ") { messageFor(it, draft) }
 }
 
 enum class TeacherLanguage {

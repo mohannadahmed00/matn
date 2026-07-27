@@ -94,4 +94,14 @@ object ArabicStrings : TeacherStrings {
     override val errorServerMessage = "مشكلة في الخادم. حاول مجددًا."
     override val errorServerAction = "إعادة المحاولة"
     override val errorDecodeMessage = "استجابة غير متوقعة — يُرجى الإبلاغ عن هذا."
+
+    override val validationInvalidId = "مشكلة داخلية في %s — يُرجى الإبلاغ عن هذا"
+    override val validationDuplicateId = "يشترك عنصران في نفس المعرّف — احذف اللاحق وأعد إضافته"
+    override val validationDuplicateDisplayNumber = "يشترك بيتان في الرقم %s"
+    override val validationDuplicateChapterOrder = "يقع الفصلان %s في نفس الموضع"
+    override val validationMissingAudio = "لا يوجد تسجيل صوتي للبيت %s بعد"
+    override val validationDuplicateAudioRef = "تشير الأبيات %s إلى نفس التسجيل"
+    override val validationOrphanChapterRef = "ينتمي البيت %s إلى فصل لم يعد موجودًا"
+    override val validationEmptyMatn = "لا يحتوي هذا المتن على أبيات بعد"
+    override val validationDocumentTooLarge = "هذا المتن أكبر من أن يُنشر — %s من %s المسموح بها"
 }

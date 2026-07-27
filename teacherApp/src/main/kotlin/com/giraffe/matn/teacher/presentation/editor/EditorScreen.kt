@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +46,8 @@ import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.common.SaveStateIndicator
 import com.giraffe.matn.teacher.presentation.common.TeacherTextField
 import com.giraffe.matn.teacher.presentation.common.VerseRow
+import com.giraffe.matn.teacher.presentation.publish.PublishConfirmDialog
+import com.giraffe.matn.teacher.presentation.publish.ValidationPanel
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
 import com.giraffe.matn.teacher.presentation.strings.TeacherLanguage
 import kotlin.time.Clock
@@ -51,7 +56,7 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /** Every editor intent, bundled so `EditorContent`'s signature grows without a wall of positional
- * lambdas (Phase 6/7 add publish/unpublish/import intents here rather than to the call site). */
+ * lambdas (later phases add import intents here rather than to the call site). */
 data class EditorIntents(
     val onTitleChange: (String) -> Unit,
     val onAuthorChange: (String) -> Unit,
@@ -67,13 +72,28 @@ data class EditorIntents(
     val onDeleteVerse: (String) -> Unit,
     val onMoveVerse: (Int, Int) -> Unit,
     val onSaveDraft: () -> Unit,
+    val onCheckForProblems: () -> Unit,
+    val onRequestPublish: () -> Unit,
+    val onConfirmPublish: () -> Unit,
+    val onDismissPublishConfirm: () -> Unit,
+    val onProblemSelected: (String) -> Unit,
 )
 
-/** `contracts/teacher-ui-contract.md` §3.4. Metadata, chapters, and the verse list. */
+/** `contracts/teacher-ui-contract.md` §3.4. Metadata, chapters, the verse list, and validation. */
 @Composable
 fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifier = Modifier) {
     val strings = LocalTeacherStrings.current
     val draft = state.draft
+    val listState = rememberLazyListState()
+
+    // Header items before the verse list, so a focused problem scrolls to the right index.
+    val headerItemCount = 3 + (if (draft.structureKind == StructureKind.STRUCTURED) 1 else 0)
+    LaunchedEffect(state.focusedProblem) {
+        val subjectId = state.focusedProblem ?: return@LaunchedEffect
+        val verseIndex = draft.verses.indexOfFirst { it.id == subjectId }
+        if (verseIndex >= 0) listState.animateScrollToItem(headerItemCount + verseIndex)
+    }
+
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(modifier = Modifier.fillMaxSize().padding(MatnSpacing.gutter)) {
             Text(text = strings.uploadNewMatnHeading, style = MaterialTheme.typography.headlineSmall)
@@ -83,7 +103,7 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 modifier = Modifier.padding(top = MatnSpacing.unit, bottom = MatnSpacing.gutter),
             )
 
-            if (draft.publicationState == PublicationState.PUBLISHED) {
+            if (state.isPublished) {
                 Text(
                     text = strings.publishedEditingBanner,
                     color = MaterialTheme.colorScheme.primary,
@@ -95,7 +115,11 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
             }
 
             // Keyed by verse id — reorder/delete must not remount unrelated rows (FR-025).
-            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MatnSpacing.gutter)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(MatnSpacing.gutter),
+            ) {
                 item {
                     Column(
                         modifier = Modifier
@@ -151,7 +175,7 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                     var dragAccumPx by remember(verse.id) { mutableFloatStateOf(0f) }
                     VerseRow(
                         verse = verse,
-                        isFlagged = false,
+                        isFlagged = state.focusedProblem == verse.id,
                         onTextChange = { text -> intents.onVerseTextChange(verse.id, text) },
                         onDelete = { intents.onDeleteVerse(verse.id) },
                         onMoveUp = { if (index > 0) intents.onMoveVerse(index, index - 1) },
@@ -178,6 +202,12 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                         },
                     )
                 }
+
+                state.validation?.let { report ->
+                    item {
+                        ValidationPanel(report = report, draft = draft, onProblemClick = intents.onProblemSelected)
+                    }
+                }
             }
 
             Row(
@@ -186,7 +216,20 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SaveStateIndicator(state.saveState)
-                Button(onClick = intents.onSaveDraft) { Text(strings.saveAsDraft) }
+                Row(horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
+                    OutlinedButton(onClick = intents.onCheckForProblems) { Text(strings.checkForProblems) }
+                    Button(onClick = intents.onSaveDraft) { Text(strings.saveAsDraft) }
+                    Button(
+                        onClick = intents.onRequestPublish,
+                        enabled = state.validation?.blocking?.isEmpty() ?: true,
+                    ) {
+                        Text(strings.publishMatn)
+                    }
+                }
+            }
+
+            if (state.showPublishConfirm) {
+                PublishConfirmDialog(onConfirm = intents.onConfirmPublish, onDismiss = intents.onDismissPublishConfirm)
             }
         }
     }
@@ -297,6 +340,8 @@ fun EditorScreen(
             initialDraft = initialDraft,
             saveDraft = koin.get(),
             uploadCoverImage = koin.get(),
+            validateMatn = koin.get(),
+            publishMatn = koin.get(),
             newId = { Uuid.random().toString() },
             nowMillis = { Clock.System.now().toEpochMilliseconds() },
         )
@@ -322,6 +367,11 @@ fun EditorScreen(
             onDeleteVerse = viewModel::onDeleteVerse,
             onMoveVerse = viewModel::onMoveVerse,
             onSaveDraft = viewModel::onSaveDraft,
+            onCheckForProblems = viewModel::onCheckForProblems,
+            onRequestPublish = viewModel::onRequestPublish,
+            onConfirmPublish = viewModel::onConfirmPublish,
+            onDismissPublishConfirm = viewModel::onDismissPublishConfirm,
+            onProblemSelected = viewModel::onProblemSelected,
         ),
         modifier = modifier,
     )
@@ -347,7 +397,8 @@ private val noOpIntents = EditorIntents(
     onTitleChange = {}, onAuthorChange = {}, onDescriptionChange = {}, onStructureKindChange = {},
     onPickCover = {}, onRemoveCover = {}, onAddChapter = {}, onEditChapterTitle = { _, _ -> },
     onDeleteChapter = {}, onAddVerse = {}, onVerseTextChange = { _, _ -> }, onDeleteVerse = {},
-    onMoveVerse = { _, _ -> }, onSaveDraft = {},
+    onMoveVerse = { _, _ -> }, onSaveDraft = {}, onCheckForProblems = {}, onRequestPublish = {},
+    onConfirmPublish = {}, onDismissPublishConfirm = {}, onProblemSelected = {},
 )
 
 @Preview
@@ -372,4 +423,26 @@ private fun EditorLoadedStructuredArabicPreview() = PreviewScaffold(TeacherLangu
 @Composable
 private fun EditorLoadedStructuredEnglishPreview() = PreviewScaffold(TeacherLanguage.ENGLISH) {
     EditorContent(EditorUiState(previewDraft(StructureKind.STRUCTURED)), noOpIntents)
+}
+
+@Preview
+@Composable
+private fun EditorPublishedEditingPreview() = PreviewScaffold(TeacherLanguage.ENGLISH) {
+    EditorContent(EditorUiState(previewDraft().copy(publicationState = PublicationState.PUBLISHED)), noOpIntents)
+}
+
+@Preview
+@Composable
+private fun EditorValidationFailedPreview() = PreviewScaffold(TeacherLanguage.ENGLISH) {
+    val draft = previewDraft()
+    EditorContent(
+        state = EditorUiState(
+            draft = draft,
+            validation = com.giraffe.matn.domain.catalog.ValidationReport(
+                blocking = listOf(com.giraffe.matn.domain.error.ContentIntegrityError.EmptyMatn(draft.id)),
+                deferred = emptyList(),
+            ),
+        ),
+        intents = noOpIntents,
+    )
 }

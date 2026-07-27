@@ -7,8 +7,10 @@ import com.giraffe.matn.domain.catalog.CatalogRepository
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.MatnDraftFactory
 import com.giraffe.matn.domain.error.RemoteError
+import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
+import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
 import com.giraffe.matn.teacher.presentation.editor.EditorViewModel
 import com.giraffe.matn.teacher.presentation.editor.SaveState
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +63,8 @@ class EditorViewModelTest {
             initialDraft = draft,
             saveDraft = SaveDraftUseCase(repo),
             uploadCoverImage = UploadCoverImageUseCase(repo),
+            validateMatn = ValidateMatnUseCase(),
+            publishMatn = PublishMatnUseCase(repo),
             newId = { "gen-id-${counter++}" },
             nowMillis = { 0L },
         )
@@ -163,6 +167,47 @@ class EditorViewModelTest {
         val verses = vm.state.value.draft.verses
         assertEquals(2, verses.size)
         assertEquals(listOf(1, 2), verses.map { it.displayNumber })
+    }
+
+    @Test
+    fun `checking for problems populates the validation report`() = runTest {
+        val draft = newDraft().copy(
+            verses = listOf(com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", null, 0L)),
+        )
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }), draft = draft)
+
+        vm.onCheckForProblems()
+
+        assertTrue(vm.state.value.validation?.canPublish == true)
+    }
+
+    @Test
+    fun `requesting publish shows the confirm dialog, and confirming an invalid draft surfaces blocking problems`() = runTest {
+        val vm = newViewModel(
+            FakeCatalogRepository(saveResult = { Resource.Success(it) }),
+            draft = newDraft().copy(verses = emptyList()),
+        )
+
+        vm.onRequestPublish()
+        assertTrue(vm.state.value.showPublishConfirm)
+
+        vm.onConfirmPublish()
+
+        assertTrue(vm.state.value.validation?.canPublish == false)
+    }
+
+    @Test
+    fun `confirming publish on a valid draft flips publicationState to PUBLISHED`() = runTest {
+        val draft = newDraft().copy(
+            verses = listOf(com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", null, 0L)),
+        )
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }), draft = draft)
+
+        vm.onRequestPublish()
+        vm.onConfirmPublish()
+
+        assertEquals(com.giraffe.matn.domain.catalog.PublicationState.PUBLISHED, vm.state.value.draft.publicationState)
+        assertTrue(vm.state.value.saveState is SaveState.Saved)
     }
 
     @Test

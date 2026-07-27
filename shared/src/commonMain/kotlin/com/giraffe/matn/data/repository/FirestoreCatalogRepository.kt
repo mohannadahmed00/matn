@@ -27,7 +27,14 @@ class FirestoreCatalogRepository(
     /** Sends [MatnDraft.remoteUpdateTime] as the write precondition and returns the draft with the
      * **new** `updateTime` from the response — omitting that makes every subsequent save report a
      * false conflict (the highest-risk mistake in this phase, per `tasks.md` Notes). */
-    override suspend fun save(draft: MatnDraft): Resource<MatnDraft> =
+    override suspend fun save(draft: MatnDraft): Resource<MatnDraft> = writeDocument(draft)
+
+    /** The same full-document write as [save] with `published` flipped in [draft] by the caller
+     * ([com.giraffe.matn.domain.usecase.PublishMatnUseCase]) — publish/unpublish are not separate
+     * endpoints, so they inherit the same atomicity and conflict check (`contracts/rest-contract.md` §5.1). */
+    override suspend fun publish(draft: MatnDraft): Resource<MatnDraft> = writeDocument(draft)
+
+    private suspend fun writeDocument(draft: MatnDraft): Resource<MatnDraft> =
         when (
             val result = firestoreClient.patchDocument(
                 path = "matns/${draft.id}",
@@ -39,8 +46,6 @@ class FirestoreCatalogRepository(
             is Resource.Success -> Resource.Success(draft.copy(remoteUpdateTime = result.data.updateTime))
             is Resource.Failure -> result
         }
-
-    override suspend fun publish(draft: MatnDraft): Resource<MatnDraft> = TODO("T072 (US4)")
 
     override suspend fun unpublish(matnId: String): Resource<MatnDraft> = TODO("T083 (US5)")
 

@@ -1,16 +1,22 @@
 package com.giraffe.matn.teacher.presentation.editor
 
+import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.catalog.DraftAutosaveScheduler
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.MatnDraftFactory
+import com.giraffe.matn.domain.catalog.PublicationState
+import com.giraffe.matn.domain.catalog.ValidationReport
 import com.giraffe.matn.domain.catalog.VerseOrdering
+import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.model.StructureKind
+import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
+import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
 import com.giraffe.matn.presentation.base.BaseViewModel
-import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 
 /** `contracts/teacher-ui-contract.md` §3.4 save-state machine. */
 sealed interface SaveState {
@@ -27,7 +33,12 @@ data class EditorUiState(
     val missingTitle: Boolean = false,
     val missingAuthor: Boolean = false,
     val coverError: String? = null,
-)
+    val validation: ValidationReport? = null,
+    val focusedProblem: String? = null,
+    val showPublishConfirm: Boolean = false,
+) {
+    val isPublished: Boolean get() = draft.publicationState == PublicationState.PUBLISHED
+}
 
 /**
  * Metadata + chapter editing (US2). Verse editing is added in Phase 5, validation/publish in
@@ -40,6 +51,8 @@ class EditorViewModel(
     initialDraft: MatnDraft,
     private val saveDraft: SaveDraftUseCase,
     private val uploadCoverImage: UploadCoverImageUseCase,
+    private val validateMatn: ValidateMatnUseCase,
+    private val publishMatn: PublishMatnUseCase,
     private val newId: () -> String,
     private val nowMillis: () -> Long,
 ) : BaseViewModel<EditorUiState>(EditorUiState(draft = initialDraft)) {
@@ -132,6 +145,40 @@ class EditorViewModel(
             params = draft,
             onSuccess = { saved -> setState { it.copy(draft = saved, saveState = SaveState.Saved(nowMillis())) } },
             onError = { error -> setState { it.copy(saveState = SaveState.Failed(error as? RemoteError ?: RemoteError.Decode)) } },
+        )
+    }
+
+    // ---- Validate and publish (US4) ----
+
+    fun onCheckForProblems() {
+        viewModelScope.launch {
+            val report = (validateMatn(stateValue.draft) as Resource.Success).data
+            setState { it.copy(validation = report) }
+        }
+    }
+
+    fun onRequestPublish() = setState { it.copy(showPublishConfirm = true) }
+    fun onDismissPublishConfirm() = setState { it.copy(showPublishConfirm = false) }
+    fun onProblemSelected(subjectId: String) = setState { it.copy(focusedProblem = subjectId) }
+
+    fun onConfirmPublish() {
+        setState { it.copy(showPublishConfirm = false, saveState = SaveState.Saving) }
+        runUseCase(
+            useCase = publishMatn,
+            params = stateValue.draft,
+            onSuccess = { published ->
+                setState { it.copy(draft = published, saveState = SaveState.Saved(nowMillis()), validation = null) }
+            },
+            onError = { error ->
+                when (error) {
+                    // Publish-time validation refused it — show the same panel `onCheckForProblems` would.
+                    is ContentIntegrityError.Aggregate -> setState {
+                        it.copy(saveState = SaveState.Idle, validation = ValidationReport(blocking = error.problems, deferred = emptyList()))
+                    }
+                    is RemoteError -> setState { it.copy(saveState = SaveState.Failed(error)) }
+                    else -> setState { it.copy(saveState = SaveState.Failed(RemoteError.Decode)) }
+                }
+            },
         )
     }
 

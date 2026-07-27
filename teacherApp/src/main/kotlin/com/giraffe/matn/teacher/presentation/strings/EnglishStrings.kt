@@ -95,4 +95,14 @@ object EnglishStrings : TeacherStrings {
     override val errorServerMessage = "Server problem. Please try again."
     override val errorServerAction = "Retry"
     override val errorDecodeMessage = "Unexpected response — please report this."
+
+    override val validationInvalidId = "Internal problem with %s — report this"
+    override val validationDuplicateId = "Two entries share an identifier — remove and re-add the later one"
+    override val validationDuplicateDisplayNumber = "Two verses share the number %s"
+    override val validationDuplicateChapterOrder = "Chapters %s are at the same position"
+    override val validationMissingAudio = "Verse %s has no recording yet"
+    override val validationDuplicateAudioRef = "Verses %s point at the same recording"
+    override val validationOrphanChapterRef = "Verse %s belongs to a chapter that no longer exists"
+    override val validationEmptyMatn = "This matn has no verses yet"
+    override val validationDocumentTooLarge = "This matn is too large to publish — %s of %s allowed"
 }

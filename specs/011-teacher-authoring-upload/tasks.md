@@ -585,11 +585,11 @@ publishes; an anonymous reader can then read it, and cannot read a draft.
 
 ### Tests for User Story 4
 
-- [ ] T068 [P] [US4] Create
+- [X] T068 [P] [US4] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/ValidateMatnUseCaseTest.kt`: an empty
       matn cannot publish; an audio-less matn **can** publish with `deferred` populated; a duplicate
       display number blocks.
-- [ ] T069 [US4] Create
+- [X] T069 [US4] Create
       `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/SecurityRulesTest.kt` implementing all 23
       cases in `contracts/security-rules.md` §3 — 17 refusals, 6 permitted — driven through this
       project's own `FirestoreRestClient` and `StorageRestClient` against the emulator. Skip via
@@ -603,37 +603,37 @@ publishes; an anonymous reader can then read it, and cannot read a draft.
 
 ### Implementation for User Story 4
 
-- [ ] T070 [P] [US4] Create
+- [X] T070 [P] [US4] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/ValidateMatnUseCase.kt` returning
       `ValidationReport`, including the V9 projected-size guard.
-- [ ] T071 [P] [US4] Create
+- [X] T071 [P] [US4] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/PublishMatnUseCase.kt`: validate
       first, refuse on any `blocking` problem, then write with `published = true`.
-- [ ] T071a [P] [US4] Create
+- [X] T071a [P] [US4] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/usecase/PublishMatnUseCaseTest.kt` against a fake
       `CatalogRepository` (Principle V): a draft with a blocking problem is refused **and no
       repository call is made**; a text-only draft with only `deferred` problems publishes; the
       published result carries `audioCompleteness == NONE`; and an empty matn is refused (FR-030).
-- [ ] T072 [US4] Implement `publish` in
+- [X] T072 [US4] Implement `publish` in
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/FirestoreCatalogRepository.kt`
       (replacing the `TODO()` from T054) — the same `patchDocument` call with `published` flipped, so
       it inherits the same atomicity and conflict check.
-- [ ] T073 [US4] Add the validation-message keys from `contracts/validation-contract.md` §4 to
+- [X] T073 [US4] Add the validation-message keys from `contracts/validation-contract.md` §4 to
       `TeacherStrings`, `ArabicStrings`, and `EnglishStrings`. Messages name the **verse number or
       chapter title**, never a UUID.
-- [ ] T074 [P] [US4] Create
+- [X] T074 [P] [US4] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/common/ProblemRow.kt` — a
       stateless row with a click callback that scrolls to the offending verse. `@Preview` per
       severity.
-- [ ] T075 [US4] Create
+- [X] T075 [US4] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/publish/ValidationPanel.kt`
       with two sections — "must fix before publishing" and "still outstanding" (missing recordings,
       presented as work remaining, not failure). `@Preview`: blocking-only, deferred-only, both — in
       both languages. Requires T033a.
-- [ ] T076 [P] [US4] Create
+- [X] T076 [P] [US4] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/publish/PublishConfirmDialog.kt`
       stating plainly that the matn will publish with no recordings yet. `@Preview` in both languages.
-- [ ] T077 [US4] Wire check and publish into `EditorViewModel` and `EditorContent`: publish is
+- [X] T077 [US4] Wire check and publish into `EditorViewModel` and `EditorContent`: publish is
       disabled while `blocking` is non-empty; selecting a problem focuses its verse.
 - [ ] T078 [US4] Deploy the rules with
       `firebase deploy --only firestore:rules,storage:rules`, then run T069 through
