@@ -265,13 +265,13 @@ Read `contracts/rest-contract.md` §1–§4 and `contracts/firestore-schema.md` 
 
 ### 2C — Theme, strings, module wiring
 
-- [ ] T027 Add a third defaulted parameter to `MatnTheme` in
+- [X] T027 Add a third defaulted parameter to `MatnTheme` in
       `shared/src/commonMain/kotlin/com/giraffe/matn/presentation/theme/MatnTheme.kt`:
       `layoutDirection: LayoutDirection = LayoutDirection.Rtl`, and change line 58's
       `LocalLayoutDirection provides LayoutDirection.Rtl` to provide the parameter. **Additive
       only** — every existing call site and all 88 existing previews must remain untouched and keep
       compiling.
-- [ ] T028 Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/strings/TeacherStrings.kt`:
+- [X] T028 Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/strings/TeacherStrings.kt`:
       an `interface TeacherStrings` with one `val` per user-visible string, an
       `object ArabicStrings : TeacherStrings`, an `object EnglishStrings : TeacherStrings`, an
       `enum class TeacherLanguage { ARABIC, ENGLISH }` with `val layoutDirection`, and
@@ -280,7 +280,7 @@ Read `contracts/rest-contract.md` §1–§4 and `contracts/firestore-schema.md` 
       interface, a missing translation is a compile error rather than a silent fallback.
       Two later tasks add the remaining keys and nothing else may defer to "some later task":
       **T028a** (error messages) and **T073** (validation messages).
-- [ ] T028a Add the seven `RemoteError` message keys to `TeacherStrings`, `ArabicStrings`, and
+- [X] T028a Add the seven `RemoteError` message keys to `TeacherStrings`, `ArabicStrings`, and
       `EnglishStrings`, one per row of `contracts/teacher-ui-contract.md` §6: `Network`,
       `Unauthorized`, `Forbidden`, `Conflict`, `QuotaExceeded`, `Server`, `Decode`. Each needs **two**
       strings — the message and its action label ("Retry", "Sign in again", "Reload", or none). Add
@@ -289,11 +289,11 @@ Read `contracts/rest-contract.md` §1–§4 and `contracts/firestore-schema.md` 
       an error itself. **No raw HTTP status, exception text, or error code may appear in any of these
       strings** (FR-005). Every screen that shows a failure — T045, T059, T086, T089 — uses these two
       functions.
-- [ ] T029 [P] Create
+- [X] T029 [P] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/platform/JvmLanguagePreference.kt` storing
       the chosen `TeacherLanguage` in a properties file under the OS app-data directory, with
       `load(): TeacherLanguage` (default `ARABIC`) and `save(language: TeacherLanguage)`.
-- [ ] T030 Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/di/TeacherModule.kt` — a Koin
+- [X] T030 Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/di/TeacherModule.kt` — a Koin
       `@Module @ComponentScan("com.giraffe.matn.teacher")` class with explicit provider functions for
       `FirebaseConfig` (read from `firebase/firebase.local.properties`, overridden by environment
       variables), the `HttpClient`, `SecretStore`, and — because Ground Rule 11 forbids annotating
@@ -308,7 +308,7 @@ Read `contracts/rest-contract.md` §1–§4 and `contracts/firestore-schema.md` 
       matns. `:teacherApp` opens no SQLDelight database. Read the language preference and wrap the
       window content in `MatnTheme(layoutDirection = language.layoutDirection)` and a
       `CompositionLocalProvider(LocalTeacherStrings provides …)`.
-- [ ] T030a **Student-app regression gate.** Run `./gradlew :androidApp:assembleDebug` and
+- [X] T030a **Student-app regression gate.** Run `./gradlew :androidApp:assembleDebug` and
       `./gradlew :desktopApp:run`. Both must succeed with the remote layer present. A
       `KOIN-D001` error, or a `NoDefinitionFoundException` for `FirebaseConfig`/`HttpClient`/
       `SecretStore` at student-app startup, means a teacher-side class in `:shared` was annotated —

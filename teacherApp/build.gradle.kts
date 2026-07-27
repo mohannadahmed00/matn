@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.koin.core)
     implementation(libs.koin.annotations)
     implementation(libs.jna.platform)
+    implementation(libs.ktor.client.core)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
