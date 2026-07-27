@@ -24,6 +24,7 @@ import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.teacher.di.TeacherKoinHolder
 import com.giraffe.matn.teacher.di.startTeacherKoin
 import com.giraffe.matn.teacher.platform.JvmLanguagePreference
+import com.giraffe.matn.teacher.presentation.editor.EditorScreen
 import com.giraffe.matn.teacher.presentation.shell.PortalDestination
 import com.giraffe.matn.teacher.presentation.shell.PortalShellContent
 import com.giraffe.matn.teacher.presentation.shell.PortalShellState
@@ -85,8 +86,11 @@ private fun TeacherApp() {
                         },
                         onSignOut = { scope.launch { signOut(Unit) } },
                     ) {
-                        // T058/T059/T086 replace this per destination.
-                        Text("${destination.name}")
+                        when (destination) {
+                            PortalDestination.UPLOAD_MATN -> EditorScreen()
+                            // T086 (Library Management) and dashboard/settings placeholders follow later phases.
+                            else -> Text(destination.name)
+                        }
                     }
                 }
             }

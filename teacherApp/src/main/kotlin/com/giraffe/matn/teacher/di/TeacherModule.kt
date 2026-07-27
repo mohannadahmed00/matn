@@ -2,14 +2,21 @@ package com.giraffe.matn.teacher.di
 
 import com.giraffe.matn.data.remote.FirebaseConfig
 import com.giraffe.matn.data.remote.createHttpClient
+import com.giraffe.matn.data.remote.firestore.FirestoreRestClient
 import com.giraffe.matn.data.remote.identity.IdentityToolkitClient
 import com.giraffe.matn.data.remote.identity.TokenRefresher
+import com.giraffe.matn.data.remote.storage.StorageRestClient
+import com.giraffe.matn.data.repository.FirestoreCatalogRepository
 import com.giraffe.matn.data.repository.IdentityTeacherAuthRepository
 import com.giraffe.matn.domain.auth.TeacherAuthRepository
+import com.giraffe.matn.domain.catalog.CatalogRepository
 import com.giraffe.matn.domain.secret.SecretStore
+import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
 import com.giraffe.matn.domain.usecase.RestoreSessionUseCase
+import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.SignInUseCase
 import com.giraffe.matn.domain.usecase.SignOutUseCase
+import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
 import io.ktor.client.HttpClient
 import org.koin.core.Koin
 import org.koin.core.annotation.ComponentScan
@@ -75,6 +82,27 @@ class TeacherModule {
     @Single
     fun restoreSessionUseCase(repository: TeacherAuthRepository): RestoreSessionUseCase =
         RestoreSessionUseCase(repository)
+
+    @Single
+    fun firestoreRestClient(httpClient: HttpClient, firebaseConfig: FirebaseConfig, tokenRefresher: TokenRefresher): FirestoreRestClient =
+        FirestoreRestClient(httpClient, firebaseConfig, tokenRefresher)
+
+    @Single
+    fun storageRestClient(httpClient: HttpClient, firebaseConfig: FirebaseConfig, tokenRefresher: TokenRefresher): StorageRestClient =
+        StorageRestClient(httpClient, firebaseConfig, tokenRefresher)
+
+    @Single
+    fun catalogRepository(firestoreClient: FirestoreRestClient, storageClient: StorageRestClient): CatalogRepository =
+        FirestoreCatalogRepository(firestoreClient, storageClient)
+
+    @Single
+    fun saveDraftUseCase(repository: CatalogRepository): SaveDraftUseCase = SaveDraftUseCase(repository)
+
+    @Single
+    fun loadMatnForEditUseCase(repository: CatalogRepository): LoadMatnForEditUseCase = LoadMatnForEditUseCase(repository)
+
+    @Single
+    fun uploadCoverImageUseCase(repository: CatalogRepository): UploadCoverImageUseCase = UploadCoverImageUseCase(repository)
 }
 
 /** Starts a Koin instance scoped to `:teacherApp` with only [TeacherModule] — never `:shared`'s

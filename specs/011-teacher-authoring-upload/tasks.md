@@ -485,10 +485,10 @@ save as draft, quit, reopen, confirm every field and the cover are intact.
       `suspend (MatnDraft) -> Unit` save. `notifyChanged(draft)` schedules; 5 s idle debounce, 60 s
       hard ceiling, one save in flight. `notifyChanged` is a no-op when
       `draft.publicationState == PUBLISHED`.
-- [ ] T057 [P] [US2] Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/platform/JvmFileChooser.kt`
+- [X] T057 [P] [US2] Create `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/platform/JvmFileChooser.kt`
       with `fun pickImage(): ByteArray?` and `fun pickTextFile(): ByteArray?` using Swing
       `JFileChooser`. Reject images over 5 MB or outside png/jpeg/webp before returning.
-- [ ] T058 [US2] Create
+- [X] T058 [US2] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/editor/EditorViewModel.kt`
       extending `BaseViewModel<EditorUiState>`. State per `contracts/teacher-ui-contract.md` §3.4.
       Intents for every metadata field, cover pick/remove, chapter add/edit/delete, and save. A save
@@ -501,16 +501,16 @@ save as draft, quit, reopen, confirm every field and the cover are intact.
       required-field checking to draft-save and full validation to publish.
       Creating a new matn uses `MatnDraftFactory.newDraft(...)` from T013a — never construct a
       `MatnDraft` inline, or the reciter constant and UUIDs will drift.
-- [ ] T059 [US2] Create
+- [X] T059 [US2] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/editor/EditorScreen.kt` with
       the stateless `EditorContent` covering the metadata form and chapter list (verses come in
       Phase 5), plus the thin holder. `@Preview`: new draft and loaded draft, both languages.
       **Requires T033a** — this screen has a canonical design; do not invent its layout.
-- [ ] T060 [P] [US2] Create
+- [X] T060 [P] [US2] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/common/SaveStateIndicator.kt`
       — a shared stateless component showing idle / autosaving / saved-at / failed. `@Preview` per
       state.
-- [ ] T061 [P] [US2] Create `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/EditorViewModelTest.kt`
+- [X] T061 [P] [US2] Create `teacherApp/src/test/kotlin/com/giraffe/matn/teacher/EditorViewModelTest.kt`
       with a fake `CatalogRepository`: a failed save preserves on-screen state and reports
       `retryable` correctly; a successful save updates `remoteUpdateTime`; and **saving with title,
       author, or structure kind missing is refused with those fields flagged and no repository call
