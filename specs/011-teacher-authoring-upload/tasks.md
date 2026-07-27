@@ -443,11 +443,11 @@ save as draft, quit, reopen, confirm every field and the cover are intact.
 
 ### Tests for User Story 2
 
-- [ ] T049 [P] [US2] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/FirestoreRestClientTest.kt`
+- [X] T049 [P] [US2] Create `shared/src/jvmTest/kotlin/com/giraffe/matn/remote/FirestoreRestClientTest.kt`
       with `MockEngine`: assert the `GET` document path; assert `PATCH` sends the full document and
       the `currentDocument.updateTime` query parameter; assert a 400 `FAILED_PRECONDITION` response
       maps to `RemoteError.Conflict`.
-- [ ] T050 [P] [US2] Create
+- [X] T050 [P] [US2] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/DraftAutosaveSchedulerTest.kt` using
       `kotlinx-coroutines-test` virtual time: saves after 5 s idle; saves at the 60 s ceiling under
       continuous editing; coalesces concurrent triggers into one save; **never** fires for a
@@ -455,31 +455,31 @@ save as draft, quit, reopen, confirm every field and the cover are intact.
 
 ### Implementation for User Story 2
 
-- [ ] T051 [US2] Create
+- [X] T051 [US2] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/firestore/FirestoreRestClient.kt`
       with `suspend fun getDocument(path: String, mask: List<String>? = null): Resource<FirestoreDocument>`
       and `suspend fun patchDocument(path: String, fields: Map<String, FirestoreValue>, updateTimePrecondition: String?, requireNotExists: Boolean = false): Resource<FirestoreDocument>`.
       `FirestoreDocument` carries `name`, `fields`, `updateTime`. Bearer token from `TokenRefresher`.
       Always send the **full** document — never a partial `updateMask`.
-- [ ] T052 [P] [US2] Create
+- [X] T052 [P] [US2] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/storage/StorageRestClient.kt` with
       `suspend fun upload(objectPath: String, bytes: ByteArray, contentType: String): Resource<String>`
       and `suspend fun totalUsageBytes(prefix: String): Resource<Long>`, per
       `contracts/rest-contract.md` §5.
-- [ ] T053 [P] [US2] Create
+- [X] T053 [P] [US2] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/CatalogRepository.kt` — the
       interface exactly as in `data-model.md` §9.
-- [ ] T054 [US2] Create
+- [X] T054 [US2] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/repository/FirestoreCatalogRepository.kt`
       implementing `load`, `save`, and `uploadCover`. `save` sends `remoteUpdateTime` as the
       precondition and returns the draft with the **new** `updateTime` from the response — omitting
       that makes every subsequent save report a false conflict. `uploadCover` uploads to Storage
       **before** the document is patched (`research.md` D3). Leave `publish`, `unpublish`, and
       `observeAuthored` as `TODO()` — Phases 6 and 7 fill them.
-- [ ] T055 [P] [US2] Create use cases in
+- [X] T055 [P] [US2] Create use cases in
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/usecase/`: `SaveDraftUseCase.kt`,
       `LoadMatnForEditUseCase.kt`, `UploadCoverImageUseCase.kt`.
-- [ ] T056 [US2] Create
+- [X] T056 [US2] Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/DraftAutosaveScheduler.kt` per
       `research.md` D12: constructor takes a `CoroutineScope`, a clock lambda, and a
       `suspend (MatnDraft) -> Unit` save. `notifyChanged(draft)` schedules; 5 s idle debounce, 60 s
@@ -515,7 +515,7 @@ save as draft, quit, reopen, confirm every field and the cover are intact.
       `retryable` correctly; a successful save updates `remoteUpdateTime`; and **saving with title,
       author, or structure kind missing is refused with those fields flagged and no repository call
       made** (FR-018).
-- [ ] T061a [P] [US2] Create
+- [X] T061a [P] [US2] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/usecase/DraftUseCaseTest.kt` covering the three
       US2 use cases against a fake `CatalogRepository` (Principle V): `SaveDraftUseCase` passes
       `remoteUpdateTime` through as the precondition and returns the refreshed value;
