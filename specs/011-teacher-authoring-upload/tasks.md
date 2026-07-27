@@ -225,40 +225,40 @@ Read `contracts/validation-contract.md` before starting this group. Read
 
 Read `contracts/rest-contract.md` §1–§4 and `contracts/firestore-schema.md` §2 first.
 
-- [ ] T018 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/error/RemoteError.kt`:
+- [X] T018 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/error/RemoteError.kt`:
       a sealed interface extending `AppError` with the seven cases in `data-model.md` §10, each
       carrying `val retryable: Boolean`.
-- [ ] T019 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/secret/SecretStore.kt` —
+- [X] T019 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/secret/SecretStore.kt` —
       the interface exactly as written in `data-model.md` §9.
-- [ ] T020 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/FirebaseConfig.kt`:
+- [X] T020 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/FirebaseConfig.kt`:
       `data class FirebaseConfig(val projectId: String, val apiKey: String, val storageBucket: String, val emulatorHost: String? = null)`
       plus `val identityBaseUrl`, `val secureTokenBaseUrl`, `val firestoreBaseUrl`,
       `val storageBaseUrl` computed per `contracts/rest-contract.md` §2 (emulator host wins when set).
-- [ ] T021 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/HttpClientFactory.kt`:
+- [X] T021 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/HttpClientFactory.kt`:
       `fun createHttpClient(engine: HttpClientEngine? = null): HttpClient` using `CIO`, installing
       `ContentNegotiation` with `Json { ignoreUnknownKeys = true; explicitNulls = false }` and
       `HttpTimeout` (30 s request, 15 s connect). The `engine` parameter exists so tests can inject
       `MockEngine`. **No `expect`/`actual`** — CIO is published for every target.
-- [ ] T022 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/firestore/FirestoreValue.kt`:
+- [X] T022 Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/firestore/FirestoreValue.kt`:
       a sealed interface with `StringValue`, `IntegerValue`, `BooleanValue`, `TimestampValue`,
       `NullValue`, `ArrayValue(values: List<FirestoreValue>)`, `MapValue(fields: Map<String, FirestoreValue>)`,
       plus `toJson(): JsonElement` and `fun fromJson(element: JsonElement): FirestoreValue`.
       **Two wire quirks to get right**: `integerValue` is a JSON *string* (`"integerValue": "500"`),
       and `timestampValue` is RFC 3339.
-- [ ] T023 [P] Create
+- [X] T023 [P] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/remote/FirestoreValueTest.kt` — a round-trip
       test per type, plus explicit tests for the integer-as-string and RFC 3339 quirks.
-- [ ] T024 Create
+- [X] T024 Create
       `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/firestore/FirestoreMatnMapper.kt`
       with `fun MatnDraft.toFirestoreFields(): Map<String, FirestoreValue>` and
       `fun matnDraftFromFields(id: String, fields: Map<String, FirestoreValue>, updateTime: String?): MatnDraft`.
       Field names and types come from `contracts/firestore-schema.md` §2 — follow that table exactly.
       `audio` is always `NullValue` in this phase.
-- [ ] T025 [P] Create
+- [X] T025 [P] Create
       `shared/src/commonTest/kotlin/com/giraffe/matn/remote/FirestoreMatnMapperTest.kt` asserting
       `MatnDraft → fields → MatnDraft` round-trips, for a `SIMPLE` matn and a `STRUCTURED` matn with
       chapters.
-- [ ] T026 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/RemoteErrorMapper.kt`
+- [X] T026 [P] Create `shared/src/commonMain/kotlin/com/giraffe/matn/data/remote/RemoteErrorMapper.kt`
       with `fun mapHttpError(status: Int, body: String?): RemoteError` implementing the table in
       `contracts/rest-contract.md` §4.1, and `fun mapThrowable(t: Throwable): RemoteError` returning
       `RemoteError.Network` for connection failures. Rethrow `CancellationException` untouched.
