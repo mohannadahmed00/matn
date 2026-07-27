@@ -3,11 +3,13 @@ package com.giraffe.matn.teacher.presentation.editor
 import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.catalog.DraftAutosaveScheduler
+import com.giraffe.matn.domain.catalog.ImportPreview
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.MatnDraftFactory
 import com.giraffe.matn.domain.catalog.PublicationState
 import com.giraffe.matn.domain.catalog.ValidationReport
 import com.giraffe.matn.domain.catalog.VerseOrdering
+import com.giraffe.matn.domain.catalog.VerseTextImport
 import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.model.StructureKind
@@ -37,6 +39,8 @@ data class EditorUiState(
     val validation: ValidationReport? = null,
     val focusedProblem: String? = null,
     val showPublishConfirm: Boolean = false,
+    val importPreview: ImportPreview? = null,
+    val importError: Boolean = false,
 ) {
     val isPublished: Boolean get() = draft.publicationState == PublicationState.PUBLISHED
 }
@@ -115,6 +119,29 @@ class EditorViewModel(
     fun onAssignChapter(verseId: String, chapterId: String?) = mutateDraft { draft ->
         if (chapterId != null && draft.chapters.none { it.id == chapterId }) return@mutateDraft draft
         draft.copy(verses = draft.verses.map { verse -> if (verse.id == verseId) verse.copy(chapterId = chapterId) else verse })
+    }
+
+    /** US6 bulk import: preview is staged in state and nothing is written to [MatnDraft.verses]
+     * until [onImportConfirm] (FR-024 — imported verses go through the same append path as
+     * hand-entered ones, so numbering/ordering rules cannot diverge). */
+    fun onImportRequested(bytes: ByteArray) {
+        when (val result = VerseTextImport.parse(bytes)) {
+            is Resource.Success -> setState { it.copy(importPreview = result.data, importError = false) }
+            is Resource.Failure -> setState { it.copy(importError = true) }
+        }
+    }
+
+    fun onImportCancel() = setState { it.copy(importPreview = null) }
+
+    fun onImportConfirm() {
+        val preview = stateValue.importPreview ?: return
+        setState { it.copy(importPreview = null) }
+        mutateDraft { draft ->
+            val importedVerses = preview.lines.fold(draft.verses) { verses, text ->
+                VerseOrdering.append(verses, MatnDraftFactory.newVerse(newId = newId, arabicText = text))
+            }
+            draft.copy(verses = importedVerses)
+        }
     }
 
     fun onCoverPicked(bytes: ByteArray, ext: String) {

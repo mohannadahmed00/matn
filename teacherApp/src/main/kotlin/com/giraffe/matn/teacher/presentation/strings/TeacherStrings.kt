@@ -109,6 +109,7 @@ interface TeacherStrings {
     val importPreviewProblemLine: String // "Line %d could not be read"
     val importCancel: String
     val importConfirm: String
+    val importInvalidEncodingError: String
 
     // RemoteError messages (T028a, contracts/teacher-ui-contract.md §6). No screen maps a
     // RemoteError itself — every failure display goes through messageFor/actionFor below.

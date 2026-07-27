@@ -87,6 +87,7 @@ object ArabicStrings : TeacherStrings {
     override val importPreviewProblemLine = "تعذّرت قراءة السطر %d"
     override val importCancel = "إلغاء"
     override val importConfirm = "استيراد"
+    override val importInvalidEncodingError = "هذا الملف ليس نصًا بترميز UTF-8 عاديًا — يُرجى تصديره بترميز UTF-8 والمحاولة مجددًا."
 
     override val errorNetworkMessage = "تعذّر الوصول إلى الخادم."
     override val errorNetworkAction = "إعادة المحاولة"

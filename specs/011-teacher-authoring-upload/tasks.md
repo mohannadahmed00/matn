@@ -719,23 +719,23 @@ two; proceeding appends 48 editable verses in file order.
 
 ### Tests for User Story 6
 
-- [ ] T090 [P] [US6] Create `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/VerseTextImportTest.kt`:
+- [X] T090 [P] [US6] Create `shared/src/commonTest/kotlin/com/giraffe/matn/catalog/VerseTextImportTest.kt`:
       blank lines skipped **without** being reported as problems; `\n` and `\r\n` both handled; a
       leading BOM stripped; non-UTF-8 bytes rejected; a line containing commas and quotation marks
       preserved verbatim and never split.
 
 ### Implementation for User Story 6
 
-- [ ] T091 [US6] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/VerseTextImport.kt`
+- [X] T091 [US6] Create `shared/src/commonMain/kotlin/com/giraffe/matn/domain/catalog/VerseTextImport.kt`
       with `fun parse(bytes: ByteArray): Resource<ImportPreview>` where
       `ImportPreview(lines: List<String>, problemLineNumbers: List<Int>)`. Plain UTF-8 text, one verse
       per line. **No delimiter, no CSV, no quoting** — a line's entire content is the verse text
       (FR-023a).
-- [ ] T092 [P] [US6] Create
+- [X] T092 [P] [US6] Create
       `teacherApp/src/main/kotlin/com/giraffe/matn/teacher/presentation/importer/ImportPreviewDialog.kt`
       showing the line count, the first ~10 lines, and problem lines **by line number**, with cancel
       and confirm. `@Preview`: clean and with problems, both languages. Requires T033a.
-- [ ] T093 [US6] Wire import into `EditorViewModel`: `onImportRequested` uses
+- [X] T093 [US6] Wire import into `EditorViewModel`: `onImportRequested` uses
       `JvmFileChooser.pickTextFile()`, parses, shows the preview; confirm appends via
       `VerseOrdering.append` so imported verses are indistinguishable from hand-entered ones
       (FR-024). Cancel leaves the list untouched.

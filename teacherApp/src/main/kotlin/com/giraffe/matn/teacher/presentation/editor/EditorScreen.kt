@@ -46,6 +46,7 @@ import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.common.SaveStateIndicator
 import com.giraffe.matn.teacher.presentation.common.TeacherTextField
 import com.giraffe.matn.teacher.presentation.common.VerseRow
+import com.giraffe.matn.teacher.presentation.importer.ImportPreviewDialog
 import com.giraffe.matn.teacher.presentation.publish.PublishConfirmDialog
 import com.giraffe.matn.teacher.presentation.publish.ValidationPanel
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
@@ -78,6 +79,9 @@ data class EditorIntents(
     val onDismissPublishConfirm: () -> Unit,
     val onProblemSelected: (String) -> Unit,
     val onReloadAfterConflict: () -> Unit,
+    val onImportRequested: () -> Unit,
+    val onImportCancel: () -> Unit,
+    val onImportConfirm: () -> Unit,
 )
 
 /** `contracts/teacher-ui-contract.md` §3.4. Metadata, chapters, the verse list, and validation. */
@@ -168,7 +172,13 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 }
 
                 item {
-                    VerseListHeader(onAddVerse = intents.onAddVerse)
+                    VerseListHeader(onAddVerse = intents.onAddVerse, onBulkImport = intents.onImportRequested)
+                }
+
+                if (state.importError) {
+                    item {
+                        Text(strings.importInvalidEncodingError, color = MaterialTheme.colorScheme.error)
+                    }
                 }
 
                 itemsIndexed(draft.verses, key = { _, verse -> verse.id }) { index, verse ->
@@ -238,12 +248,16 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
             if (state.showPublishConfirm) {
                 PublishConfirmDialog(onConfirm = intents.onConfirmPublish, onDismiss = intents.onDismissPublishConfirm)
             }
+
+            state.importPreview?.let { preview ->
+                ImportPreviewDialog(preview = preview, onCancel = intents.onImportCancel, onConfirm = intents.onImportConfirm)
+            }
         }
     }
 }
 
 @Composable
-private fun VerseListHeader(onAddVerse: () -> Unit) {
+private fun VerseListHeader(onAddVerse: () -> Unit, onBulkImport: () -> Unit) {
     val strings = LocalTeacherStrings.current
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -251,7 +265,10 @@ private fun VerseListHeader(onAddVerse: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(strings.verseListHeading, style = MaterialTheme.typography.titleMedium)
-        TextButton(onClick = onAddVerse) { Text(strings.addVerse) }
+        Row(horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
+            TextButton(onClick = onBulkImport) { Text(strings.bulkImport) }
+            TextButton(onClick = onAddVerse) { Text(strings.addVerse) }
+        }
     }
 }
 
@@ -381,6 +398,12 @@ fun EditorScreen(
             onDismissPublishConfirm = viewModel::onDismissPublishConfirm,
             onProblemSelected = viewModel::onProblemSelected,
             onReloadAfterConflict = viewModel::onReloadAfterConflict,
+            onImportRequested = {
+                val bytes = JvmFileChooser.pickTextFile()
+                if (bytes != null) viewModel.onImportRequested(bytes)
+            },
+            onImportCancel = viewModel::onImportCancel,
+            onImportConfirm = viewModel::onImportConfirm,
         ),
         modifier = modifier,
     )
@@ -408,6 +431,7 @@ private val noOpIntents = EditorIntents(
     onDeleteChapter = {}, onAddVerse = {}, onVerseTextChange = { _, _ -> }, onDeleteVerse = {},
     onMoveVerse = { _, _ -> }, onSaveDraft = {}, onCheckForProblems = {}, onRequestPublish = {},
     onConfirmPublish = {}, onDismissPublishConfirm = {}, onProblemSelected = {}, onReloadAfterConflict = {},
+    onImportRequested = {}, onImportCancel = {}, onImportConfirm = {},
 )
 
 @Preview

@@ -88,6 +88,7 @@ object EnglishStrings : TeacherStrings {
     override val importPreviewProblemLine = "Line %d could not be read"
     override val importCancel = "Cancel"
     override val importConfirm = "Import"
+    override val importInvalidEncodingError = "This file is not plain UTF-8 text — please export it as UTF-8 and try again."
 
     override val errorNetworkMessage = "Cannot reach the server."
     override val errorNetworkAction = "Retry"

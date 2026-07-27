@@ -255,4 +255,50 @@ class EditorViewModelTest {
 
         assertEquals(null, vm.state.value.draft.verses[0].chapterId)
     }
+
+    @Test
+    fun `a valid import stages a preview without touching the draft`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+
+        vm.onImportRequested("first verse\nsecond verse".encodeToByteArray())
+
+        assertEquals(listOf("first verse", "second verse"), vm.state.value.importPreview?.lines)
+        assertTrue(vm.state.value.draft.verses.isEmpty())
+    }
+
+    @Test
+    fun `confirming an import appends the previewed lines as verses and clears the preview`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onImportRequested("second verse\nthird verse".encodeToByteArray())
+
+        vm.onImportConfirm()
+
+        val verses = vm.state.value.draft.verses
+        assertEquals(null, vm.state.value.importPreview)
+        assertEquals(listOf("", "second verse", "third verse"), verses.map { it.arabicText })
+        assertEquals(listOf(1, 2, 3), verses.map { it.displayNumber })
+    }
+
+    @Test
+    fun `cancelling an import leaves the verse list untouched`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onImportRequested("second verse".encodeToByteArray())
+
+        vm.onImportCancel()
+
+        assertEquals(null, vm.state.value.importPreview)
+        assertEquals(1, vm.state.value.draft.verses.size)
+    }
+
+    @Test
+    fun `an invalid-encoding import surfaces an error without staging a preview`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+
+        vm.onImportRequested(byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0x00))
+
+        assertTrue(vm.state.value.importError)
+        assertEquals(null, vm.state.value.importPreview)
+    }
 }
