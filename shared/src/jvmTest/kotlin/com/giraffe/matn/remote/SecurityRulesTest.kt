@@ -250,7 +250,7 @@ class SecurityRulesTest {
         assertTrue(created is Resource.Success, "create failed: $created")
         val updateTime = created.data.updateTime
         val published = client.patchDocument("matns/$matnId", draftFields(published = true), updateTime)
-        assertTrue(published is Resource.Success, "publish failed: $published")
+        assertTrue(published is Resource.Success, "publish failed: $published (sent precondition updateTime=$updateTime)")
     }
 
     @Test
