@@ -99,13 +99,39 @@ bundled matns (which predate this phase and were never subject to these limits) 
 unchanged. This was confirmed with the user directly (an AskUserQuestion decision) after discovering
 the two rules would otherwise break `ProgressRepositoryTest`, a pre-existing student-app test.
 
-### T078 — not performed in this environment
+### T078 — resolved 2026-07-28, partially — Firestore deployed live, Storage deferred
 
-Deploying the Firestore/Storage security rules and running `SecurityRulesTest`'s 24 emulator-gated
-cases against a live Firebase project/emulator requires real Firebase credentials that are not
-available in this environment (no `FIREBASE_EMULATOR_HOST`, no service account). The test file
-exists and is env-gated (`assumeTrue`), but T097's CI job is what actually exercises it — until that
-job runs against emulators, FR-042 is verified by code review only, not by execution.
+Originally flagged as not performable (no real Firebase project in the sandboxed environment). The
+user created one (`matn-437dc`), connected it via the Firebase CLI's own MCP server
+(`.mcp.json`'s `firebase` entry — `npx firebase-tools mcp --dir firebase --only firestore,storage`),
+and closed the gap for real rather than leaving it purely theoretical:
+
+- **Firestore rules deployed live**: the user ran `firebase deploy --only firestore:rules` from
+  `firebase/`. Verified byte-for-byte against `firebase/firestore.rules` via
+  `mcp__firebase__firebase_get_security_rules(type: "firestore")` — the deployed ruleset is
+  identical to the repo file (teacher-marker `exists()` check, published-read/teacher-write rules,
+  explicit deny-all fallback).
+- **Teacher provisioning** (research D14) done by hand in the console: one Email/Password account,
+  and a `teachers/{uid}` document keyed by that account's UID (content irrelevant — the rule only
+  checks existence). One mistake caught and fixed in the process: the document was first created
+  with Firestore's auto-generated random ID instead of the UID, which would have silently failed
+  every rule check for that teacher; corrected before deploy.
+- **Storage rules deployment deliberately deferred**, not forgotten: Firebase Storage now requires
+  the Blaze (pay-as-you-go) plan even at zero usage (Google's October 2024 change — Spark/free
+  projects can no longer enable it at all). The user chose not to attach billing for this project at
+  this stage (`AskUserQuestion` — "skip Storage for now" over "upgrade to Blaze"). Consequence:
+  `firebase/storage.rules` exists in the repo and is reviewed, but is not live anywhere. Any
+  Storage-touching path (`UploadCoverImageUseCase` in this phase; all of Phase 12's audio upload)
+  stays untested against a real backend until that decision changes.
+- **`SecurityRulesTest`'s 24 emulator-gated cases still did not run** for real. A local Firebase
+  Local Emulator Suite attempt (fake `demo-matn-test` project, no real project touched) got as far
+  as starting the Firestore/Auth/Storage emulators, but tripped a Windows Firewall prompt for the
+  emulator's local loopback socket that the user (reasonably) declined without context on what it
+  was. The user preferred the MCP-to-real-project path instead, so this local run was abandoned
+  rather than retried. T097's CI job (`.github/workflows/security-rules-tests.yml`) still runs this
+  suite against a throwaway emulator on every relevant PR — that path doesn't depend on any of this
+  session's local Windows environment quirks and remains the actual enforcement mechanism for
+  FR-042.
 
 ### T101/T102 — performance check and manual walkthrough, environment limits
 

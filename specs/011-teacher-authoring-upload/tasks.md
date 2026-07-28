@@ -635,9 +635,16 @@ publishes; an anonymous reader can then read it, and cannot read a draft.
       stating plainly that the matn will publish with no recordings yet. `@Preview` in both languages.
 - [X] T077 [US4] Wire check and publish into `EditorViewModel` and `EditorContent`: publish is
       disabled while `blocking` is non-empty; selecting a problem focuses its verse.
-- [ ] T078 [US4] Deploy the rules with
+- [~] T078 [US4] Deploy the rules with
       `firebase deploy --only firestore:rules,storage:rules`, then run T069 through
-      `firebase emulators:exec` and confirm all 23 cases pass.
+      `firebase emulators:exec` and confirm all 23 cases pass. **Partially done, 2026-07-28** —
+      Firestore rules deployed to live project `matn-437dc` via `firebase deploy --only
+      firestore:rules`, verified byte-for-byte live via Firebase MCP
+      (`firebase_get_security_rules`). Storage rules deploy deliberately deferred — Firebase
+      Storage now requires the Blaze plan even at zero usage, and the user chose not to attach
+      billing for this. The 23-case `firebase emulators:exec` run against a local emulator was not
+      done (user opted out of the local-emulator approach after a Windows Firewall prompt); see
+      design-notes.md for the full account.
 
 **Checkpoint**: A validated matn publishes; an anonymous read succeeds for published and fails for
 drafts; all 23 rule cases pass.
