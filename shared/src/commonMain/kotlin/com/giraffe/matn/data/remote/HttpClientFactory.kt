@@ -23,6 +23,10 @@ fun createHttpClient(engine: HttpClientEngine? = null): HttpClient {
             json(Json {
                 ignoreUnknownKeys = true
                 explicitNulls = false
+                // `SignInRequest.returnSecureToken` defaults to true; kotlinx.serialization skips
+                // a default-valued property unless this is on, so Identity Toolkit never saw the
+                // flag and omitted refreshToken/expiresIn from the response entirely.
+                encodeDefaults = true
             })
         }
         install(HttpTimeout) {
