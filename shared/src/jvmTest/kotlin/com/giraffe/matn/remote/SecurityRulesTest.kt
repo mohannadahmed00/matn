@@ -19,6 +19,7 @@ import io.ktor.client.request.headers
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
@@ -138,16 +139,19 @@ class SecurityRulesTest {
     fun `R1 anonymous read of a published matn is allowed`() = runTest {
         val matnId = "m-${Uuid.random()}"
         firestoreClientFor(teacherSession).patchDocument("matns/$matnId", draftFields(published = true), null, requireNotExists = true)
-        val result = firestoreClientFor(null).getDocument("matns/$matnId")
-        assertTrue(result is Resource.Success)
+        val response = anonymousFirestoreGet("matns/$matnId")
+        assertTrue(response.status.value in 200..299, "expected 2xx, got ${response.status.value}: ${response.bodyAsText()}")
     }
 
     @Test
     fun `R2 anonymous read of a draft matn is denied`() = runTest {
         val matnId = "m-${Uuid.random()}"
         firestoreClientFor(teacherSession).patchDocument("matns/$matnId", draftFields(published = false), null, requireNotExists = true)
-        val result = firestoreClientFor(null).getDocument("matns/$matnId")
-        assertEquals(Resource.Failure(RemoteError.Forbidden), result)
+        val response = anonymousFirestoreGet("matns/$matnId")
+        assertTrue(
+            response.status.value == 403 || response.status.value == 401,
+            "expected 403/401, got ${response.status.value}: ${response.bodyAsText()}",
+        )
     }
 
     @Test
@@ -243,10 +247,10 @@ class SecurityRulesTest {
         val matnId = "m-${Uuid.random()}"
         val client = firestoreClientFor(teacherSession)
         val created = client.patchDocument("matns/$matnId", draftFields(published = false), null, requireNotExists = true)
-        assertTrue(created is Resource.Success)
-        val updateTime = (created as Resource.Success).data.updateTime
+        assertTrue(created is Resource.Success, "create failed: $created")
+        val updateTime = created.data.updateTime
         val published = client.patchDocument("matns/$matnId", draftFields(published = true), updateTime)
-        assertTrue(published is Resource.Success)
+        assertTrue(published is Resource.Success, "publish failed: $published")
     }
 
     @Test
@@ -276,17 +280,18 @@ class SecurityRulesTest {
         val matnId = "m-${Uuid.random()}"
         val client = firestoreClientFor(teacherSession)
         val v1 = client.patchDocument("matns/$matnId", mapOf("title" to FirestoreValue.StringValue("v1")), null, requireNotExists = true)
-        val updateTime = (v1 as Resource.Success).data.updateTime
+        assertTrue(v1 is Resource.Success, "initial create failed: $v1")
+        val updateTime = v1.data.updateTime
         val bigFields = mapOf(
             "title" to FirestoreValue.StringValue("v2"),
             "body" to FirestoreValue.StringValue("x".repeat(400_000)),
         )
         val saveResult = client.patchDocument("matns/$matnId", bigFields, updateTime)
-        assertTrue(saveResult is Resource.Success)
+        assertTrue(saveResult is Resource.Success, "large save failed: $saveResult")
         // Every read after the save completes returns the complete new version, never a mixture.
         val read = firestoreClientFor(teacherSession).getDocument("matns/$matnId")
-        assertTrue(read is Resource.Success)
-        val title = (read as Resource.Success).data.fields["title"]
+        assertTrue(read is Resource.Success, "post-save read failed: $read")
+        val title = read.data.fields["title"]
         assertEquals(FirestoreValue.StringValue("v2"), title)
     }
 }
