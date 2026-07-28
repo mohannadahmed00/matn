@@ -82,6 +82,9 @@ data class EditorIntents(
     val onImportRequested: () -> Unit,
     val onImportCancel: () -> Unit,
     val onImportConfirm: () -> Unit,
+    val onRequestClearAllVerses: () -> Unit,
+    val onDismissClearAllVerses: () -> Unit,
+    val onConfirmClearAllVerses: () -> Unit,
 )
 
 /** `contracts/teacher-ui-contract.md` §3.4. Metadata, chapters, the verse list, and validation. */
@@ -172,7 +175,12 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 }
 
                 item {
-                    VerseListHeader(onAddVerse = intents.onAddVerse, onBulkImport = intents.onImportRequested)
+                    VerseListHeader(
+                        onAddVerse = intents.onAddVerse,
+                        onBulkImport = intents.onImportRequested,
+                        onClearAll = intents.onRequestClearAllVerses,
+                        clearAllEnabled = draft.verses.isNotEmpty(),
+                    )
                 }
 
                 if (state.importError) {
@@ -252,12 +260,16 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
             state.importPreview?.let { preview ->
                 ImportPreviewDialog(preview = preview, onCancel = intents.onImportCancel, onConfirm = intents.onImportConfirm)
             }
+
+            if (state.showClearAllConfirm) {
+                ClearAllVersesConfirmDialog(onConfirm = intents.onConfirmClearAllVerses, onDismiss = intents.onDismissClearAllVerses)
+            }
         }
     }
 }
 
 @Composable
-private fun VerseListHeader(onAddVerse: () -> Unit, onBulkImport: () -> Unit) {
+private fun VerseListHeader(onAddVerse: () -> Unit, onBulkImport: () -> Unit, onClearAll: () -> Unit, clearAllEnabled: Boolean) {
     val strings = LocalTeacherStrings.current
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -267,6 +279,7 @@ private fun VerseListHeader(onAddVerse: () -> Unit, onBulkImport: () -> Unit) {
         Text(strings.verseListHeading, style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
             TextButton(onClick = onBulkImport) { Text(strings.bulkImport) }
+            TextButton(onClick = onClearAll, enabled = clearAllEnabled) { Text(strings.clearAllVerses) }
             TextButton(onClick = onAddVerse) { Text(strings.addVerse) }
         }
     }
@@ -352,14 +365,22 @@ private fun ChaptersSection(
 @OptIn(ExperimentalUuidApi::class, ExperimentalTime::class)
 @Composable
 fun EditorScreen(
-    initialDraft: MatnDraft = MatnDraftFactory.newDraft(
-        newId = { Uuid.random().toString() },
-        nowMillis = { Clock.System.now().toEpochMilliseconds() },
-    ),
+    // `remember` — a plain expression here would re-evaluate on every recomposition (every
+    // keystroke), handing `viewModel(key = initialDraft.id)` a fresh random id each time and
+    // silently replacing the in-progress ViewModel with a blank one.
+    initialDraft: MatnDraft = remember {
+        MatnDraftFactory.newDraft(
+            newId = { Uuid.random().toString() },
+            nowMillis = { Clock.System.now().toEpochMilliseconds() },
+        )
+    },
     modifier: Modifier = Modifier,
 ) {
     val koin = TeacherKoinHolder.koin
-    val viewModel: EditorViewModel = viewModel {
+    // Keyed by draft id — `viewModel {}` otherwise caches the first-ever instance across
+    // destination switches (same as the Library screen's staleness bug) and every subsequent
+    // "open to edit" click would keep showing whichever matn was loaded first.
+    val viewModel: EditorViewModel = viewModel(key = initialDraft.id) {
         EditorViewModel(
             initialDraft = initialDraft,
             saveDraft = koin.get(),
@@ -404,6 +425,9 @@ fun EditorScreen(
             },
             onImportCancel = viewModel::onImportCancel,
             onImportConfirm = viewModel::onImportConfirm,
+            onRequestClearAllVerses = viewModel::onRequestClearAllVerses,
+            onDismissClearAllVerses = viewModel::onDismissClearAllVerses,
+            onConfirmClearAllVerses = viewModel::onConfirmClearAllVerses,
         ),
         modifier = modifier,
     )
@@ -432,6 +456,7 @@ private val noOpIntents = EditorIntents(
     onMoveVerse = { _, _ -> }, onSaveDraft = {}, onCheckForProblems = {}, onRequestPublish = {},
     onConfirmPublish = {}, onDismissPublishConfirm = {}, onProblemSelected = {}, onReloadAfterConflict = {},
     onImportRequested = {}, onImportCancel = {}, onImportConfirm = {},
+    onRequestClearAllVerses = {}, onDismissClearAllVerses = {}, onConfirmClearAllVerses = {},
 )
 
 @Preview

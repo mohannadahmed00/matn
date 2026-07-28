@@ -302,6 +302,45 @@ class EditorViewModelTest {
         assertEquals(null, vm.state.value.importPreview)
     }
 
+    @Test
+    fun `requesting clear-all shows the confirm dialog without touching the verse list`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onAddVerse()
+
+        vm.onRequestClearAllVerses()
+
+        assertTrue(vm.state.value.showClearAllConfirm)
+        assertEquals(2, vm.state.value.draft.verses.size)
+    }
+
+    @Test
+    fun `confirming clear-all wipes every verse and dismisses the dialog`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onAddVerse()
+        vm.onAddVerse()
+        vm.onRequestClearAllVerses()
+
+        vm.onConfirmClearAllVerses()
+
+        assertTrue(vm.state.value.draft.verses.isEmpty())
+        assertEquals(false, vm.state.value.showClearAllConfirm)
+    }
+
+    @Test
+    fun `dismissing clear-all leaves every verse untouched`() = runTest {
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }))
+        vm.onAddVerse()
+        vm.onAddVerse()
+        vm.onRequestClearAllVerses()
+
+        vm.onDismissClearAllVerses()
+
+        assertEquals(false, vm.state.value.showClearAllConfirm)
+        assertEquals(2, vm.state.value.draft.verses.size)
+    }
+
     /** T101 (`quickstart.md` §5, FR-025/SC-009): a proxy for the manual frame-timing pass this
      * environment cannot run (no display). Confirms the data-layer operations behind "import 500
      * lines, drag 400→5" stay correct and cheap at scale — `VerseRow` holding no text state of its

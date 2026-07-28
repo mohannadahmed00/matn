@@ -61,6 +61,10 @@ object ArabicStrings : TeacherStrings {
     override val moveVerseDown = "نقل البيت لأسفل"
     override val dragToReorder = "اسحب لإعادة الترتيب"
     override val assignChapter = "الفصل"
+    override val clearAllVerses = "حذف الكل"
+    override val clearAllVersesConfirmTitle = "حذف جميع الأبيات؟"
+    override val clearAllVersesConfirmBody = "سيؤدي هذا إلى حذف جميع الأبيات الحالية في القائمة. لا يمكن التراجع عن هذا الإجراء."
+    override val clearAllVersesConfirmAction = "حذف الكل"
 
     override val saveAsDraft = "حفظ كمسودة"
     override val publishMatn = "نشر المتن"

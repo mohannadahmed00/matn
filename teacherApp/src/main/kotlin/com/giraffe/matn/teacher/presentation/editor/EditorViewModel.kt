@@ -41,6 +41,7 @@ data class EditorUiState(
     val showPublishConfirm: Boolean = false,
     val importPreview: ImportPreview? = null,
     val importError: Boolean = false,
+    val showClearAllConfirm: Boolean = false,
 ) {
     val isPublished: Boolean get() = draft.publicationState == PublicationState.PUBLISHED
 }
@@ -114,6 +115,15 @@ class EditorViewModel(
     }
 
     fun onMoveVerse(from: Int, to: Int) = mutateDraft { draft -> draft.copy(verses = VerseOrdering.move(draft.verses, from, to)) }
+
+    /** Fast undo for a mistaken bulk import — wipes the whole verse list in one confirmed action
+     * instead of one-by-one deletes. */
+    fun onRequestClearAllVerses() = setState { it.copy(showClearAllConfirm = true) }
+    fun onDismissClearAllVerses() = setState { it.copy(showClearAllConfirm = false) }
+    fun onConfirmClearAllVerses() {
+        setState { it.copy(showClearAllConfirm = false) }
+        mutateDraft { draft -> draft.copy(verses = emptyList()) }
+    }
 
     /** A non-existent [chapterId] is rejected — the draft is returned unchanged. */
     fun onAssignChapter(verseId: String, chapterId: String?) = mutateDraft { draft ->

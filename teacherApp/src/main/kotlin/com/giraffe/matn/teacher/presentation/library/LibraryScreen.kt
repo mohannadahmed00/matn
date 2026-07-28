@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,6 +119,11 @@ private fun LibraryRow(entry: CatalogEntry, onClick: () -> Unit, onRequestUnpubl
 fun LibraryScreen(onOpenMatn: (String) -> Unit, onCreateNew: () -> Unit, modifier: Modifier = Modifier) {
     val koin = TeacherKoinHolder.koin
     val viewModel: LibraryViewModel = viewModel { LibraryViewModel(koin.get(), koin.get()) }
+    // `viewModel {}` reuses the same instance across destination switches (TeacherMain has no
+    // per-destination ViewModelStore), so `init { load() }` only ever fires once per process —
+    // re-trigger on every fresh entry into this screen so a just-published matn shows up without
+    // an app restart.
+    LaunchedEffect(Unit) { viewModel.load() }
     val state by viewModel.state.collectAsStateWithLifecycle()
     LibraryContent(
         state = state,

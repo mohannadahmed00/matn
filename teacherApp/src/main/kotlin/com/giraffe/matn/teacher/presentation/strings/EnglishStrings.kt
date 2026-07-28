@@ -62,6 +62,10 @@ object EnglishStrings : TeacherStrings {
     override val moveVerseDown = "Move verse down"
     override val dragToReorder = "Drag to reorder"
     override val assignChapter = "Chapter"
+    override val clearAllVerses = "Clear All"
+    override val clearAllVersesConfirmTitle = "Delete every verse?"
+    override val clearAllVersesConfirmBody = "This removes all verses currently in the list. This cannot be undone."
+    override val clearAllVersesConfirmAction = "Delete All"
 
     override val saveAsDraft = "Save as Draft"
     override val publishMatn = "Publish Matn"

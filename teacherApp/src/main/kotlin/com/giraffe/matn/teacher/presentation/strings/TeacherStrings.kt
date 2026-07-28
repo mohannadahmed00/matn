@@ -79,6 +79,10 @@ interface TeacherStrings {
     val moveVerseDown: String
     val dragToReorder: String
     val assignChapter: String
+    val clearAllVerses: String
+    val clearAllVersesConfirmTitle: String
+    val clearAllVersesConfirmBody: String
+    val clearAllVersesConfirmAction: String
 
     // Editor — actions and save state
     val saveAsDraft: String

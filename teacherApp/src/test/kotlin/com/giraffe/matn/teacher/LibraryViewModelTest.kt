@@ -13,10 +13,13 @@ import com.giraffe.matn.domain.usecase.ListAuthoredMatnsUseCase
 import com.giraffe.matn.domain.usecase.UnpublishMatnUseCase
 import com.giraffe.matn.teacher.presentation.library.LibraryViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -26,12 +29,17 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-private class LibraryFakeCatalogRepository(private val observeResult: Flow<List<CatalogEntry>>) : CatalogRepository {
-    override fun observeAuthored(): Flow<List<CatalogEntry>> = observeResult
+private class LibraryFakeCatalogRepository(
+    private val observeResult: Flow<List<CatalogEntry>> = flowOf(emptyList()),
+    private val observeCalls: (Int) -> Flow<List<CatalogEntry>> = { observeResult },
+    private val unpublishResult: Resource<MatnDraft> = Resource.Failure(AppError.NotFound),
+) : CatalogRepository {
+    var observeCallCount = 0
+    override fun observeAuthored(): Flow<List<CatalogEntry>> = observeCalls(observeCallCount++)
     override suspend fun load(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
     override suspend fun save(draft: MatnDraft): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun publish(draft: MatnDraft): Resource<MatnDraft> = Resource.Success(draft)
-    override suspend fun unpublish(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
+    override suspend fun unpublish(matnId: String): Resource<MatnDraft> = unpublishResult
     override suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String> = Resource.Success("ref")
 }
 
@@ -75,5 +83,35 @@ class LibraryViewModelTest {
 
         assertEquals(RemoteError.Network, vm.state.value.error)
         assertEquals(false, vm.state.value.isLoading)
+    }
+
+    /** A slow load kicked off on screen entry must not resolve *after* a same-session unpublish's
+     * own reload and clobber the correct post-unpublish state with the stale pre-unpublish one —
+     * this is what forced navigating away and back to see an unpublish actually take effect. */
+    @Test
+    fun `a slow initial load does not overwrite a fresher unpublish-triggered reload`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val staleEntry = entry("m1").copy(publicationState = PublicationState.PUBLISHED)
+        val freshEntry = entry("m1").copy(publicationState = PublicationState.DRAFT)
+        val repo = LibraryFakeCatalogRepository(
+            observeCalls = { callIndex ->
+                if (callIndex == 0) flow { delay(10_000); emit(listOf(staleEntry)) } else flowOf(listOf(freshEntry))
+            },
+        )
+        val vm = LibraryViewModel(ListAuthoredMatnsUseCase(repo), UnpublishMatnUseCase(repo))
+
+        vm.onRequestUnpublish("m1")
+        vm.onConfirmUnpublish()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(PublicationState.DRAFT, vm.state.value.entries.first().publicationState)
+
+        // The stale call's 10s delay finally elapses — its response must not land, since `load()`
+        // cancelled it before the fresh reload started.
+        dispatcher.scheduler.advanceTimeBy(11_000)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(PublicationState.DRAFT, vm.state.value.entries.first().publicationState)
     }
 }
