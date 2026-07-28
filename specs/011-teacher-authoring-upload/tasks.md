@@ -644,7 +644,10 @@ publishes; an anonymous reader can then read it, and cannot read a draft.
       Storage now requires the Blaze plan even at zero usage, and the user chose not to attach
       billing for this. The 23-case `firebase emulators:exec` run against a local emulator was not
       done (user opted out of the local-emulator approach after a Windows Firewall prompt); see
-      design-notes.md for the full account.
+      design-notes.md for the full account. Storage itself later moved to Supabase entirely (see
+      design-notes.md T-storage-swap); its RLS policies are deployed and live, but cover-image
+      upload is blocked by an unrelated Supabase Storage bug — see the "Live-tested and blocked"
+      note under T-storage-swap.
 
 **Checkpoint**: A validated matn publishes; an anonymous read succeeds for published and fails for
 drafts; all 23 rule cases pass.

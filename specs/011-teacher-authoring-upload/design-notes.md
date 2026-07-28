@@ -243,6 +243,103 @@ All" button in the verse-list header (`ClearAllVersesConfirmDialog.kt`), confirm
 verse list — a fast undo for a mistaken bulk import, since one-by-one delete was the only prior
 option.
 
+### T-storage-swap — Firebase Storage → Supabase Storage (2026-07-28)
+
+Firebase Storage now requires the Blaze (pay-as-you-go) plan even at zero usage (the same change
+that limited T078 to Firestore-only), and the user chose not to attach billing to this project.
+Since cover-image upload is the only feature in this phase touching Storage, and nothing on the
+student side consumes `coverImageRef` as a real image yet (`CoverImage.kt` always renders the
+shared placeholder — "Phase 1 has no network image loader" — retaining the field only for a later
+phase), the storage backend was fully swappable with zero blast radius. Compared Cloudflare R2 vs.
+Supabase Storage:
+
+- **R2** is S3-compatible, meaning either hand-rolled AWS SigV4 request signing in pure
+  multiplatform Kotlin (real crypto/canonicalization code, no library permitted under the fixed-
+  dependency rule) or a separate backend component (a Cloudflare Worker) to issue presigned upload
+  URLs — this project has no backend and isn't designed to have one.
+- **Supabase Storage** is a plain REST API with bearer-token auth, the same shape as the existing
+  Ktor + Firebase calls, and supports "third-party auth" — verifying the app's existing Firebase ID
+  tokens directly. No second login system, no signing code, no new dependency.
+
+Chose Supabase, and to replace Firebase Storage **entirely** (not just for covers) rather than split
+storage across two providers once Phase 12's audio uploads land.
+
+**Recorded decisions:**
+
+1. **The Firebase ID token is reused as-is for Supabase Storage calls.** `TokenRefresher` is
+   unchanged; Supabase's third-party-auth trust of the Firebase project (configured once, in the
+   Supabase dashboard) is what lets it accept that same bearer token. No new auth flow.
+2. **`coverImageRef` still stores just the object path** (`matns/{id}/cover.png`), not a full URL —
+   unchanged Firestore schema. A base URL is client config (`SupabaseConfig.projectUrl`), matching
+   the already-provider-agnostic contract from before this swap.
+3. **The RLS write policy checks "any authenticated caller," not a literal `isTeacher()` lookup.**
+   Postgres RLS (Supabase's rules language) can't query Firestore's `teachers/{uid}` collection the
+   way `storage.rules`' own `firestore.exists(...)` did. This is equivalent in practice: research
+   D14 established there is no self-registration anywhere in this app, so the *only* way to ever
+   hold a valid Firebase ID token for this project is to be the manually-provisioned teacher.
+   "Authenticated" and "is a teacher" coincide under this app's actual provisioning model. A
+   deliberate simplification, not an oversight — worth revisiting if this app ever gains a second
+   class of authenticated (non-teacher) user.
+4. **One bucket, `matn-content`**, preserving the existing nested path scheme
+   (`matns/{matnId}/cover.png` today, `matns/{matnId}/verses/{verseId}.mp3` when Phase 12 lands) —
+   not a bucket per asset type.
+
+**What changed:**
+
+- `StorageRestClient.kt` rewritten in place (same class name and method shapes — `upload()`,
+  `totalUsageBytes()` — so call sites in `FirestoreCatalogRepository` and `TeacherMain.kt` didn't
+  change) to target Supabase's REST endpoints instead of Firebase's.
+- New `SupabaseConfig.kt`, parallel to `FirebaseConfig.kt`. `FirebaseConfig` dropped its now-unused
+  `storageBucket`/`storageBaseUrl`.
+- `TeacherModule.kt` wires a `supabaseConfig()` provider reading three new
+  `firebase/firebase.local.properties` keys (`supabaseUrl`, `supabaseAnonKey`, `supabaseBucket`),
+  same env-var-override-then-file pattern as `firebaseConfig()`.
+- `firebase/storage.rules` deleted (retired) and its entry removed from `firebase/firebase.json`;
+  replaced by Supabase RLS policies run once in the Supabase SQL editor.
+- `SecurityRulesTest.kt`'s S-series (Storage rule) cases removed — they tested Firebase Storage
+  rules, which no longer apply. The R/W-series (Firestore) cases are unaffected.
+
+**Live-tested and blocked (2026-07-28):** cover-image upload was tried end-to-end against the real
+Supabase project and fails. Two issues surfaced in order:
+
+1. The RLS write policies above (`auth.role() = 'authenticated'`) never matched. `auth.role()` reads
+   a Supabase-native GoTrue `role` claim; Firebase ID tokens carry no such claim, so every write was
+   rejected as an RLS violation regardless of the caller's identity. Fixed by switching the check to
+   `auth.uid() is not null`, which Supabase's third-party-auth layer does populate from the token's
+   `sub` claim for any recognized provider.
+2. After that fix, uploads still fail — this one has no client-side workaround. Supabase Storage's
+   `storage.objects.owner` column is UUID-typed with a foreign key to `auth.users.id`, and the
+   Storage API inserts the caller's JWT `sub` claim into it directly on every authenticated write.
+   Firebase UIDs (e.g. `YLBEkGBttjdnbz9K4ZSzwhKc2Nv2`) are not valid UUIDs, so every insert throws
+   `invalid input syntax for type uuid`. Confirmed via Supabase's own GitHub discussions
+   (`supabase/discussions#13534`) as a known, unresolved limitation of their Firebase third-party-auth
+   integration (itself labeled private-alpha) — not something fixable from RLS SQL or client code.
+
+Options considered: re-enable Firebase Blaze (its free tier covers this app's scale, but requires a
+card on file, which the user wants to avoid); loosen the RLS insert policy to allow the `anon` role
+(trades "verified teacher" for "obscure app + client-embedded anon key," i.e. genuine public-write
+exposure on the bucket); or embed the Supabase `service_role` key in the desktop client (sidesteps
+the bug — service-role tokens carry no `sub` claim — but that key bypasses RLS for the *entire*
+Supabase project, not just this bucket, so a extracted key would be full database admin access).
+
+**Decision: defer.** Cover-image upload ships in this phase in a known-broken state — the UI is
+present, the pick/validate flow works, and a failed upload surfaces a translated error message
+rather than silently doing nothing or crashing — but the network call itself does not succeed
+against the current Supabase project. Same treatment as the earlier-deferred Storage
+`SecurityRulesTest` cases: recorded here rather than worked around under time pressure. No app code
+changes were made for this; `StorageRestClient`/`UploadCoverImageUseCase`/`EditorViewModel` are
+otherwise complete and correct — the gap is entirely in the external Supabase Storage service.
+Revisit when either Supabase fixes the owner-column bug, or the storage-backend decision above is
+revisited.
+- `docs/ROADMAP.md` and the constitution's Ktor dependency-justification note reworded from
+  "Firebase Storage" to name Supabase Storage; Phase 13's not-yet-built `FirebaseContentDeliveryEngine`
+  renamed in the roadmap text to the provider-agnostic `RemoteContentDeliveryEngine` so that phase
+  doesn't start from a stale name.
+
+**Not yet done**: live verification (upload a real cover through the app, confirm the object is
+publicly fetchable via a bare `curl` with no auth, confirm re-upload overwrites) — needs the user to
+create the Supabase project first (parallel to the Firebase project setup earlier this phase).
+
 ### RTL (FR-006a/b)
 
 No new left/right-anchored APIs were introduced in `:teacherApp` — every new composable
