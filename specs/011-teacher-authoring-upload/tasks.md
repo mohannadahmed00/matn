@@ -779,11 +779,15 @@ two; proceeding appends 48 editable verses in file order.
       environment for the real frame-timing HUD pass; see design-notes.md T101/T102 note for the
       automated data-layer proxy (correctness + timing at 500-verse scale) and the structural
       confirmation that `VerseRow` holds no text state of its own.
-- [ ] T102 Run the full `quickstart.md` §3 manual walkthrough (all six user stories) and confirm each
-      acceptance scenario in `spec.md`. **Not performable in this environment** — see design-notes.md
-      T102 note (needs a live Firebase project + real teacher account + interactive GUI/display, none
-      of which are available here). Automated coverage is the substitute; see the same note for the
-      scenario-by-scenario mapping.
+- [X] T102 Run the full `quickstart.md` §3 manual walkthrough (all six user stories) and confirm each
+      acceptance scenario in `spec.md`. **Done live, 2026-07-28** — the user connected a real Firebase
+      project via MCP and ran sign-in, draft creation/save, verse entry, bulk import, validate/
+      publish, unpublish/republish, and catalog management against it for real, with results verified
+      independently via Firestore MCP reads and raw unauthenticated `curl` (not just trusting the UI).
+      Found and fixed 5 real bugs this surfaced (see design-notes.md T102 note) — exactly the value a
+      live pass has over automated coverage alone. Still not exercised: the offline sign-in message,
+      the credential-plaintext-on-disk check, and Storage-backed cover-image upload (deferred, no
+      Blaze plan) — all noted in design-notes.md.
 - [X] T103 Confirm the constitution's Stack section already lists `teacherApp` as the producer
       client, so no amendment is needed; if it does not, update it in this PR.
 

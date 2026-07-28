@@ -188,6 +188,61 @@ display and no Firebase credentials, so neither can be executed as written. What
     purely visual observation (RTL mirroring, language-switch relabeling). These need the literal
     manual pass and are flagged here rather than claimed.
 
+### T102 — closed live, 2026-07-28 (superseding the note above)
+
+The user connected their real Firebase project (`matn-437dc`) via the Firebase CLI's MCP server
+(`.mcp.json`) and ran the actual `:teacherApp` desktop app against it, with me independently
+verifying each step's Firestore/Storage state via MCP reads and raw unauthenticated `curl` calls
+(not just trusting what the UI showed). Covered for real: sign-in, draft creation with full Arabic
+verse text (109-verse Al-Jazariyyah, 70-verse Tuhfat al-Atfal, 130-verse Al-Ajurrumiyyah, 34-verse
+Al-Bayquniyyah), save-as-draft, publish, the FR-040 anonymous-read check (confirmed via a bare
+`curl` with zero auth headers — HTTP 200, full document), unpublish, and reopening a matn from the
+Library to re-edit it. Still not covered: the offline sign-in message, the credential-plaintext
+check, visual RTL/language-switch observation, and cover-image upload (Storage needs the Blaze
+plan, which the user declined for now).
+
+**Five real bugs surfaced by this live pass — every one invisible to the existing automated suite,
+because `MockEngine`/fake-repository tests don't exercise the real Firebase response shape or real
+Compose recomposition timing:**
+
+1. **Sign-in silently failed with "Cannot reach the server."** `SignInRequest.returnSecureToken`
+   defaults to `true`, but kotlinx.serialization's `Json` doesn't encode a property equal to its
+   declared default unless `encodeDefaults = true` is set — so the flag never reached Identity
+   Toolkit, which then omitted `refreshToken`/`expiresIn` from the response entirely, throwing
+   `MissingFieldException` (mapped to the generic "Network" error by `RemoteErrorMapper.mapThrowable`,
+   which is why the message was misleading). Fixed in `HttpClientFactory.kt` by turning on
+   `encodeDefaults`. Root cause only surfaced because a real request body was serialized to the real
+   API — no `MockEngine` test asserts exact wire-format JSON.
+2. **Library Management never showed newly-created/newly-published matns without an app restart.**
+   `LibraryScreen`'s `viewModel {}` call is cached by the ViewModelStore across destination switches
+   (no per-destination store in this app), so `LibraryViewModel.init { load() }` only ever ran once
+   per process. Fixed with a `LaunchedEffect(Unit) { viewModel.load() }` that reruns on every fresh
+   entry into the screen.
+3. **Opening a different matn from the Library kept showing whichever matn was opened first.**
+   Same root cause as #2, on `EditorScreen`'s `viewModel {}` — fixed by keying the lookup on
+   `viewModel(key = initialDraft.id)` so each distinct matn gets its own ViewModel instance.
+4. **Typing into a brand-new matn silently reset itself mid-keystroke and spawned dozens of
+   throwaway one-character-title documents in Firestore.** Introduced by fixing #3: `initialDraft`'s
+   default value (`MatnDraftFactory.newDraft(...)`) was a plain expression re-evaluated on *every*
+   recomposition, so once the ViewModel lookup was keyed on `initialDraft.id`, every keystroke handed
+   it a fresh random UUID and silently replaced the in-progress ViewModel with a blank one — whose
+   orphaned predecessor's pending autosave then fired once on its own, creating a one-off document.
+   Fixed by wrapping the default in `remember {}` so it's computed once per composition lifetime.
+   38 resulting throwaway documents were found via Firestore MCP and deleted (with the user's
+   explicit confirmation first — this is real production data, not a fixture).
+5. **Unpublishing a matn didn't update the Library row in place — required navigating away and back.**
+   A classic last-response-wins race: `LibraryViewModel.load()` never cancelled a prior in-flight
+   fetch, so the slow fetch kicked off on screen entry could resolve *after* the fast reload
+   triggered by a same-session unpublish and overwrite the correct new state with the stale one.
+   Fixed by tracking the load `Job` and cancelling it before starting a new one; a regression test
+   (`a slow initial load does not overwrite a fresher unpublish-triggered reload`, using
+   `StandardTestDispatcher` + virtual time to force the race) locks this in.
+
+**One feature added beyond the original scope, at the user's request during this pass**: a "Clear
+All" button in the verse-list header (`ClearAllVersesConfirmDialog.kt`), confirmed before wiping the
+verse list — a fast undo for a mistaken bulk import, since one-by-one delete was the only prior
+option.
+
 ### RTL (FR-006a/b)
 
 No new left/right-anchored APIs were introduced in `:teacherApp` — every new composable
