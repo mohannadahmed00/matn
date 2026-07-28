@@ -44,6 +44,8 @@ object ArabicStrings : TeacherStrings {
     override val coverArtLabel = "صورة الغلاف"
     override val coverArtHint = "المقاس المُوصى به: 800 × 1200 بكسل"
     override val coverArtRemove = "إزالة الغلاف"
+    override val coverUploadFailedError = "تعذّر رفع صورة الغلاف. حاول مرة أخرى."
+    override val coverInvalidFileError = "الملف غير صالح. اختر صورة PNG أو JPEG أو WebP بحجم أقل من 5 ميغابايت."
     override val proTipHeading = "نصيحة"
     override val proTipBody = "تقسيم الصوت حسب البيت يساعد الطلاب على الاستفادة من ميزة 'التكرار التلقائي' بفعالية أكبر."
     override val structureKindLabel = "البنية"

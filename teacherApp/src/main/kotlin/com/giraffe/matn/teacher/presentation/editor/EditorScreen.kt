@@ -41,6 +41,7 @@ import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.teacher.di.TeacherKoinHolder
+import com.giraffe.matn.teacher.platform.ImagePickResult
 import com.giraffe.matn.teacher.platform.JvmFileChooser
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.common.SaveStateIndicator
@@ -165,7 +166,7 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 }
 
                 item {
-                    CoverArtCard(draft.coverImageRef, intents.onPickCover, intents.onRemoveCover)
+                    CoverArtCard(draft.coverImageRef, state.coverError, intents.onPickCover, intents.onRemoveCover)
                 }
 
                 if (draft.structureKind == StructureKind.STRUCTURED) {
@@ -308,7 +309,7 @@ private fun StructureKindPicker(selected: StructureKind, onSelected: (StructureK
 }
 
 @Composable
-private fun CoverArtCard(coverImageRef: String?, onPick: () -> Unit, onRemove: () -> Unit) {
+private fun CoverArtCard(coverImageRef: String?, coverError: CoverError?, onPick: () -> Unit, onRemove: () -> Unit) {
     val strings = LocalTeacherStrings.current
     Column(
         modifier = Modifier
@@ -320,6 +321,13 @@ private fun CoverArtCard(coverImageRef: String?, onPick: () -> Unit, onRemove: (
     ) {
         Text(strings.coverArtLabel, style = MaterialTheme.typography.titleMedium)
         Text(coverImageRef ?: strings.coverArtHint, style = MaterialTheme.typography.labelSmall)
+        if (coverError != null) {
+            val message = when (coverError) {
+                CoverError.INVALID_FILE -> strings.coverInvalidFileError
+                CoverError.UPLOAD_FAILED -> strings.coverUploadFailedError
+            }
+            Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
             TextButton(onClick = onPick) { Text(strings.coverArtLabel) }
             if (coverImageRef != null) {
@@ -401,8 +409,11 @@ fun EditorScreen(
             onDescriptionChange = viewModel::onDescriptionChange,
             onStructureKindChange = viewModel::onStructureKindChange,
             onPickCover = {
-                val bytes = JvmFileChooser.pickImage()
-                if (bytes != null) viewModel.onCoverPicked(bytes, "png")
+                when (val result = JvmFileChooser.pickImage()) {
+                    is ImagePickResult.Picked -> viewModel.onCoverPicked(result.bytes, result.extension)
+                    is ImagePickResult.Rejected -> viewModel.onCoverRejected()
+                    is ImagePickResult.Cancelled -> Unit
+                }
             },
             onRemoveCover = viewModel::onRemoveCover,
             onAddChapter = viewModel::onAddChapter,

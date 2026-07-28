@@ -30,12 +30,16 @@ sealed interface SaveState {
     data class Failed(val error: RemoteError) : SaveState
 }
 
+/** Resolved to a translated message only at render time (`TeacherStrings`) — never a raw string in
+ * state, so the failure reason survives a language switch. */
+enum class CoverError { UPLOAD_FAILED, INVALID_FILE }
+
 data class EditorUiState(
     val draft: MatnDraft,
     val saveState: SaveState = SaveState.Idle,
     val missingTitle: Boolean = false,
     val missingAuthor: Boolean = false,
-    val coverError: String? = null,
+    val coverError: CoverError? = null,
     val validation: ValidationReport? = null,
     val focusedProblem: String? = null,
     val showPublishConfirm: Boolean = false,
@@ -160,8 +164,12 @@ class EditorViewModel(
             useCase = uploadCoverImage,
             params = UploadCoverImageUseCase.Params(stateValue.draft.id, bytes, ext),
             onSuccess = { ref -> mutateDraft { it.copy(coverImageRef = ref) } },
-            onError = { setState { it.copy(coverError = "cover-upload-failed") } },
+            onError = { setState { it.copy(coverError = CoverError.UPLOAD_FAILED) } },
         )
+    }
+
+    fun onCoverRejected() {
+        setState { it.copy(coverError = CoverError.INVALID_FILE) }
     }
 
     fun onRemoveCover() = mutateDraft { it.copy(coverImageRef = null) }

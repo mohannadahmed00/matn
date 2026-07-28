@@ -44,6 +44,8 @@ object EnglishStrings : TeacherStrings {
     override val coverArtLabel = "Cover Art"
     override val coverArtHint = "Recommended size: 800 x 1200 px"
     override val coverArtRemove = "Remove cover"
+    override val coverUploadFailedError = "Cover upload failed. Try again."
+    override val coverInvalidFileError = "Invalid file. Choose a PNG, JPEG, or WebP image under 5 MB."
     override val proTipHeading = "Pro-Tip"
     override val proTipBody =
         "Splitting audio by verse helps students utilize the 'Auto-Repeat' feature more effectively."

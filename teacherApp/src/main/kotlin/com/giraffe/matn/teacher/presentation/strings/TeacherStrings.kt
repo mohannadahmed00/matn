@@ -61,6 +61,8 @@ interface TeacherStrings {
     val coverArtLabel: String
     val coverArtHint: String
     val coverArtRemove: String
+    val coverUploadFailedError: String
+    val coverInvalidFileError: String
     val proTipHeading: String
     val proTipBody: String
     val structureKindLabel: String
