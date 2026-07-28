@@ -93,10 +93,10 @@ Deferred TODOs:
     Phase 9.~~ Closed 2026-07-25 by Phase 9; MatnDarkColors is gated by ColorContrastTest.
   - Two dependency justifications are outstanding under "Adding a new third-party dependency
     requires justification against a simpler alternative" (Technology & Architecture Constraints):
-    (a) Phase 11 — Ktor, the project's first HTTP client. Firebase ships no official client SDK for
-    desktop JVM, so all backend access is Firestore/Storage/Identity Toolkit REST from one
-    commonMain implementation rather than three platform SDK paths. See docs/ROADMAP.md
-    § "Backend access — REST, not platform SDKs".
+    (a) Phase 11 — Ktor, the project's first HTTP client. Neither Firebase nor Supabase ships an
+    official client SDK for desktop JVM, so all backend access is Firestore/Supabase Storage/
+    Identity Toolkit REST from one commonMain implementation rather than three platform SDK paths.
+    See docs/ROADMAP.md § "Backend access — REST, not platform SDKs".
     (b) Phase 12 — an MP3 decoder (JLayer/mp3spi vs. bundled ffmpeg), needed for verse slicing and
     preview. Unavoidable: DesktopAudioEngine records that javax.sound.sampled ships no MP3 codec.
   - Phase 13 must delete, not merely bypass, the superseded delivery stack: the packs/* modules,

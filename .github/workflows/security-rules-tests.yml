@@ -1,10 +1,11 @@
 name: Security Rules Tests
 
-# FR-036/FR-042 (`specs/011-teacher-authoring-upload/research.md` D9): the Firestore/Storage rules
-# are load-bearing — the only gate on student visibility — so they must be exercised against a real
+# FR-036/FR-042 (`specs/011-teacher-authoring-upload/research.md` D9): the Firestore rules are
+# load-bearing — the only gate on student visibility — so they must be exercised against a real
 # emulator, not just reviewed. `SecurityRulesTest` skips itself locally when FIREBASE_EMULATOR_HOST
 # is unset (`shared/src/jvmTest/kotlin/com/giraffe/matn/remote/EmulatorTestSupport.kt`); this job is
-# what actually runs it.
+# what actually runs it. Storage cases were retired when Storage moved to Supabase — see
+# `specs/011-teacher-authoring-upload/design-notes.md`.
 
 on:
   pull_request:
@@ -38,5 +39,5 @@ jobs:
         env:
           FIREBASE_EMULATOR_HOST: 127.0.0.1
         run: |
-          firebase emulators:exec --only firestore,storage,auth \
+          firebase emulators:exec --only firestore,auth \
             "cd .. && ./gradlew :shared:jvmTest --tests 'com.giraffe.matn.remote.SecurityRulesTest'"

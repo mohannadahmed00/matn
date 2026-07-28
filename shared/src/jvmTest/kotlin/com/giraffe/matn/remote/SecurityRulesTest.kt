@@ -8,7 +8,6 @@ import com.giraffe.matn.data.remote.firestore.FirestoreValue
 import com.giraffe.matn.data.remote.firestore.toJson
 import com.giraffe.matn.data.remote.identity.IdentityToolkitClient
 import com.giraffe.matn.data.remote.identity.TokenRefresher
-import com.giraffe.matn.data.remote.storage.StorageRestClient
 import com.giraffe.matn.domain.auth.TeacherSession
 import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.secret.SecretStore
@@ -17,7 +16,6 @@ import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
-import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -44,16 +42,17 @@ private class RulesTestSecretStore : SecretStore {
 }
 
 /**
- * FR-042/SC-008: the 23-case matrix (17 refusals, 6 permitted) from
- * `contracts/security-rules.md` §3, driven against the Firebase Local Emulator Suite (research D9).
- * Every test skips via [requireEmulatorHost] when `FIREBASE_EMULATOR_HOST` is unset, so an ordinary
- * `./gradlew test` stays green with no Firebase CLI installed.
+ * FR-042/SC-008: the Firestore half of the case matrix from `contracts/security-rules.md` §3,
+ * driven against the Firebase Local Emulator Suite (research D9). Every test skips via
+ * [requireEmulatorHost] when `FIREBASE_EMULATOR_HOST` is unset, so an ordinary `./gradlew test`
+ * stays green with no Firebase CLI installed. The Storage cases (formerly S1-S7) were retired when
+ * Storage moved to Supabase — see `design-notes.md`.
  *
  * **Anonymous-caller cases** (no signed-in session) issue a bare Ktor request with no
- * `Authorization` header — `FirestoreRestClient`/`StorageRestClient` are teacher-only clients that
- * always attach a bearer token, so an anonymous call has to bypass them. **Teacher and
- * "authenticated non-teacher" cases go through the real project clients**, primed with a real
- * emulator-issued session, which is what exercises the exact request shape the app sends.
+ * `Authorization` header — `FirestoreRestClient` is a teacher-only client that always attaches a
+ * bearer token, so an anonymous call has to bypass it. **Teacher and "authenticated non-teacher"
+ * cases go through the real project client**, primed with a real emulator-issued session, which is
+ * what exercises the exact request shape the app sends.
  *
  * Setup seeds the `teachers/{uid}` marker directly via the Firestore emulator's documented
  * `Authorization: Bearer owner` rules-bypass — no client, including the teacher's own, may write
@@ -71,7 +70,7 @@ class SecurityRulesTest {
     @BeforeTest
     fun setUp() = runTest {
         val host = requireEmulatorHost()
-        config = FirebaseConfig(projectId = "matn-test", apiKey = "fake-api-key", storageBucket = "matn-test.appspot.com", emulatorHost = host)
+        config = FirebaseConfig(projectId = "matn-test", apiKey = "fake-api-key", emulatorHost = host)
         httpClient = createHttpClient()
         identityClient = IdentityToolkitClient(httpClient, config)
         teacherSession = signUpFreshUser()
@@ -114,12 +113,6 @@ class SecurityRulesTest {
         val tokenRefresher = TokenRefresher(identityClient, RulesTestSecretStore(), nowMillis = { 0L })
         session?.let { tokenRefresher.setSession(it) }
         return FirestoreRestClient(httpClient, config, tokenRefresher)
-    }
-
-    private fun storageClientFor(session: TeacherSession?): StorageRestClient {
-        val tokenRefresher = TokenRefresher(identityClient, RulesTestSecretStore(), nowMillis = { 0L })
-        session?.let { tokenRefresher.setSession(it) }
-        return StorageRestClient(httpClient, config, tokenRefresher)
     }
 
     /** An anonymous read/write with no `Authorization` header at all. */
@@ -274,61 +267,7 @@ class SecurityRulesTest {
         assertTrue(response.status.value == 403 || response.status.value == 401)
     }
 
-    // ---- S: Storage ----
-
-    @Test
-    fun `S1 anonymous read of a cover image is allowed`() = runTest {
-        val matnId = "m-${Uuid.random()}"
-        storageClientFor(teacherSession).upload("matns/$matnId/cover.png", ByteArray(100) { 1 }, "image/png")
-        val response = httpClient.get("${config.storageBaseUrl}/b/${config.storageBucket}/o/matns%2F$matnId%2Fcover.png")
-        assertTrue(response.status.value in 200..299)
-    }
-
-    @Test
-    fun `S2 anonymous write of a cover image is denied`() = runTest {
-        val response = httpClient.post("${config.storageBaseUrl}/b/${config.storageBucket}/o") {
-            parameter("uploadType", "media")
-            parameter("name", "matns/m-${Uuid.random()}/cover.png")
-            contentType(ContentType.Image.PNG)
-            setBody(ByteArray(100) { 1 })
-        }
-        assertTrue(response.status.value == 403 || response.status.value == 401)
-    }
-
-    @Test
-    fun `S3 teacher writing a 1MB png is allowed`() = runTest {
-        val result = storageClientFor(teacherSession).upload("matns/m-${Uuid.random()}/cover.png", ByteArray(1_000_000) { 1 }, "image/png")
-        assertTrue(result is Resource.Success)
-    }
-
-    @Test
-    fun `S4 teacher writing a 10MB png over the size limit is denied`() = runTest {
-        val result = storageClientFor(teacherSession).upload("matns/m-${Uuid.random()}/cover.png", ByteArray(10_000_000) { 1 }, "image/png")
-        assertTrue(result is Resource.Failure)
-    }
-
-    @Test
-    fun `S5 teacher writing a zip content type is denied`() = runTest {
-        val result = storageClientFor(teacherSession).upload("matns/m-${Uuid.random()}/cover.zip", ByteArray(100) { 1 }, "application/zip")
-        assertTrue(result is Resource.Failure)
-    }
-
-    @Test
-    fun `S6 anonymous write outside matns is denied`() = runTest {
-        val response = httpClient.post("${config.storageBaseUrl}/b/${config.storageBucket}/o") {
-            parameter("uploadType", "media")
-            parameter("name", "not-matns/x.png")
-            contentType(ContentType.Image.PNG)
-            setBody(ByteArray(100) { 1 })
-        }
-        assertTrue(response.status.value == 403 || response.status.value == 401)
-    }
-
-    @Test
-    fun `S7 authenticated non-teacher writing a cover image is denied`() = runTest {
-        val result = storageClientFor(nonTeacherSession).upload("matns/m-${Uuid.random()}/cover.png", ByteArray(100) { 1 }, "image/png")
-        assertTrue(result is Resource.Failure)
-    }
+    // ---- Storage rule cases retired: Storage moved to Supabase (see design-notes.md, T-storage-swap) ----
 
     // ---- SC-011: atomicity of a large in-flight save ----
 

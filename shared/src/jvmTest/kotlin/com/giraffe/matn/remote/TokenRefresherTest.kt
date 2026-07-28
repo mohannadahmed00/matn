@@ -37,7 +37,7 @@ private class FakeSecretStore : SecretStore {
 
 class TokenRefresherTest {
 
-    private val config = FirebaseConfig(projectId = "p", apiKey = "key", storageBucket = "b")
+    private val config = FirebaseConfig(projectId = "p", apiKey = "key")
 
     private fun refreshSuccessBody(idToken: String = "new-id-token", refreshToken: String = "new-refresh-token") =
         """{"id_token":"$idToken","refresh_token":"$refreshToken","expires_in":"3600","user_id":"uid1"}"""

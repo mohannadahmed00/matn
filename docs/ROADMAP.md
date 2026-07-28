@@ -101,13 +101,15 @@ and no content-ownership model, though the Firestore schema should not actively 
 
 ### Backend access — REST, not platform SDKs
 
-All Firebase access goes through **Firestore REST, Storage REST, and Identity Toolkit over Ktor**,
-in a single `:shared/commonMain` implementation. Firebase ships no official client SDK for desktop
-JVM, so platform SDKs would leave `:desktopApp` and `:teacherApp` unserved and split the code into
-three paths; one REST client covers Android, iOS, and both JVM clients uniformly and matches the
-repo's existing "domain interface, one implementation" style. **Ktor is a new dependency** — the
-project's first HTTP client of any kind — and needs justifying under the constitution's dependency
-clause when Phase 11 lands.
+All backend access goes through **Firestore REST, Supabase Storage REST, and Identity Toolkit over
+Ktor**, in a single `:shared/commonMain` implementation. Neither Firebase nor Supabase ships an
+official client SDK for desktop JVM, so platform SDKs would leave `:desktopApp` and `:teacherApp`
+unserved and split the code into three paths; one REST client covers Android, iOS, and both JVM
+clients uniformly and matches the repo's existing "domain interface, one implementation" style.
+**Ktor is a new dependency** — the project's first HTTP client of any kind — and needs justifying
+under the constitution's dependency clause when Phase 11 lands. (Binary object storage moved from
+Firebase Storage to Supabase Storage post-launch — Firebase Storage now requires the Blaze plan
+even at zero usage; see `specs/011-teacher-authoring-upload/design-notes.md`.)
 
 Students have **no accounts**. Catalog reads are public, gated by security rules on the document's
 `published` flag; only the teacher authenticates, to write. Remote student accounts stay a V2 item.
@@ -132,7 +134,7 @@ are load-bearing and must be tested, not merely written.
 
 ### Phase 12 — Audio Capture & Slicing
 Adds the audio half, via two paths producing the **same** artifact — an ordered set of per-verse
-files uploaded to Storage:
+files uploaded to Supabase Storage:
 - **Per-verse upload** (the audio column of `stitch-designs/11-Upload-Per-Verse`): per-row audio
   upload with duration preview.
 - **Split-from-continuous** (adapted from `stitch-designs/12-Upload-Timestamp-Map`): the teacher
@@ -154,7 +156,9 @@ under the constitution's dependency clause.
 ### Phase 13 — Student Remote Catalog & Download
 The student-app retrofit — as much deletion as addition.
 
-**Adds:** a `FirebaseContentDeliveryEngine` in `commonMain` satisfying the existing
+**Adds:** a `RemoteContentDeliveryEngine` in `commonMain` (provider-agnostic name — catalog metadata
+reads Firestore, binary assets read Supabase Storage; see Phase 11's storage swap in
+`specs/011-teacher-authoring-upload/design-notes.md`) satisfying the existing
 `ContentDeliveryEngine` seam (`querySize`/`install`/`observe`/`cancel`/`remove`/`locate`/
 `isInstalled`); catalog sync pulling published *overviews* — title, author, description, cover,
 verse count, size — from Firestore into SQLDelight via the existing `ContentSeedLoader` path;
@@ -170,7 +174,7 @@ Compose-resource audio routing that served it.
 
 `ContentPackRepository`'s abstraction survives intact: it still owns the `matnId ↔ packId`
 translation and still computes availability per read without persisting it. `packId` simply becomes
-a Storage path prefix instead of a Gradle module name.
+a Supabase Storage path prefix instead of a Gradle module name.
 
 **One behavioural change to spec, not discover:** Phase 6's FR-001 specified library-wide search
 across verse text. With an overview-only catalog, verse text exists locally only for downloaded

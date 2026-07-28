@@ -31,7 +31,7 @@ private class NoOpSecretStore : SecretStore {
 
 class FirestoreRestClientTest {
 
-    private val config = FirebaseConfig(projectId = "proj1", apiKey = "key", storageBucket = "bucket")
+    private val config = FirebaseConfig(projectId = "proj1", apiKey = "key")
 
     /** A never-expiring session so these tests never actually hit the token-refresh path. */
     private fun freshTokenRefresher(): TokenRefresher {

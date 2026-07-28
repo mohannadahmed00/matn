@@ -1,6 +1,7 @@
 package com.giraffe.matn.teacher.di
 
 import com.giraffe.matn.data.remote.FirebaseConfig
+import com.giraffe.matn.data.remote.SupabaseConfig
 import com.giraffe.matn.data.remote.createHttpClient
 import com.giraffe.matn.data.remote.firestore.FirestoreRestClient
 import com.giraffe.matn.data.remote.identity.IdentityToolkitClient
@@ -48,15 +49,31 @@ class TeacherModule {
 
     @Single
     fun firebaseConfig(): FirebaseConfig {
-        val props = Properties()
-        val file = File("firebase/firebase.local.properties")
-        if (file.exists()) file.inputStream().use { props.load(it) }
+        val props = teacherLocalProperties()
         return FirebaseConfig(
             projectId = System.getenv("FIREBASE_PROJECT_ID") ?: props.getProperty("projectId", ""),
             apiKey = System.getenv("FIREBASE_API_KEY") ?: props.getProperty("apiKey", ""),
-            storageBucket = System.getenv("FIREBASE_STORAGE_BUCKET") ?: props.getProperty("storageBucket", ""),
             emulatorHost = System.getenv("FIREBASE_EMULATOR_HOST"),
         )
+    }
+
+    /** Backs binary object storage (cover images, Phase 12 audio) — moved off Firebase Storage,
+     * which now requires the Blaze plan even at zero usage; see `design-notes.md`. */
+    @Single
+    fun supabaseConfig(): SupabaseConfig {
+        val props = teacherLocalProperties()
+        return SupabaseConfig(
+            projectUrl = System.getenv("SUPABASE_URL") ?: props.getProperty("supabaseUrl", ""),
+            anonKey = System.getenv("SUPABASE_ANON_KEY") ?: props.getProperty("supabaseAnonKey", ""),
+            bucket = System.getenv("SUPABASE_BUCKET") ?: props.getProperty("supabaseBucket", ""),
+        )
+    }
+
+    private fun teacherLocalProperties(): Properties {
+        val props = Properties()
+        val file = File("firebase/firebase.local.properties")
+        if (file.exists()) file.inputStream().use { props.load(it) }
+        return props
     }
 
     @Single
@@ -92,8 +109,8 @@ class TeacherModule {
         FirestoreRestClient(httpClient, firebaseConfig, tokenRefresher)
 
     @Single
-    fun storageRestClient(httpClient: HttpClient, firebaseConfig: FirebaseConfig, tokenRefresher: TokenRefresher): StorageRestClient =
-        StorageRestClient(httpClient, firebaseConfig, tokenRefresher)
+    fun storageRestClient(httpClient: HttpClient, supabaseConfig: SupabaseConfig, tokenRefresher: TokenRefresher): StorageRestClient =
+        StorageRestClient(httpClient, supabaseConfig, tokenRefresher)
 
     @Single
     fun catalogRepository(firestoreClient: FirestoreRestClient, storageClient: StorageRestClient): CatalogRepository =

@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 
 class IdentityToolkitClientTest {
 
-    private val config = FirebaseConfig(projectId = "proj", apiKey = "test-api-key", storageBucket = "bucket")
+    private val config = FirebaseConfig(projectId = "proj", apiKey = "test-api-key")
 
     @Test
     fun `signInWithPassword sends the expected request shape`() = runTest {
