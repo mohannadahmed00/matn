@@ -118,7 +118,7 @@ class FirestoreRestClient(
                 Resource.Success(response.body<JsonObject>().toFirestoreDocument())
             } else {
                 val body = response.bodyAsText()
-                println("DIAG firestore request failed: status=${response.status.value} body=$body")
+                println("DIAG firestore request failed: url=${response.call.request.url} status=${response.status.value} body=$body")
                 Resource.Failure(RemoteErrorMapper.mapHttpError(response.status.value, body))
             }
         } catch (c: CancellationException) {
