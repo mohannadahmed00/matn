@@ -4,7 +4,7 @@
 
 Domain models live in `:shared/commonMain/kotlin/com/giraffe/matn/domain/`. All of them are plain
 Kotlin — no framework, no platform type, no Compose (Principle I, IV). The wire shape they map to is
-in [contracts/firestore-schema.md](./contracts/firestore-schema.md).
+in [contracts/postgres-schema.md](./contracts/postgres-schema.md).
 
 ---
 
@@ -27,7 +27,7 @@ chapters and verses; nothing else may hold them.
 | `publicationState` | `PublicationState` | `DRAFT` \| `PUBLISHED` (FR-010) |
 | `createdAt` | `Long` | Epoch millis, set once (FR-010) |
 | `updatedAt` | `Long` | Epoch millis, set on every write (FR-010) |
-| `remoteUpdateTime` | `String?` | Server `updateTime` from the last read; the concurrency token (FR-043). `null` for a never-saved draft |
+| `remoteRevision` | `String?` | Server-assigned `matns.revision` from the last read; the concurrency token (FR-043). `null` for a never-saved draft |
 
 **Derived, never stored as an editable field**:
 
@@ -162,7 +162,7 @@ listed without downloading verse text.
 | `audioCompleteness` | `AudioCompleteness` |
 | `updatedAt` | `Long` |
 
-Read with a Firestore field mask. This is the type Phase 13's catalog sync consumes — it is specified
+Read by selecting only the overview columns. This is the type Phase 13's catalog sync consumes — it is specified
 here so the producer exercises it first.
 
 ---
@@ -173,12 +173,12 @@ here so the producer exercises it first.
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `uid` | `String` | Firebase user id; also the `teachers/{uid}` marker key (research D14) |
-| `displayName` | `String` | Shown in the portal (FR-001 scenario 1) |
+| `uid` | `String` | Supabase Auth user id; also the `teachers.uid` marker key (research D14) |
+| `displayName` | `String` | Shown in the portal (FR-001 scenario 1). From `user_metadata`, falling back to the email's local part |
 | `email` | `String` | |
-| `idToken` | `String` | ~1 hour lifetime. **In memory only** |
-| `refreshToken` | `String` | The only value persisted, via `SecretStore` (FR-003a, D7) |
-| `idTokenExpiresAt` | `Long` | Epoch millis; drives proactive refresh (FR-003) |
+| `accessToken` | `String` | ~1 hour lifetime. **In memory only** |
+| `refreshToken` | `String` | The only value persisted, via `SecretStore` (FR-003a, D7). Rotated by Supabase on every use |
+| `accessTokenExpiresAt` | `Long` | Epoch millis; drives proactive refresh (FR-003) |
 
 ---
 
@@ -200,7 +200,7 @@ interface TeacherAuthRepository {
 interface CatalogRepository {
     fun observeAuthored(): Flow<List<CatalogEntry>>              // FR-035
     suspend fun load(matnId: String): Resource<MatnDraft>        // FR-036
-    suspend fun save(draft: MatnDraft): Resource<MatnDraft>      // FR-031/033/043; returns new updateTime
+    suspend fun save(draft: MatnDraft): Resource<MatnDraft>      // FR-031/033/043; returns the new revision
     suspend fun publish(draft: MatnDraft): Resource<MatnDraft>   // FR-032
     suspend fun unpublish(matnId: String): Resource<MatnDraft>   // FR-038
     suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String>  // FR-014
@@ -227,8 +227,8 @@ need.
 |------|-------|-------------|
 | `Network` | No connection, DNS, timeout | `true` |
 | `Unauthorized` | Missing/expired/rejected credential | `false` — re-authenticate |
-| `Forbidden` | Authenticated but rules refused | `false` |
-| `Conflict` | `updateTime` precondition failed (D4) | `false` — reload and re-apply |
+| `Forbidden` | Authenticated but row-level security refused | `false` |
+| `Conflict` | `revision` precondition failed (D4) | `false` — reload and re-apply |
 | `QuotaExceeded` | Storage or write quota | `false` |
 | `Server` | 5xx | `true` |
 | `Decode` | Response did not match the expected shape | `false` |
@@ -273,7 +273,7 @@ both directions and is unit-tested for round-trip fidelity on every field a matn
 | `VerseTextImport.parse(bytes)` | `domain/catalog/VerseTextImport.kt` | UTF-8 decode, BOM strip, both line endings, blank lines skipped silently, per-line index for unreadable lines (FR-023a, FR-023b) |
 | `AudioCompleteness.of(verses)` | `domain/catalog/AudioCompleteness.kt` | §4 |
 | `DraftAutosaveScheduler` | `domain/catalog/DraftAutosaveScheduler.kt` | Injected clock + scope; 5 s idle, 60 s ceiling, coalesced, drafts only (D12) |
-| `FirestoreValue` codec | `data/remote/firestore/` | D10 |
+| `MatnRow` mapping | `data/remote/postgrest/MatnRow.kt` | D10 |
 
 Every one is a pure function or takes its collaborators by interface, so the whole risky core is
 covered in `commonTest` with no network, emulator, or device.

@@ -331,14 +331,101 @@ changes were made for this; `StorageRestClient`/`UploadCoverImageUseCase`/`Edito
 otherwise complete and correct — the gap is entirely in the external Supabase Storage service.
 Revisit when either Supabase fixes the owner-column bug, or the storage-backend decision above is
 revisited.
+
+**Resolved 2026-07-31 by the backend swap below, without Supabase fixing anything.** Issue 2 was
+never a Storage bug so much as a consequence of the Firebase bridge: the `sub` claim being written
+into `storage.objects.owner_id` was a Firebase UID, and Firebase UIDs are not UUIDs. Once Supabase
+Auth issues the token, `sub` *is* a UUID and the insert is ordinary. Confirmed live — a cover
+uploaded through the app now lands with `owner_id = 7b8f3232-…`, the teacher's real `auth.users.id`.
+
+Issue 1's fix is also withdrawn: `auth.uid() is not null` is no longer needed as a workaround, and
+the "authenticated ⇒ teacher" simplification recorded as decision 3 above is retired with it. The
+policies now call `private.is_teacher()` for real, so FR-041 is enforced rather than argued for.
 - `docs/ROADMAP.md` and the constitution's Ktor dependency-justification note reworded from
   "Firebase Storage" to name Supabase Storage; Phase 13's not-yet-built `FirebaseContentDeliveryEngine`
   renamed in the roadmap text to the provider-agnostic `RemoteContentDeliveryEngine` so that phase
   doesn't start from a stale name.
 
-**Not yet done**: live verification (upload a real cover through the app, confirm the object is
-publicly fetchable via a bare `curl` with no auth, confirm re-upload overwrites) — needs the user to
-create the Supabase project first (parallel to the Firebase project setup earlier this phase).
+**Live verification**: done 2026-07-31, after the backend swap below — see that section.
+
+### T-backend-swap — the rest of Firebase → Supabase (2026-07-31)
+
+The storage swap above left the project straddling two backends: Firestore and Identity Toolkit on
+Firebase, object storage on Supabase, and a third-party-auth trust relationship between them holding
+it together. That bridge was the weakest part of the arrangement — it made Supabase's authorisation
+depend on a Firebase token, so a change on either side could break uploads with no local signal.
+Firestore and Identity Toolkit have now followed Storage, and Firebase is gone entirely.
+
+**What moved**
+
+| Was | Is |
+|-----|-----|
+| Identity Toolkit + Secure Token | Supabase Auth (`/auth/v1/token`, `password` and `refresh_token` grants) |
+| Firestore `matns/{matnId}` document | `public.matns` row, `chapters`/`verses` as `jsonb` |
+| Firestore `teachers/{uid}` marker | `public.teachers` row + `private.is_teacher()` |
+| `firestore.rules` | RLS policies in `supabase/migrations/` |
+| `FirestoreValue` wrapper codec | Deleted — PostgREST returns ordinary JSON |
+| `currentDocument.updateTime` precondition | Trigger-bumped `matns.revision`, used as an update filter |
+| Firebase emulator + `security-rules-tests.yml` | `supabase start` + `rls-policy-tests.yml` |
+
+Nothing was migrated: the Supabase project was empty and the Firestore data was test content, so
+this was a clean cut. The teacher account is recreated in Supabase Auth by hand, which it had to be
+regardless — Firebase's password hashes are a custom scrypt variant and do not transfer.
+
+**Four behaviour differences worth knowing**
+
+1. **RLS filters where rules refused.** Reading an unpublished matn anonymously used to return 403;
+   it now returns 200 with the row absent. No data leaks either way, and the test matrix asserts the
+   new shape explicitly (`contracts/rls-policies.md` §0).
+2. **A failed update is ambiguous on the wire.** PostgREST reports "the revision precondition
+   failed" and "row-level security hid this row" identically — 200 with an empty array.
+   `SupabaseCatalogRepository` disambiguates with one extra read on the failure path, which is the
+   one place this swap cost a round trip.
+3. **Refresh tokens rotate.** Supabase issues a new refresh token on every use, so the `SecretStore`
+   is rewritten on each refresh. Keeping the old one silently breaks the *next* app start, not the
+   current one — the failure mode it would produce is the least obvious in this whole area, so
+   `TokenRefresherTest` covers it directly.
+4. **A restored session now has a name.** Firebase's Secure Token API returned no `displayName` or
+   `email` on refresh, and a session restored from a persisted refresh token showed blanks until the
+   next sign-in. Supabase returns the full `user` object; that documented limitation is gone.
+
+**Two things got stricter, deliberately**
+
+- The storage policies added during the storage swap gated on `auth.uid() IS NOT NULL` — any signed-
+  in user, not just a teacher. Because permissive RLS policies OR together, they would have defeated
+  the teacher-only policies added alongside `matns`. They are dropped; writes now require the
+  teacher marker (FR-041).
+- Cover images are no longer world-readable. The Firebase Storage rules made every cover public,
+  including an unpublished matn's, because gating on the document would have cost a Firestore read
+  per catalog thumbnail. RLS expresses the published-only check as an `exists` in the same statement
+  — no extra round trip — so the original objection does not apply and drafts' covers are protected.
+
+**One thing was restored.** FR-016's server-side 5 MB / image-content-type enforcement lived in the
+Firebase Storage rules and was silently lost in the storage swap; the client-side check had been the
+only boundary since. It is back as `storage.buckets.file_size_limit` and `allowed_mime_types`.
+
+**One blocker cleared as a side effect.** Cover-image upload had shipped known-broken (see
+*T-storage-swap* above): Supabase Storage writes the JWT's `sub` claim into the UUID-typed
+`storage.objects.owner_id`, and a Firebase UID is not a UUID. With Supabase issuing the token the
+claim is a real UUID and the insert is unremarkable. FR-014 is no longer deferred.
+
+**Live walkthrough, 2026-07-31.** Signed in, created a matn (منظومة الجزرية, 109 verses), uploaded a
+cover, saved repeatedly, and published — all against the real project. Observed afterwards:
+
+| Check | Result |
+|-------|--------|
+| Row written | `public.matns`, `published = true`, `verse_count = 109` |
+| Revision trigger | `revision = 8` after seven saves following the insert |
+| Cover object | `matns/{id}/cover.jpg`, 14 992 B, `image/jpeg` |
+| `owner_id` | `7b8f3232-…` — the teacher's `auth.users.id`, the column that used to reject the write |
+| Published-cover read policy | `(storage.foldername(name))[2]` resolves to the matn id, so the `exists` join matches |
+
+**Not yet done**: `RlsPolicyTest` has not been executed — it needs a local Supabase stack
+(Docker + the Supabase CLI), which this environment does not have. The policies were verified by
+`get_advisors` (clean, apart from the deliberate no-policy `teachers` table), by direct SQL
+inspection of `pg_policies`, by evaluating `private.is_teacher()` under a simulated authenticated
+JWT, and by the live walkthrough above — but the refusal half of the matrix is unrun until CI runs
+it. Everything else passes: `:shared:jvmTest`, `:shared:testAndroidHostTest`, and `:teacherApp:test`.
 
 ### RTL (FR-006a/b)
 

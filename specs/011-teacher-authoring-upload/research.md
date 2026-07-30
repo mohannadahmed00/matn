@@ -8,6 +8,28 @@ rather than recalled.
 
 ---
 
+> **Backend superseded, 2026-07-31.** These decisions were taken against Firebase. The backend has
+> since moved wholesale to Supabase — see `design-notes.md` § *T-backend-swap*. The decisions
+> themselves still hold; what changed is the provider each one is discharged against:
+>
+> | Decision | Now discharged by |
+> |----------|-------------------|
+> | D1 Backend access with no desktop SDK | Supabase has no desktop-JVM SDK either; the Ktor REST client is unchanged |
+> | D2 Document layout | `public.matns`, `chapters`/`verses` as `jsonb` |
+> | D3 Ordering vs the cover image | Unchanged — upload first, then write the row |
+> | D4 Conflict detection | Trigger-bumped `revision` column instead of `updateTime` |
+> | D9 Rules testing | Local Supabase stack instead of the Firebase emulator |
+> | D10 Value encoding | Withdrawn — PostgREST returns ordinary JSON, so no wrapper codec exists |
+> | D13 Config without secrets | `supabase.local.properties` instead of `firebase.local.properties` |
+> | D14 Provisioning the teacher | `public.teachers` row instead of a `teachers/{uid}` document |
+>
+> D5–D8 and D11–D12 are provider-independent and are untouched. The current wire contracts are
+> [contracts/postgres-schema.md](./contracts/postgres-schema.md),
+> [contracts/rls-policies.md](./contracts/rls-policies.md), and
+> [contracts/rest-contract.md](./contracts/rest-contract.md).
+
+---
+
 ## D1 — Backend access with no desktop Firebase SDK
 
 **Decision**: One Ktor **3.2.3** HTTP client in `:shared/commonMain`, wrapping three REST surfaces:

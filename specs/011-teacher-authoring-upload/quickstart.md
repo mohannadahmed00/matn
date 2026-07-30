@@ -13,20 +13,23 @@ does not repeat it.
 | Need | Why |
 |------|-----|
 | JDK 17+, the repo's Gradle wrapper | Existing project baseline |
-| A Firebase project with Firestore, Storage, and Email/Password auth enabled | The backend under test |
-| Firebase CLI (`npm install -g firebase-tools`) | Emulator, and rule deployment. **Only** needed for the rule tests (§4) and deployment (§6) |
-| One teacher account, created by hand in the console | Provisioning is manual (research D14) |
-| A `teachers/{uid}` document for that account | The authorization marker the rules check |
+| A Supabase project with the `supabase/migrations/` schema applied and Email/Password auth enabled | The backend under test |
+| Supabase CLI (`npm install -g supabase`) | Local stack, and migration deployment. **Only** needed for the policy tests (§4) and deployment (§6) |
+| One teacher account, created by hand in the dashboard | Provisioning is manual (research D14) |
+| A `public.teachers` row for that account's `uid` | The authorization marker the policies check |
 
 ### Configuration
 
 ```bash
-cp firebase/firebase.local.properties.template firebase/firebase.local.properties
-# fill in: projectId, apiKey, storageBucket
+cp supabase/supabase.local.properties.template supabase/supabase.local.properties
+# fill in: supabaseUrl, supabaseAnonKey, supabaseBucket
 ```
 
-`firebase.local.properties` is gitignored (research D13). No service-account key is used anywhere in
-this design — the tool authenticates as the teacher, never as an administrator.
+`supabase.local.properties` is gitignored (research D13). The `anonKey` is the project's **public**
+key and is not a secret; no service-role key is used anywhere in this design outside the test
+environment — the tool authenticates as the teacher, never as an administrator.
+
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_BUCKET` override the file if set.
 
 ---
 
@@ -50,7 +53,7 @@ Sanity checks that the student clients are untouched (FR-044, SC-015):
 ## 2. Fast feedback — the pure core
 
 Everything risky in this phase is a pure function or takes injected collaborators, so most of it
-validates without a network, an emulator, or a device:
+validates without a network, a local stack, or a device:
 
 ```bash
 # On Windows — the iOS test tasks cannot execute here:
@@ -61,7 +64,7 @@ validates without a network, an emulator, or a device:
 
 Covers: `ContentIntegrityValidator` rule by rule, `MatnDraft` ↔ `SeedMatn` round-trip,
 `VerseOrdering` move/renumber, `VerseTextImport` parsing, `DraftAutosaveScheduler` on virtual time,
-and the `FirestoreValue` codec.
+and the `MatnRow` mapping.
 
 ```bash
 ./gradlew :shared:jvmTest
@@ -97,7 +100,7 @@ is the fallback path (FR-003a) and should be noted, not ignored.
 ### 3.2 Create a draft (US2)
 
 1. New matn: title, author, description, cover image, structure kind `STRUCTURED`, two chapters.
-2. Save as draft → confirmed; the document exists in Firestore with `published: false`.
+2. Save as draft → confirmed; the row exists in `public.matns` with `published = false`.
 3. Quit, relaunch, reopen → every field including the cover restored (FR-002 #4).
 4. Try a 10 MB cover → rejected with the limits named, rest of the form preserved (FR-002 #5).
 5. Leave a required field empty and save → flagged inline, nothing stored (FR-002 #2).
@@ -119,9 +122,10 @@ Kill the process mid-edit, relaunch, reopen — at most the last ~60 s of typing
    refused (FR-029).
 2. Note the **outstanding-work** section listing missing recordings — informational, not blocking
    (FR-027, US4 #2).
-3. Fix the duplicate, publish → state becomes `published`, `audioCompleteness: "NONE"` (US4 #3).
-4. In a private browser window or `curl` with no credentials, read the document → **allowed**.
-5. Same for a draft → **denied** (FR-040).
+3. Fix the duplicate, publish → state becomes `published`, `audio_completeness = 'NONE'` (US4 #3).
+4. `curl` with the `apikey` header but no bearer token, reading that row → **returned**.
+5. Same for a draft → **absent from the result** (FR-040). RLS filters rather than refusing; the row
+   simply is not there.
 
 ### 3.5 Manage the catalog (US5)
 
@@ -129,7 +133,7 @@ Kill the process mid-edit, relaunch, reopen — at most the last ~60 s of typing
 2. Reopen the draft → loads exactly as saved (FR-036).
 3. Edit a verse in the **published** matn and save → stays published; an anonymous read returns the
    correction (FR-037).
-4. Unpublish → anonymous read now denied (FR-038).
+4. Unpublish → the row disappears from an anonymous read (FR-038).
 5. Republish → readable again, **same identifiers** (FR-038, US5 #5).
 
 **Conflict (FR-043)**: open the same matn in two instances, save in the first, then save in the
@@ -148,22 +152,26 @@ second → the second reports a conflict and does not overwrite.
 
 ---
 
-## 4. Security-rule tests (FR-042, SC-008)
+## 4. RLS policy tests (FR-042, SC-008)
 
-The rules are the only gate on student visibility, so this is not optional verification.
+The policies are the only gate on student visibility, so this is not optional verification.
 
 ```bash
-firebase emulators:exec --only firestore,storage,auth \
-  "./gradlew :shared:jvmTest --tests '*SecurityRules*'"
+supabase start
+eval "$(supabase status -o env)"
+SUPABASE_TEST_URL="$API_URL" \
+SUPABASE_TEST_ANON_KEY="$ANON_KEY" \
+SUPABASE_TEST_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+  ./gradlew :shared:jvmTest --tests 'com.giraffe.matn.remote.RlsPolicyTest'
 ```
 
-Runs the 23-case matrix in [security-rules.md](./contracts/security-rules.md) §3 — 17 refusals and
-6 permitted cases — through the project's own Ktor client, so the request shape under test is the one
-the app actually sends.
+Runs the matrix in [rls-policies.md](./contracts/rls-policies.md) §3 through the project's own Ktor
+client, so the request shape under test is the one the app actually sends. `supabase start` applies
+`supabase/migrations/`, so the policies exercised are exactly the committed ones.
 
-Without `FIREBASE_EMULATOR_HOST` set these tests **skip**, which is why an ordinary
-`./gradlew test` stays green on a machine with no Firebase CLI — and why CI needs a job that runs the
-command above. Without that job the tests exist but never execute.
+Without the env vars set these tests **skip**, which is why an ordinary `./gradlew test` stays green
+on a machine with no Supabase CLI. `.github/workflows/rls-policy-tests.yml` is the job that actually
+runs them; without it the tests would exist but never execute.
 
 ---
 
@@ -184,14 +192,15 @@ of the ViewModel ([teacher-ui-contract.md](./contracts/teacher-ui-contract.md) �
 
 ---
 
-## 6. Deploy the rules
+## 6. Deploy the schema and policies
 
 ```bash
-firebase deploy --only firestore:rules,storage:rules
+supabase link --project-ref <ref>
+supabase db push
 ```
 
-Do this **before** the first real publish. Firestore's default rules deny everything, so an
-undeployed ruleset looks exactly like a broken client.
+Do this **before** the first real publish. A table with RLS enabled and no policies denies
+everything, so an unapplied migration looks exactly like a broken client.
 
 ---
 
@@ -199,10 +208,12 @@ undeployed ruleset looks exactly like a broken client.
 
 | Symptom | Likely cause |
 |---------|--------------|
-| Every read denied, including published matns | Rules not deployed (§6), or the collection query is not constrained to `published == true` — see [firestore-schema.md](./contracts/firestore-schema.md) §4.1 |
-| Every write denied while signed in | No `teachers/{uid}` marker document for this account (research D14) |
-| Sign-in fails with a valid password | Wrong `apiKey` or `projectId` in `firebase.local.properties`; or Email/Password not enabled in the console |
-| Save always reports a conflict | `remoteUpdateTime` not being refreshed from the write response — the next save then sends a stale token |
-| Rule tests all skip | `FIREBASE_EMULATOR_HOST` unset; run through `firebase emulators:exec` |
+| Every read comes back empty, including published matns | Migrations not applied (§6), so `matns_read` does not exist and RLS denies by default — see [rls-policies.md](./contracts/rls-policies.md) §2.1 |
+| Every write denied while signed in | No `public.teachers` row for this account's `uid` (research D14) |
+| Every request 401s with `PGRST301` or "Invalid API key" | Wrong `supabaseAnonKey` or `supabaseUrl` in `supabase.local.properties` |
+| Sign-in fails with a valid password | Email/Password not enabled in the dashboard, or the account's email is unconfirmed |
+| Save always reports a conflict | `remoteRevision` not being refreshed from the write response — the next save then filters on a stale revision |
+| A save reports `Forbidden` where a conflict was expected | The update matched no row *and* the row is invisible to this caller; check the `teachers` marker before suspecting the revision |
+| Policy tests all skip | `SUPABASE_TEST_URL` unset; export it from `supabase status -o env` |
 | Chrome does not mirror on switch | Direction not threaded from the language preference into `MatnTheme(layoutDirection = …)` (research D6) |
 | An English label appears in Arabic mode | Impossible via `TeacherStrings` — a missing translation is a compile error. If seen, the string is hard-coded in a composable instead of routed through the table |

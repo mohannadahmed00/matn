@@ -14,6 +14,11 @@ with tests in the same change.
 
 **Organization**: Grouped by user story so each is independently implementable and testable.
 
+> **Historical record.** These tasks were executed against Firebase. The backend moved wholesale to
+> Supabase on 2026-07-31 (`design-notes.md` § *T-backend-swap*), so the Firestore/Identity Toolkit
+> file and class names below no longer exist. The work each task describes still landed; only its
+> implementation changed provider. Read `contracts/` for the shapes that are current.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel — different files, no dependency on an incomplete task

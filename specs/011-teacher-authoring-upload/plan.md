@@ -10,11 +10,11 @@ Stand up `:teacherApp` — a JVM/Compose Desktop authoring client — plus the s
 every later phase depends on, so the teacher can create, correct, publish, and withdraw the
 **textual** corpus without a developer or a release. Three pieces of work:
 
-1. **Shared backend client** (`:shared/commonMain`): one Ktor-based REST layer over Firestore,
-   Cloud Storage, and Identity Toolkit, behind domain repository interfaces. No platform Firebase
-   SDK, because none covers desktop JVM.
-2. **Shared catalog domain** (`:shared/commonMain`): a `MatnDraft` domain aggregate, the Firestore
-   document schema that mirrors `SeedMatn` field-for-field, and `ContentIntegrityValidator` —
+1. **Shared backend client** (`:shared/commonMain`): one Ktor-based REST layer over Supabase's
+   PostgREST, Storage, and Auth surfaces, behind domain repository interfaces. No platform SDK,
+   because none covers desktop JVM.
+2. **Shared catalog domain** (`:shared/commonMain`): a `MatnDraft` domain aggregate, the Postgres
+   schema that mirrors `SeedMatn` field-for-field, and `ContentIntegrityValidator` —
    extracted out of `ContentSeedLoaderImpl.validate()` so the tool and the app's ingestion path
    enforce one rule set rather than two.
 3. **Teacher client** (`:teacherApp`): sign-in, portal shell, catalog list, matn editor
@@ -42,24 +42,24 @@ Compose Multiplatform 1.11.1 / Material 3 1.11.0-alpha07
 - **Reused**: Koin 4.2.1 + Koin Annotations, kotlinx-serialization-json 1.7.3,
   kotlinx-coroutines 1.9.0, kotlinx-datetime, Compose Multiplatform, the Phase 10 token set
   (`presentation/theme/*`), `BaseViewModel`, `UseCase`/`FlowUseCase`, `Resource`/`AppError`.
-- **Not used**: any Firebase platform SDK, any Admin SDK, any third-party Firestore-REST wrapper.
+- **Not used**: any Firebase SDK, any Supabase client SDK, any third-party PostgREST wrapper.
 
 **Storage**:
-- **Remote, authoritative**: Firestore collection `matns/{matnId}` — one document per matn holding
-  metadata, chapters, and verses; Cloud Storage `matns/{matnId}/cover.<ext>` for cover images.
+- **Remote, authoritative**: Postgres table `public.matns` — one row per matn holding metadata,
+  chapters, and verses; Supabase Storage `matns/{matnId}/cover.<ext>` for cover images.
 - **Local**: none for content. The only thing on the teacher's disk is the session credential
   (OS credential store, FR-003a) and the interface-language preference. `:teacherApp` does **not**
   open the SQLDelight `ContentDatabase` — that is the student app's local source of truth.
 
 **Testing**:
 - `commonTest` (`kotlin.test` + `kotlinx-coroutines-test`): `ContentIntegrityValidator` rule-by-rule,
-  Firestore value encode/decode round-trips, `SeedMatn` ↔ `MatnDraft` projection, verse
+  row encode/decode round-trips, `SeedMatn` ↔ `MatnDraft` projection, verse
   reorder/renumber pure functions, the import parser, and the autosave scheduler on virtual time.
 - `jvmTest`: REST clients against Ktor `MockEngine` (request shape, error mapping, token refresh);
   `JvmSecretStore` round-trip.
-- `jvmTest`, emulator-gated: Firestore/Storage **security-rules** tests (FR-036) driven through the
-  same Ktor client against `firebase emulators:exec`, skipped when `FIREBASE_EMULATOR_HOST` is
-  unset so ordinary CI stays green.
+- `jvmTest`, stack-gated: **row-level-security policy** tests (FR-036) driven through the same Ktor
+  client against a local `supabase start` stack, skipped when `SUPABASE_TEST_URL` is unset so
+  ordinary CI stays green.
 - `@Preview` per Principle II, and per FR-006a **two** previews for every teacher screen — one
   Arabic/RTL, one English/LTR.
 
@@ -80,14 +80,14 @@ save round-trips complete inside 2 s on a normal connection.
   Complexity Tracking).
 - **Bidirectional layout** — the tool mirrors both ways (FR-006b), unlike the student app, whose
   `MatnTheme` hard-forces RTL.
-- **No secrets in the repo** — Firebase project config comes from a gitignored local file with a
-  tracked template; no service-account key is used anywhere.
+- **No secrets in the repo** — Supabase project config comes from a gitignored local file with a
+  tracked template; no service-role key is used anywhere outside the test environment.
 - **No student-visible change** — `:shared`'s existing public surface and behaviour are preserved;
   the only edit to shipped student code is the validator extraction, which must be behaviour-identical.
 
 **Scale/Scope**: 1 new Gradle module; ~7 teacher screens + portal shell; 3 new domain aggregates
 (`MatnDraft`, `CatalogEntry`, `TeacherSession`); 3 new domain interfaces (`CatalogRepository`,
-`TeacherAuthRepository`, `SecretStore`); 10 new use cases; 1 Firestore collection; 2 rule files;
+`TeacherAuthRepository`, `SecretStore`); 10 new use cases; 2 Postgres tables; 1 migration set;
 1 extraction refactor inside existing shipped code.
 
 ## Constitution Check
@@ -103,8 +103,8 @@ save round-trips complete inside 2 s on a normal connection.
   calls the shared validator.
   **A second design rule, on DI**: teacher-side classes added to `:shared` MUST NOT carry Koin
   annotations. `di/ContentModule.kt` declares `@ComponentScan("com.giraffe.matn")`, and the student
-  apps use that module — so an annotated `FirestoreCatalogRepository` or `IdentityToolkitClient` would
-  make every student client's graph demand a `FirebaseConfig` and an `HttpClient` it cannot supply.
+  apps use that module — so an annotated `SupabaseCatalogRepository` or `SupabaseAuthClient` would
+  make every student client's graph demand a `SupabaseConfig` and an `HttpClient` it cannot supply.
   The Koin compiler plugin reports that as a hard `KOIN-D001` **build** error, not a runtime one, per
   `ContentModule`'s own KDoc. `:teacherApp`'s module constructs them with explicit provider functions
   — the pattern `PlatformModule` already uses for platform singletons. This is the most likely way to
@@ -117,8 +117,8 @@ save round-trips complete inside 2 s on a normal connection.
 - **III. DRY via Base Abstractions** — PASS, and this phase *reduces* duplication. `BaseViewModel`,
   `UseCase`/`FlowUseCase`, and `Resource`/`AppError` are reused unchanged; the validator extraction
   removes the only place where a second copy of the integrity rules would otherwise have been
-  written. One shared `FirestoreValue` codec serves every document type rather than per-DTO parsing.
-- **IV. Shared-First Multiplatform** — PASS. REST clients, DTOs, the Firestore codec, validator,
+  written. One `MatnRow` mapping serves both the full read and the overview projection rather than two parsers.
+- **IV. Shared-First Multiplatform** — PASS. REST clients, DTOs, the row mapping, validator,
   import parser, reorder/renumber arithmetic, autosave policy, and every use case live in
   `commonMain`. `:teacherApp`'s JVM code is confined to genuine platform edges: HTTP engine,
   credential store, file chooser, file bytes, window/main. No business logic there.
@@ -164,12 +164,12 @@ violations.
 specs/011-teacher-authoring-upload/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output — 14 decisions
-├── data-model.md        # Phase 1 output — domain aggregates + Firestore schema
+├── data-model.md        # Phase 1 output — domain aggregates + Postgres schema
 ├── quickstart.md        # Phase 1 output — runnable validation walkthrough
 ├── contracts/           # Phase 1 output
-│   ├── firestore-schema.md      # document shape, field masks, index exemptions
-│   ├── security-rules.md        # rule text + the FR-036 test matrix
-│   ├── rest-contract.md         # the four REST surfaces + error mapping
+│   ├── postgres-schema.md       # table shape, overview columns, indexes
+│   ├── rls-policies.md          # policy text + the FR-036 test matrix
+│   ├── rest-contract.md         # the three REST surfaces + error mapping
 │   ├── validation-contract.md   # rule set, blocking vs deferred
 │   └── teacher-ui-contract.md   # screens, states, bilingual/mirroring rules
 ├── checklists/
@@ -208,14 +208,14 @@ shared/src/commonMain/kotlin/com/giraffe/matn/
 ├── data/
 │   ├── remote/                           # NEW
 │   │   ├── HttpClientFactory.kt          #   commonMain only — CIO on every target
-│   │   ├── FirebaseConfig.kt
-│   │   ├── firestore/                    #   FirestoreRestClient, FirestoreValue, FirestoreMatnMapper
+│   │   ├── SupabaseConfig.kt
+│   │   ├── postgrest/                    #   PostgrestClient, MatnRow
 │   │   ├── storage/StorageRestClient.kt
-│   │   ├── identity/                     #   IdentityToolkitClient, TokenRefresher
+│   │   ├── auth/                         #   SupabaseAuthClient, TokenRefresher
 │   │   └── RemoteErrorMapper.kt
 │   ├── repository/
-│   │   ├── FirestoreCatalogRepository.kt # NEW — implements CatalogRepository
-│   │   └── IdentityTeacherAuthRepository.kt # NEW
+│   │   ├── SupabaseCatalogRepository.kt  # NEW — implements CatalogRepository
+│   │   └── SupabaseTeacherAuthRepository.kt # NEW
 │   └── seed/
 │       ├── ContentSeedLoaderImpl.kt      # CHANGED — validate() delegates to shared validator
 │       └── SeedMatnProjection.kt          # NEW — MatnDraft ↔ SeedMatn (Phase 13 seam)
@@ -241,11 +241,10 @@ teacherApp/                               # NEW module (JVM, Compose Desktop)
     │       └── publish/                  # US4 — validation report, publish/unpublish
     └── test/kotlin/com/giraffe/matn/teacher/   # JVM-edge tests
 
-firebase/                                 # NEW — rules live in the repo, secret-free
-├── firestore.rules
-├── storage.rules
-├── firebase.json
-└── firebase.local.properties.template    # projectId/apiKey/bucket; real file gitignored
+supabase/                                 # NEW — schema and policies live in the repo, secret-free
+├── migrations/                            #   tables, RLS policies, storage bucket constraints
+├── config.toml                            #   local stack for the policy tests
+└── supabase.local.properties.template     # url/anonKey/bucket; real file gitignored
 ```
 
 **Structure Decision**: `:teacherApp` is a plain `kotlinJvm` + Compose Desktop module mirroring the
@@ -267,20 +266,20 @@ See [research.md](./research.md). Fourteen decisions, the load-bearing ones bein
 
 | # | Question | Decision |
 |---|----------|----------|
-| D1 | Backend access without a desktop Firebase SDK | Ktor 3.2.3 REST client in `commonMain`, one implementation for all five targets |
-| D2 | Firestore document layout | One document per matn; verses as an array of maps; field-mask reads for overviews |
-| D3 | Atomic writes across doc + cover image | Upload image first, then patch the document; an orphaned image is inert |
-| D4 | Conflict detection (FR-037/FR-043) | `currentDocument.updateTime` precondition → `FAILED_PRECONDITION` → `RemoteError.Conflict` |
+| D1 | Backend access without a desktop SDK | Ktor 3.2.3 REST client in `commonMain`, one implementation for all five targets |
+| D2 | Row layout | One row per matn; chapters and verses as `jsonb` arrays; overview reads select scalar columns only |
+| D3 | Atomic writes across row + cover image | Upload image first, then write the row; an orphaned image is inert |
+| D4 | Conflict detection (FR-037/FR-043) | Trigger-bumped `revision` column as an update filter; zero rows matched → `RemoteError.Conflict` |
 | D5 | Runtime language switching | **Cannot** use compose-resources: `LocalComposeEnvironment` is `internal` and `ResourceEnvironment`'s constructor is `internal` in 1.11.1. Own `TeacherStrings` table via `CompositionLocal` instead |
 | D6 | Bidirectional layout without forking the theme | Add `layoutDirection` param to `MatnTheme`, default `Rtl` |
 | D7 | Credential at rest on JVM | `SecretStore` interface; Windows DPAPI via `jna-platform`, macOS `security(1)`, Linux `secret-tool`, permission-restricted file fallback with a visible warning |
 | D8 | Validation reuse without a layer inversion | Extract to a domain validator over `MatnDraft`; loader becomes an adapter |
-| D9 | Security-rules testing (FR-036) | Firebase emulator + the project's own Ktor client from `jvmTest`; no Node toolchain; env-gated |
-| D10 | Firestore Value encoding | Hand-rolled sealed `FirestoreValue` + codec, ~150 lines, fully unit-tested |
+| D9 | Policy testing (FR-036) | Local Supabase stack + the project's own Ktor client from `jvmTest`; env-gated |
+| D10 | Row encoding | Plain kotlinx-serialization DTOs — PostgREST returns ordinary JSON, so no wrapper codec is needed |
 | D11 | Drag-reorder on Desktop | Hand-rolled handle drag over `LazyColumn`; the index arithmetic is a pure `commonMain` function |
 | D12 | Autosave | Debounce 5 s idle + 60 s hard ceiling, injected clock, virtual-time tested; drafts only |
-| D13 | Config without secrets in the repo | Gitignored `firebase.local.properties` + tracked template + env override |
-| D14 | Provisioning the teacher without an Admin SDK | `teachers/{uid}` marker document created by hand in the console; rules check existence |
+| D13 | Config without secrets in the repo | Gitignored `supabase.local.properties` + tracked template + env override |
+| D14 | Provisioning the teacher without an Admin SDK | `public.teachers` marker row created by hand in the dashboard; policies check existence |
 
 ## Phase 1 — Design & Contracts
 
@@ -290,13 +289,13 @@ Artifacts produced:
   `CatalogEntry` / `TeacherSession`, their invariants, the derived `AudioCompleteness`, the
   publication-state machine, and the field-for-field `SeedMatn` correspondence table that discharges
   FR-009.
-- **[contracts/firestore-schema.md](./contracts/firestore-schema.md)** — the `matns/{matnId}`
-  document, the `teachers/{uid}` marker, field masks for overview reads, index exemptions, and the
-  size budget for a 500-verse matn against the 1 MiB document limit.
-- **[contracts/security-rules.md](./contracts/security-rules.md)** — the Firestore and Storage rule
-  text plus the FR-036 test matrix: every permitted and refused case, named.
-- **[contracts/rest-contract.md](./contracts/rest-contract.md)** — the four REST surfaces
-  (sign-in, token refresh, Firestore documents, Storage upload), request/response shapes, and the
+- **[contracts/postgres-schema.md](./contracts/postgres-schema.md)** — the `public.matns` table,
+  the `public.teachers` marker, the column subset for overview reads, indexes, and the size budget
+  for a 500-verse matn.
+- **[contracts/rls-policies.md](./contracts/rls-policies.md)** — the row-level-security policy text
+  plus the FR-036 test matrix: every permitted and refused case, named.
+- **[contracts/rest-contract.md](./contracts/rest-contract.md)** — the three REST surfaces
+  (sign-in, token refresh, PostgREST rows, Storage upload), request/response shapes, and the
   HTTP-status → `RemoteError` mapping that FR-005's retryable/not-retryable messaging depends on.
 - **[contracts/validation-contract.md](./contracts/validation-contract.md)** — the rule set with
   each rule marked blocking or deferred, the exact behaviour-preservation contract for the
@@ -328,7 +327,7 @@ and be reviewable as a standalone behaviour-preserving refactor.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|--------------------------------------|
-| **New dependency: Ktor 3.2.3 client** (core, content-negotiation, kotlinx-json, CIO engine, mock for tests) | The project's first HTTP client. Every backend operation in Phases 11–13 needs one, and it must work on desktop JVM, Android, and iOS from a single `commonMain` implementation. | Firebase platform SDKs ship nothing for desktop JVM, so they would leave `:teacherApp` and `:desktopApp` unserved and split backend access into three divergent paths. Hand-rolling on `java.net.http` would be JVM-only and re-orphan Android/iOS for Phase 13. Ktor is the only KMP HTTP client with first-party engines for all five targets, and 3.2.3 is already resolved in the local Gradle cache. |
+| **New dependency: Ktor 3.2.3 client** (core, content-negotiation, kotlinx-json, CIO engine, mock for tests) | The project's first HTTP client. Every backend operation in Phases 11–13 needs one, and it must work on desktop JVM, Android, and iOS from a single `commonMain` implementation. | Firebase and Supabase both ship nothing for desktop JVM, so they would leave `:teacherApp` and `:desktopApp` unserved and split backend access into three divergent paths. Hand-rolling on `java.net.http` would be JVM-only and re-orphan Android/iOS for Phase 13. Ktor is the only KMP HTTP client with first-party engines for all five targets, and 3.2.3 is already resolved in the local Gradle cache. |
 | **New dependency: `net.java.dev.jna:jna-platform:5.6.0`** | FR-003a requires the session credential in the OS credential store. On Windows that means DPAPI, reached through `Crypt32Util`. | A dedicated keyring library (e.g. `java-keyring`) pulls the same JNA transitively plus an unmaintained wrapper. Shelling out to three per-OS CLIs for all platforms means three fragile subprocess paths, including on Windows where no equivalent CLI exists. JNA is already in the desktop dependency graph at this exact version; this only declares it. macOS and Linux still use their native CLIs, where they are first-class and dependency-free. |
 | **Principle VI partial: remote source of truth, online-only tool** | Drafts must be durable, machine-independent, and reachable from wherever the teacher works; a local-first producer would need sync and merge, which the spec explicitly excludes. FR-029 requires remote drafts. | A local-first teacher tool with background sync means conflict-resolution machinery for a single-user tool — the very complexity the "single teacher" scope exists to avoid. Principle VI's offline guarantee protects the *student's* downloaded library on a *student's* device (constitution 2.0.0 restates this explicitly); it was never a claim about the producer client. The student-facing guarantee is untouched by this phase. |
 | **Second JVM client module (`:teacherApp`) alongside `:desktopApp`** | The constitution's Stack section already designates `teacherApp` as the producer client and requires it be unreachable from any student client. | Adding teacher screens to `:desktopApp` would ship authoring UI inside a student binary and make "unreachable from any student client" unenforceable. Putting teacher presentation code in `:shared` would compile it into every student app on every platform. |
