@@ -87,8 +87,28 @@ catch-all has no counterpart to write, because it is the default.
 
 ### 2.2 `public.teachers`
 
-RLS enabled, **no policies**. Provisioned with the service-role key (research D14). See
-[postgres-schema.md](postgres-schema.md) §3.
+RLS enabled, **no policies**, and **no grant** to `anon` or `authenticated`. Provisioned with the
+service-role key (research D14). See [postgres-schema.md](postgres-schema.md) §3.
+
+### 2.3 Grants — the layer underneath the policies
+
+RLS only ever *narrows* what a role may already do. Supabase's `pg_default_acl` grants
+`anon`/`authenticated` full DML on new `public` tables, which makes it easy to write a schema that
+works only on a project carrying those defaults — a fresh local stack has none, and every write is
+then refused at the GRANT layer before a policy is consulted. It reads exactly like a broken policy.
+So the grants are explicit:
+
+```sql
+revoke all on public.matns from anon, authenticated;
+grant select on public.matns to anon, authenticated;
+grant insert, update, delete on public.matns to authenticated;
+
+revoke all on public.teachers from anon, authenticated;
+```
+
+This is also narrower than the defaults. `anon` no longer holds write privileges that every policy
+would then have to deny, and `teachers` is refused before RLS runs rather than filtered to zero rows
+by it.
 
 ### 2.3 Storage — the `matn-content` bucket
 
@@ -156,7 +176,7 @@ Firestore refusal, per §0.
 | R3 | Anonymous | Unfiltered listing of `matns` | **Published rows only** | §0 |
 | R5 | Teacher | `matns` row with `published = false` | **Allow** | FR-036 |
 | R6 | Authenticated non-teacher | `matns` row with `published = false` | **Filtered** | FR-013 forward-compat |
-| R7 | Anonymous *and* teacher | `teachers` | **Filtered** — no policy exists | §2.2 |
+| R7 | Anonymous *and* teacher | `teachers` | **No rows** — refused by the missing grant, before RLS | §2.2, §2.3 |
 
 R4 from the Firestore matrix ("unfiltered listing is denied") is retired: it tested a Firestore
 limitation, not a requirement. R3 replaces it and asserts the stronger property directly.

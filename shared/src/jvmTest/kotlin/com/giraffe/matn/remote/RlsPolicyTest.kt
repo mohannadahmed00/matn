@@ -20,6 +20,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -82,7 +83,9 @@ class RlsPolicyTest {
             contentType(ContentType.Application.Json)
             setBody(buildJsonObject { put("email", email); put("password", "Password123!") })
         }
-        val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+        val raw = response.bodyAsText()
+        assertTrue(response.status.isSuccess(), "sign-up failed: ${response.status.value} $raw")
+        val body = Json.parseToJsonElement(raw).jsonObject
         return TeacherSession(
             uid = body.getValue("user").jsonObject.getValue("id").jsonPrimitive.content,
             displayName = "",
@@ -93,8 +96,10 @@ class RlsPolicyTest {
         )
     }
 
+    /** Asserted, not fire-and-forget: if the marker silently fails to land, every teacher case below
+     * fails as `Forbidden` and the whole run reads as a broken policy rather than a broken setup. */
     private suspend fun seedTeacherMarker(uid: String) {
-        httpClient.post("${config.restBaseUrl}/teachers") {
+        val response = httpClient.post("${config.restBaseUrl}/teachers") {
             headers {
                 append("apikey", stack.serviceRoleKey)
                 append(HttpHeaders.Authorization, "Bearer ${stack.serviceRoleKey}")
@@ -102,6 +107,10 @@ class RlsPolicyTest {
             contentType(ContentType.Application.Json)
             setBody(buildJsonObject { put("uid", uid); put("display_name", "Test Teacher") })
         }
+        assertTrue(
+            response.status.isSuccess(),
+            "seeding the teachers marker failed: ${response.status.value} ${response.bodyAsText()}",
+        )
     }
 
     private fun clientFor(session: TeacherSession?): PostgrestClient =
@@ -131,8 +140,12 @@ class RlsPolicyTest {
             setBody(row)
         }
 
+    /** The rows a request returned, or none. A refusal answers with a PostgREST error **object**
+     * rather than an array, and for the deny cases below "no rows came back" is the property under
+     * test — the difference between being refused and being filtered to nothing is not. */
     private suspend fun HttpResponse.rows(): List<JsonObject> =
-        Json.parseToJsonElement(bodyAsText()).jsonArray.map { it.jsonObject }
+        runCatching { Json.parseToJsonElement(bodyAsText()).jsonArray.map { it.jsonObject } }
+            .getOrDefault(emptyList())
 
     private fun matnRow(id: String, published: Boolean) = buildJsonObject {
         put("id", id)
@@ -199,12 +212,18 @@ class RlsPolicyTest {
 
     @Test
     fun `R7 the teachers marker is invisible to anonymous and authenticated callers alike`() = runTest {
-        assertTrue(anonymousGet("teachers?select=uid").rows().isEmpty())
+        val anonymous = anonymousGet("teachers?select=uid")
+        assertTrue(anonymous.rows().isEmpty(), "the teachers marker leaked to an anonymous caller")
 
+        // Not even the teacher whose own row it is. The table has no policy *and* no grant, so this
+        // is a refusal rather than an empty result — the assertion allows either, because what
+        // matters is that no row is ever returned, not which layer stopped it.
         val asTeacher = clientFor(teacherSession).select("teachers", listOf("uid"))
 
-        // Not even the teacher whose own row it is: the table has no policy at all.
-        assertTrue(asTeacher is Resource.Success && asTeacher.data.isEmpty(), "the teachers marker was readable: $asTeacher")
+        assertTrue(
+            asTeacher !is Resource.Success || asTeacher.data.isEmpty(),
+            "the teachers marker was readable by the teacher: $asTeacher",
+        )
     }
 
     // ---- W: writes ----
