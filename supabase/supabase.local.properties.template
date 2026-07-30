@@ -1,0 +1,8 @@
+# Copy to `supabase.local.properties` (git-ignored) and fill in, or set the equivalent environment
+# variables: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_BUCKET.
+#
+# Against a local stack (`supabase start`), supabaseUrl is http://127.0.0.1:54321 and the anon key
+# is the one `supabase status` prints.
+supabaseUrl=
+supabaseAnonKey=
+supabaseBucket=matn-content
