@@ -50,3 +50,8 @@ hs_err_pid*
 # AI assistant / tool config — kept local, not tracked
 .claude/
 .opencode/
+
+# Supabase project config — no secrets in the repo (research D13)
+supabase/supabase.local.properties
+supabase/.branches
+supabase/.temp

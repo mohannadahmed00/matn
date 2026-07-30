@@ -1,0 +1,219 @@
+# Quickstart: Phase 11 — Teacher Authoring Tool
+
+**Feature**: `specs/011-teacher-authoring-upload` | **Date**: 2026-07-26
+
+How to run and validate this phase end to end. Design detail is in
+[plan.md](./plan.md), [data-model.md](./data-model.md), and [contracts/](./contracts/) — this file
+does not repeat it.
+
+---
+
+## Prerequisites
+
+| Need | Why |
+|------|-----|
+| JDK 17+, the repo's Gradle wrapper | Existing project baseline |
+| A Supabase project with the `supabase/migrations/` schema applied and Email/Password auth enabled | The backend under test |
+| Supabase CLI (`npm install -g supabase`) | Local stack, and migration deployment. **Only** needed for the policy tests (§4) and deployment (§6) |
+| One teacher account, created by hand in the dashboard | Provisioning is manual (research D14) |
+| A `public.teachers` row for that account's `uid` | The authorization marker the policies check |
+
+### Configuration
+
+```bash
+cp supabase/supabase.local.properties.template supabase/supabase.local.properties
+# fill in: supabaseUrl, supabaseAnonKey, supabaseBucket
+```
+
+`supabase.local.properties` is gitignored (research D13). The `anonKey` is the project's **public**
+key and is not a secret; no service-role key is used anywhere in this design outside the test
+environment — the tool authenticates as the teacher, never as an administrator.
+
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_BUCKET` override the file if set.
+
+---
+
+## 1. Run the teacher tool
+
+```bash
+./gradlew :teacherApp:run
+```
+
+Expected on a clean machine: sign-in screen, Arabic chrome, right-to-left layout.
+
+Sanity checks that the student clients are untouched (FR-044, SC-015):
+
+```bash
+./gradlew :desktopApp:run          # student desktop app, unchanged
+./gradlew :androidApp:assembleDebug
+```
+
+---
+
+## 2. Fast feedback — the pure core
+
+Everything risky in this phase is a pure function or takes injected collaborators, so most of it
+validates without a network, a local stack, or a device:
+
+```bash
+# On Windows — the iOS test tasks cannot execute here:
+./gradlew :shared:jvmTest :shared:testDebugUnitTest
+# On macOS or CI, the full form:
+./gradlew :shared:allTests
+```
+
+Covers: `ContentIntegrityValidator` rule by rule, `MatnDraft` ↔ `SeedMatn` round-trip,
+`VerseOrdering` move/renumber, `VerseTextImport` parsing, `DraftAutosaveScheduler` on virtual time,
+and the `MatnRow` mapping.
+
+```bash
+./gradlew :shared:jvmTest
+```
+
+Adds the REST clients against Ktor `MockEngine` — request shapes, the status → `RemoteError` mapping,
+and token-refresh behaviour.
+
+**The extraction guard**: the existing `ContentSeedLoader` tests must pass **unchanged**. If they
+needed editing, the validator extraction changed behaviour and is wrong
+([validation-contract.md](./contracts/validation-contract.md) §1.1).
+
+---
+
+## 3. Manual walkthrough — the acceptance path
+
+Runs the spec's five user stories in order. Expected results reference the spec's own criteria.
+
+### 3.1 Sign in (US1)
+
+1. Launch, enter the teacher's credentials → portal, display name shown, storage usage shown.
+2. Quit and relaunch → **still signed in** (FR-003).
+3. Sign out → sign-in screen; any save attempt is refused (FR-004).
+4. Wrong password → understandable message, no session stored (FR-001 #2).
+5. Disconnect the network, try to sign in → "cannot reach the server", not a generic failure (FR-001 #5).
+6. Switch language → every label changes, layout mirrors, choice survives a restart (FR-006a/b).
+
+**Credential check (SC-013)**: after a full sign-in cycle, no file the tool writes contains the token
+in plaintext. On Windows the persisted value is DPAPI ciphertext; on macOS/Linux it is in the OS
+store and not in the app directory at all. If the tool shows the unprotected-fallback warning, that
+is the fallback path (FR-003a) and should be noted, not ignored.
+
+### 3.2 Create a draft (US2)
+
+1. New matn: title, author, description, cover image, structure kind `STRUCTURED`, two chapters.
+2. Save as draft → confirmed; the row exists in `public.matns` with `published = false`.
+3. Quit, relaunch, reopen → every field including the cover restored (FR-002 #4).
+4. Try a 10 MB cover → rejected with the limits named, rest of the form preserved (FR-002 #5).
+5. Leave a required field empty and save → flagged inline, nothing stored (FR-002 #2).
+
+**Autosave (FR-031a, SC-014)**: type without saving, wait ~60 s, watch the last-saved time update.
+Kill the process mid-edit, relaunch, reopen — at most the last ~60 s of typing is gone.
+
+### 3.3 Enter verse text (US3)
+
+1. Add five verses of Arabic text → RTL rendering, diacritics preserved.
+2. Drag one to a new position → order updates, numbering stays `1..n` (FR-020).
+3. Delete one → no numbering gap.
+4. Assign verses to chapters → each belongs to exactly one existing chapter.
+5. Save, reload → order, numbering, and text intact.
+
+### 3.4 Validate and publish (US4)
+
+1. Introduce a duplicate verse number, run check → the problem is named with its verse; publish
+   refused (FR-029).
+2. Note the **outstanding-work** section listing missing recordings — informational, not blocking
+   (FR-027, US4 #2).
+3. Fix the duplicate, publish → state becomes `published`, `audio_completeness = 'NONE'` (US4 #3).
+4. `curl` with the `apikey` header but no bearer token, reading that row → **returned**.
+5. Same for a draft → **absent from the result** (FR-040). RLS filters rather than refusing; the row
+   simply is not there.
+
+### 3.5 Manage the catalog (US5)
+
+1. Portal list shows both matns with state, verse count, and audio-completeness (FR-035).
+2. Reopen the draft → loads exactly as saved (FR-036).
+3. Edit a verse in the **published** matn and save → stays published; an anonymous read returns the
+   correction (FR-037).
+4. Unpublish → the row disappears from an anonymous read (FR-038).
+5. Republish → readable again, **same identifiers** (FR-038, US5 #5).
+
+**Conflict (FR-043)**: open the same matn in two instances, save in the first, then save in the
+second → the second reports a conflict and does not overwrite.
+
+### 3.6 Bulk import (US6)
+
+1. Prepare a UTF-8 file, one verse per line, ~50 lines, including two blank lines and one line with
+   commas and quotation marks.
+2. Import → preview shows the count and first rows; blank lines are silently skipped, not reported as
+   problems (FR-023a).
+3. Confirm → verses appended in file order, fully editable (FR-024).
+4. Check the punctuation line → commas and quotes preserved verbatim, not split (US6 #5).
+5. Try a non-UTF-8 file → rejected naming the expected encoding; the existing list is untouched
+   (US6 #4).
+
+---
+
+## 4. RLS policy tests (FR-042, SC-008)
+
+The policies are the only gate on student visibility, so this is not optional verification.
+
+```bash
+supabase start
+eval "$(supabase status -o env)"
+SUPABASE_TEST_URL="$API_URL" \
+SUPABASE_TEST_ANON_KEY="$ANON_KEY" \
+SUPABASE_TEST_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+  ./gradlew :shared:jvmTest --tests 'com.giraffe.matn.remote.RlsPolicyTest'
+```
+
+Runs the matrix in [rls-policies.md](./contracts/rls-policies.md) §3 through the project's own Ktor
+client, so the request shape under test is the one the app actually sends. `supabase start` applies
+`supabase/migrations/`, so the policies exercised are exactly the committed ones.
+
+Without the env vars set these tests **skip**, which is why an ordinary `./gradlew test` stays green
+on a machine with no Supabase CLI. `.github/workflows/rls-policy-tests.yml` is the job that actually
+runs them; without it the tests would exist but never execute.
+
+---
+
+## 5. Performance check (FR-025, SC-009)
+
+The budget is **no frame over 32 ms** (FR-025, SC-009). Run with Compose's frame timing visible — on
+desktop, launch with `-Dcompose.desktop.render.onframe.log=true`, or record the operations and confirm
+no dropped-frame cluster.
+
+1. Import a 500-line verse file.
+2. Type into a verse near the middle — no frame over 32 ms, and the list must not recompose wholesale.
+3. Scroll top to bottom — no frame over 32 ms.
+4. Drag a verse from position 400 to position 5 — no frame over 32 ms, and numbering correct
+   afterwards.
+
+If typing is janky, the usual cause is verse text state having crept into the row composable instead
+of the ViewModel ([teacher-ui-contract.md](./contracts/teacher-ui-contract.md) §3.4).
+
+---
+
+## 6. Deploy the schema and policies
+
+```bash
+supabase link --project-ref <ref>
+supabase db push
+```
+
+Do this **before** the first real publish. A table with RLS enabled and no policies denies
+everything, so an unapplied migration looks exactly like a broken client.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---------|--------------|
+| Every read comes back empty, including published matns | Migrations not applied (§6), so `matns_read` does not exist and RLS denies by default — see [rls-policies.md](./contracts/rls-policies.md) §2.1 |
+| Every write denied while signed in | No `public.teachers` row for this account's `uid` (research D14) |
+| Every request 401s with `PGRST301` or "Invalid API key" | Wrong `supabaseAnonKey` or `supabaseUrl` in `supabase.local.properties` |
+| Sign-in fails with a valid password | Email/Password not enabled in the dashboard, or the account's email is unconfirmed |
+| Save always reports a conflict | `remoteRevision` not being refreshed from the write response — the next save then filters on a stale revision |
+| A save reports `Forbidden` where a conflict was expected | The update matched no row *and* the row is invisible to this caller; check the `teachers` marker before suspecting the revision |
+| Policy tests all skip | `SUPABASE_TEST_URL` unset; export it from `supabase status -o env` |
+| Chrome does not mirror on switch | Direction not threaded from the language preference into `MatnTheme(layoutDirection = …)` (research D6) |
+| An English label appears in Arabic mode | Impossible via `TeacherStrings` — a missing translation is a compile error. If seen, the string is hard-coded in a composable instead of routed through the table |

@@ -6,7 +6,7 @@ Matn is a Kotlin Multiplatform application that helps students read, listen to, 
 
 Development is broken into sequential **phases**, each scoped to a single [spec-kit](https://github.com/github/spec-kit) cycle (`/specify` → `/plan` → `/tasks` → `/implement`). Each phase produces an independently buildable and testable slice of the app.
 
-**Phases 1–10 are complete** (`23deb1b` … `2d4d63d`). They delivered the student app: Phases 1–3 in order as hard prerequisites, Phase 5 after Phases 2–4, and Phase 10's cross-cutting design-system retrofit ahead of Phases 6–9's UI work (see Dependency Notes). **Phases 11–13 are the current work** — they replace the binary-bundled content model with a Firebase-backed one (teacher uploads → student catalog → per-matn download), described under *Content Delivery & Authoring* below.
+**Phases 1–10 are complete** (`23deb1b` … `2d4d63d`). They delivered the student app: Phases 1–3 in order as hard prerequisites, Phase 5 after Phases 2–4, and Phase 10's cross-cutting design-system retrofit ahead of Phases 6–9's UI work (see Dependency Notes). **Phases 11–13 are the current work** — they replace the binary-bundled content model with a Supabase-backed one (teacher uploads → student catalog → per-matn download), described under *Content Delivery & Authoring* below.
 
 > Phase numbers here are 1-indexed and match the `specs/NNN-*` folder each phase corresponds to
 > (Phase 1 → `specs/001-*`, Phase 5 → `specs/005-*`, etc.).
@@ -51,7 +51,7 @@ Per-matn download and removal, file size display before download, and total stor
 
 > **Delivery mechanism superseded by Phase 13.** Phase 8 shipped this over store-bundled asset
 > packs (Play Asset Delivery / iOS On-Demand Resources). Phase 13 replaces that transport with
-> Firebase while keeping the user-facing behaviour and the domain seams it introduced.
+> Supabase while keeping the user-facing behaviour and the domain seams it introduced.
 
 ### Phase 9 — Polish & Accessibility
 Dark mode, tablet-friendly adaptive layouts, accessibility contrast compliance, first-launch onboarding and permissions flow, and interface animations/transitions.
@@ -76,13 +76,13 @@ Phases 1–10 shipped with content compiled into the binary: a hardcoded `List<S
 under `packs/` delivered through Play Asset Delivery (Android) and On-Demand Resources (iOS).
 Phases 11–13 replace that model end to end:
 
-> **Teacher uploads to Firebase → students browse a catalog of overviews → students download
+> **Teacher uploads to Supabase → students browse a catalog of overviews → students download
 > individual matns to their device.**
 
 Nothing ships in the binary and nothing travels through this repo. Four consequences follow, and
 they are the point of these phases rather than side effects:
 
-- **Firebase is the only content channel.** `PRODUCT-SPEC.md`'s "online catalog + selective
+- **Supabase is the only content channel.** `PRODUCT-SPEC.md`'s "online catalog + selective
   download", previously a V2 item, becomes v1.
 - **Phase 8's delivery model is retired, not extended.** Phase 13 deletes the `packs/` modules,
   the Play Asset Delivery dependency, the iOS ODR tags, and all three platform delivery engines.
@@ -97,29 +97,32 @@ micro-audio file per verse (see Phase 12). And the **Phase 10 design tokens**
 teacher tool; there is no separate teacher design system.
 
 Scope across all three phases is **a single teacher per institution**: no multi-teacher permissions
-and no content-ownership model, though the Firestore schema should not actively block adding one.
+and no content-ownership model, though the Postgres schema should not actively block adding one.
 
 ### Backend access — REST, not platform SDKs
 
-All Firebase access goes through **Firestore REST, Storage REST, and Identity Toolkit over Ktor**,
-in a single `:shared/commonMain` implementation. Firebase ships no official client SDK for desktop
-JVM, so platform SDKs would leave `:desktopApp` and `:teacherApp` unserved and split the code into
-three paths; one REST client covers Android, iOS, and both JVM clients uniformly and matches the
-repo's existing "domain interface, one implementation" style. **Ktor is a new dependency** — the
-project's first HTTP client of any kind — and needs justifying under the constitution's dependency
-clause when Phase 11 lands.
+All backend access goes through **Supabase's PostgREST, Storage, and Auth surfaces over Ktor**, in a
+single `:shared/commonMain` implementation. Supabase ships no official client SDK for desktop JVM,
+so a platform SDK would leave `:desktopApp` and `:teacherApp` unserved and split the code into three
+paths; one REST client covers Android, iOS, and both JVM clients uniformly and matches the repo's
+existing "domain interface, one implementation" style.
+**Ktor is a new dependency** — the project's first HTTP client of any kind — and needs justifying
+under the constitution's dependency clause when Phase 11 lands. (The backend started on Firebase.
+Object storage moved to Supabase first — Firebase Storage now requires the Blaze plan even at zero
+usage — and Firestore plus Identity Toolkit followed, so the whole backend is now one Supabase
+project; see `specs/011-teacher-authoring-upload/design-notes.md`.)
 
-Students have **no accounts**. Catalog reads are public, gated by security rules on the document's
-`published` flag; only the teacher authenticates, to write. Remote student accounts stay a V2 item.
+Students have **no accounts**. Catalog reads are public, gated by a row-level-security policy on the
+row's `published` column; only the teacher authenticates, to write. Remote student accounts stay a V2 item.
 
 ### Phase 11 — Teacher Authoring Tool: Foundation & Upload
 Stands up `:teacherApp` (JVM/Compose Desktop, alongside the existing `:desktopApp` from `4941cc7`)
-and the shared backend client. Covers: Firebase project setup; the Ktor REST client in
-`:shared/commonMain`; the Firestore catalog schema, mirroring the `SeedMatn` field set
+and the shared backend client. Covers: Supabase project setup; the Ktor REST client in
+`:shared/commonMain`; the Postgres catalog schema, mirroring the `SeedMatn` field set
 (`shared/src/commonMain/kotlin/com/giraffe/matn/data/seed/SeedContent.kt`) so Phase 13's sync is a
 projection rather than a translation; teacher sign-in; matn metadata entry (title, author,
 description, cover image, chapter/section structure); and verse *text* entry — ordered list,
-drag-to-reorder, per-row Arabic entry or bulk CSV import, from the list/text regions of
+drag-to-reorder, per-row Arabic entry or bulk text import, from the list/text regions of
 `stitch-designs/11-Upload-Per-Verse`.
 
 Validation reuses the rules already encoded in `ContentSeedLoaderImpl.validate()` (`InvalidId`,
@@ -132,7 +135,7 @@ are load-bearing and must be tested, not merely written.
 
 ### Phase 12 — Audio Capture & Slicing
 Adds the audio half, via two paths producing the **same** artifact — an ordered set of per-verse
-files uploaded to Storage:
+files uploaded to Supabase Storage:
 - **Per-verse upload** (the audio column of `stitch-designs/11-Upload-Per-Verse`): per-row audio
   upload with duration preview.
 - **Split-from-continuous** (adapted from `stitch-designs/12-Upload-Timestamp-Map`): the teacher
@@ -154,10 +157,12 @@ under the constitution's dependency clause.
 ### Phase 13 — Student Remote Catalog & Download
 The student-app retrofit — as much deletion as addition.
 
-**Adds:** a `FirebaseContentDeliveryEngine` in `commonMain` satisfying the existing
+**Adds:** a `RemoteContentDeliveryEngine` in `commonMain` (provider-agnostic name — catalog metadata
+reads PostgREST, binary assets read Supabase Storage; see
+`specs/011-teacher-authoring-upload/design-notes.md`) satisfying the existing
 `ContentDeliveryEngine` seam (`querySize`/`install`/`observe`/`cancel`/`remove`/`locate`/
 `isInstalled`); catalog sync pulling published *overviews* — title, author, description, cover,
-verse count, size — from Firestore into SQLDelight via the existing `ContentSeedLoader` path;
+verse count, size — from Postgres into SQLDelight via the existing `ContentSeedLoader` path;
 per-matn download of verse text and audio into app storage; and a first-launch empty/offline state
 for a library with nothing in it.
 
@@ -170,7 +175,7 @@ Compose-resource audio routing that served it.
 
 `ContentPackRepository`'s abstraction survives intact: it still owns the `matnId ↔ packId`
 translation and still computes availability per read without persisting it. `packId` simply becomes
-a Storage path prefix instead of a Gradle module name.
+a Supabase Storage path prefix instead of a Gradle module name.
 
 **One behavioural change to spec, not discover:** Phase 6's FR-001 specified library-wide search
 across verse text. With an overview-only catalog, verse text exists locally only for downloaded
@@ -189,11 +194,11 @@ matns, so search narrows to **titles across the catalog plus full text within do
   Phases 6–9.
 - **Phases 11 → 12 → 13** are strictly ordered. 12 adds audio to the matns 11 can already create
   and publish; 13 is the student consumer of what 11 and 12 upload, so building it last means the
-  Firestore schema has been exercised by a real producer first.
-- **Phase 11** depends on Phase 1 (the UUID data model and `SeedMatn` shape its Firestore schema
+  Postgres schema has been exercised by a real producer first.
+- **Phase 11** depends on Phase 1 (the UUID data model and `SeedMatn` shape its Postgres schema
   mirrors) and Phase 10 (the design tokens `:teacherApp` consumes) — both landed.
 - **Phase 13 supersedes Phase 8** rather than building on it. Phase 8's store-bundled asset-pack
   delivery is removed outright; only its domain seam (`ContentDeliveryEngine`) and repository
-  abstraction (`ContentPackRepository`) survive, now backed by Firebase.
+  abstraction (`ContentPackRepository`) survive, now backed by Supabase.
 - **Phase 13 is the only one of the three that touches the student app**, and it touches it
   substantially — the whole content-acquisition path changes.

@@ -3,7 +3,7 @@ Sync Impact Report
 ==================
 Version change: 1.5.0 → 2.0.0
 Rationale: MAJOR, driven by roadmap Phases 11–13, which replace binary-bundled content with a
-Firebase-backed model — teacher uploads, students browse a remote catalog of overviews, students
+remote-backend model — teacher uploads, students browse a remote catalog of overviews, students
 download per matn. Principle VI's requirement that "the app MUST ship with at least one complete,
 immediately playable matn" is **removed**: with teacher-uploaded content as the sole channel, a
 bundled matn would be content no teacher published and none can revise. Removing a MUST and
@@ -93,10 +93,10 @@ Deferred TODOs:
     Phase 9.~~ Closed 2026-07-25 by Phase 9; MatnDarkColors is gated by ColorContrastTest.
   - Two dependency justifications are outstanding under "Adding a new third-party dependency
     requires justification against a simpler alternative" (Technology & Architecture Constraints):
-    (a) Phase 11 — Ktor, the project's first HTTP client. Firebase ships no official client SDK for
-    desktop JVM, so all backend access is Firestore/Storage/Identity Toolkit REST from one
-    commonMain implementation rather than three platform SDK paths. See docs/ROADMAP.md
-    § "Backend access — REST, not platform SDKs".
+    (a) Phase 11 — Ktor, the project's first HTTP client. Supabase ships no official client SDK
+    for desktop JVM, so all backend access is PostgREST/Storage/Auth REST from one commonMain
+    implementation rather than three platform SDK paths.
+    See docs/ROADMAP.md § "Backend access — REST, not platform SDKs".
     (b) Phase 12 — an MP3 decoder (JLayer/mp3spi vs. bundled ffmpeg), needed for verse slicing and
     preview. Unavoidable: DesktopAudioEngine records that javax.sound.sampled ships no MP3 codec.
   - Phase 13 must delete, not merely bypass, the superseded delivery stack: the packs/* modules,
@@ -133,7 +133,7 @@ The codebase MUST be organized into three strictly separated layers: **domain**,
 
 **Rationale**: Enforced boundaries make each layer independently testable and let the data layer
 swap its content source without touching domain or UI code — as Phase 13 does, replacing
-store-bundled asset packs with Firebase behind the unchanged `ContentDeliveryEngine` seam.
+store-bundled asset packs with Supabase behind the unchanged `ContentDeliveryEngine` seam.
 
 ### II. MVVM Presentation (NON-NEGOTIABLE)
 

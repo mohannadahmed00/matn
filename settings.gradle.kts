@@ -28,6 +28,7 @@ dependencyResolutionManagement {
 }
 
 include(":desktopApp")
+include(":teacherApp")
 include(":androidApp")
 include(":shared")
 include(":packs:matn_structured_sample")

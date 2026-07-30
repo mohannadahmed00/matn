@@ -10,6 +10,7 @@ import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.domain.repository.AppearancePreferencesRepository
 import com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase
 import com.giraffe.matn.domain.usecase.SetThemeModeUseCase
+import com.giraffe.matn.permission.FakeNotificationPermission
 import com.giraffe.matn.presentation.settings.RemovalTarget
 import com.giraffe.matn.presentation.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +65,7 @@ class SettingsViewModelTest {
         removeAllContent = removeAllContent,
         observeThemeMode = ObserveThemeModeUseCase(appearanceRepository),
         setThemeMode = SetThemeModeUseCase(appearanceRepository),
+        notificationPermission = FakeNotificationPermission(),
     )
 
     @Test

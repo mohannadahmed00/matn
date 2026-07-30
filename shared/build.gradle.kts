@@ -77,11 +77,16 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.koin.core)
             implementation(libs.koin.annotations)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.cio)
+            implementation(libs.ktor.client.contentNegotiation)
+            implementation(libs.ktor.serialization.json)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.koin.test)
+            implementation(libs.ktor.client.mock)
         }
         getByName("androidHostTest") {
             dependencies {
@@ -109,4 +114,14 @@ sqldelight {
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+}
+
+// Default is exceptionFormat=SHORT, which prints only the exception class and one stack
+// frame — CI failures then need the (unpublished) HTML report to see an assertion's actual
+// message. FULL prints the whole trace, including the message, straight to the CI log.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStandardStreams = true
+    }
 }

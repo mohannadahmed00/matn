@@ -12,4 +12,6 @@ sealed interface ContentIntegrityError : AppError {
     data class StructureMismatch(val matnId: String, val detail: String) : ContentIntegrityError
     data class InvalidId(val detail: String) : ContentIntegrityError
     data class Aggregate(val problems: List<ContentIntegrityError>) : ContentIntegrityError
+    data class EmptyMatn(val matnId: String) : ContentIntegrityError
+    data class DocumentTooLarge(val matnId: String, val bytes: Long, val limitBytes: Long) : ContentIntegrityError
 }

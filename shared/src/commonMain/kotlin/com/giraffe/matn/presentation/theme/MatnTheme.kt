@@ -40,7 +40,9 @@ import com.giraffe.matn.domain.model.effectiveAppearance
  * - Motion: [LocalReduceMotion] — provided here from [reduceMotion]; defaults to `false`.
  *
  * [themeMode] and [reduceMotion] are **both defaulted** so the 88 existing `@Preview`s keep
- * working untouched (research D12, rule 3).
+ * working untouched (research D12, rule 3). [layoutDirection] is a third defaulted parameter
+ * (Phase 11, research D6): every existing call site still forces RTL; `:teacherApp` is the only
+ * caller that passes `Ltr`, for its English interface language.
  *
  * Paints the Material `background` behind content via a root [Surface] so the app (and every
  * `@Preview`) has an opaque backdrop rather than a transparent window.
@@ -49,13 +51,14 @@ import com.giraffe.matn.domain.model.effectiveAppearance
 fun MatnTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     reduceMotion: Boolean = false,
+    layoutDirection: LayoutDirection = LayoutDirection.Rtl,
     content: @Composable () -> Unit,
 ) {
     val systemIsDark = isSystemInDarkTheme()
     val appearance = themeMode.effectiveAppearance(systemIsDark)
     val colorScheme: ColorScheme = if (appearance == Appearance.DARK) MatnDarkColors else MatnLightColors
     CompositionLocalProvider(
-        LocalLayoutDirection provides LayoutDirection.Rtl,
+        LocalLayoutDirection provides layoutDirection,
         LocalReduceMotion provides reduceMotion,
     ) {
         MaterialTheme(
