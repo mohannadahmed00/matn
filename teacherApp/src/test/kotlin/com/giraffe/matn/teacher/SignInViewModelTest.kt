@@ -45,9 +45,9 @@ private val sampleSession = TeacherSession(
     uid = "u1",
     displayName = "Teacher",
     email = "t@example.com",
-    idToken = "id-token",
+    accessToken = "id-token",
     refreshToken = "refresh-token",
-    idTokenExpiresAt = 0L,
+    accessTokenExpiresAt = 0L,
 )
 
 class SignInViewModelTest {

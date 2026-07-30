@@ -32,7 +32,7 @@ class ContentIntegrityValidatorTest {
         publicationState = PublicationState.DRAFT,
         createdAt = 0L,
         updatedAt = 0L,
-        remoteUpdateTime = null,
+        remoteRevision = null,
     )
 
     private fun verse(id: String, displayNumber: Int, chapterId: String? = null, audio: DraftAudio? = null) =

@@ -1,8 +1,8 @@
 package com.giraffe.matn.data.repository
 
 import com.giraffe.matn.core.Resource
-import com.giraffe.matn.data.remote.identity.IdentityToolkitClient
-import com.giraffe.matn.data.remote.identity.TokenRefresher
+import com.giraffe.matn.data.remote.auth.SupabaseAuthClient
+import com.giraffe.matn.data.remote.auth.TokenRefresher
 import com.giraffe.matn.domain.auth.TeacherAuthRepository
 import com.giraffe.matn.domain.auth.TeacherSession
 import com.giraffe.matn.domain.error.RemoteError
@@ -10,18 +10,16 @@ import com.giraffe.matn.domain.secret.SecretStore
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Implements [TeacherAuthRepository] over [IdentityToolkitClient], [TokenRefresher], and
+ * Implements [TeacherAuthRepository] over [SupabaseAuthClient], [TokenRefresher], and
  * [SecretStore]. Persists **only** the refresh token (FR-003a), and only after a successful
  * sign-in.
  *
- * Known limitation of the wire contract (`contracts/rest-contract.md` §3.3): the Secure Token
- * API's refresh response carries no `displayName`/`email`, so a session restored purely from a
- * persisted refresh token (app restart with no prior in-memory session) carries empty strings for
- * both until the teacher signs in again. There is no lookup endpoint in the contract to fill them
- * in without inventing one.
+ * Supabase's refresh response carries the full `user` object, so a session restored from nothing
+ * but a persisted refresh token has a real display name and email — the Firebase Secure Token API
+ * returned neither, and the restored session used to show blanks until the next sign-in.
  */
-class IdentityTeacherAuthRepository(
-    private val client: IdentityToolkitClient,
+class SupabaseTeacherAuthRepository(
+    private val client: SupabaseAuthClient,
     private val tokenRefresher: TokenRefresher,
     private val secretStore: SecretStore,
 ) : TeacherAuthRepository {
@@ -45,6 +43,8 @@ class IdentityTeacherAuthRepository(
         return when (val result = client.refresh(storedToken)) {
             is Resource.Success -> {
                 tokenRefresher.setSession(result.data)
+                // Supabase rotates the refresh token on use; storing the new one is what makes the
+                // *next* restore work.
                 secretStore.put(TokenRefresher.REFRESH_TOKEN_KEY, result.data.refreshToken)
                 result
             }

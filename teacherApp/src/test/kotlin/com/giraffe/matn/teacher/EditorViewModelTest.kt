@@ -87,13 +87,13 @@ class EditorViewModelTest {
     }
 
     @Test
-    fun `a successful save updates remoteUpdateTime`() = runTest {
-        val repo = FakeCatalogRepository(saveResult = { draft -> Resource.Success(draft.copy(remoteUpdateTime = "new-token")) })
+    fun `a successful save updates remoteRevision`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { draft -> Resource.Success(draft.copy(remoteRevision = "new-token")) })
         val vm = newViewModel(repo)
 
         vm.onSaveDraft()
 
-        assertEquals("new-token", vm.state.value.draft.remoteUpdateTime)
+        assertEquals("new-token", vm.state.value.draft.remoteRevision)
         assertTrue(vm.state.value.saveState is SaveState.Saved)
     }
 
@@ -230,7 +230,7 @@ class EditorViewModelTest {
 
     @Test
     fun `reloading after a conflict replaces the draft with the server version and clears the failure`() = runTest {
-        val serverDraft = newDraft().copy(title = "Server Title", remoteUpdateTime = "server-token")
+        val serverDraft = newDraft().copy(title = "Server Title", remoteRevision = "server-token")
         val repo = FakeCatalogRepository(
             saveResult = { Resource.Failure(RemoteError.Conflict) },
             loadResult = { Resource.Success(serverDraft) },

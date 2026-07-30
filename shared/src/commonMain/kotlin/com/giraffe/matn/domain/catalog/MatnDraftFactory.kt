@@ -33,7 +33,7 @@ object MatnDraftFactory {
             publicationState = PublicationState.DRAFT,
             createdAt = now,
             updatedAt = now,
-            remoteUpdateTime = null,
+            remoteRevision = null,
         )
     }
 

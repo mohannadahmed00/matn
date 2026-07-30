@@ -75,7 +75,7 @@ class CatalogUseCaseTest {
             publicationState = PublicationState.PUBLISHED,
             createdAt = 0L,
             updatedAt = 0L,
-            remoteUpdateTime = "t1",
+            remoteRevision = "t1",
         )
         val repo = CatalogListFakeRepository(unpublishResult = { Resource.Success(published.copy(publicationState = PublicationState.DRAFT)) })
 

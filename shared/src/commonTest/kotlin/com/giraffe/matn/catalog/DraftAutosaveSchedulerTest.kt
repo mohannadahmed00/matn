@@ -25,7 +25,7 @@ class DraftAutosaveSchedulerTest {
         publicationState = state,
         createdAt = 0L,
         updatedAt = 0L,
-        remoteUpdateTime = null,
+        remoteRevision = null,
     )
 
     @Test

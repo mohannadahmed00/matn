@@ -457,7 +457,7 @@ private fun previewDraft(structureKind: StructureKind = StructureKind.SIMPLE) = 
     publicationState = PublicationState.DRAFT,
     createdAt = 0L,
     updatedAt = 0L,
-    remoteUpdateTime = null,
+    remoteRevision = null,
 )
 
 private val noOpIntents = EditorIntents(

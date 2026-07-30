@@ -35,7 +35,7 @@ private class FakeCatalogRepository(
     }
 }
 
-private fun sampleDraft(remoteUpdateTime: String? = "token-1") = MatnDraft(
+private fun sampleDraft(remoteRevision: String? = "token-1") = MatnDraft(
     id = "m1",
     title = "T",
     author = "A",
@@ -48,24 +48,24 @@ private fun sampleDraft(remoteUpdateTime: String? = "token-1") = MatnDraft(
     publicationState = PublicationState.DRAFT,
     createdAt = 0L,
     updatedAt = 0L,
-    remoteUpdateTime = remoteUpdateTime,
+    remoteRevision = remoteRevision,
 )
 
 class DraftUseCaseTest {
 
     @Test
-    fun `SaveDraftUseCase passes remoteUpdateTime through and returns the refreshed value`() = runTest {
-        val draft = sampleDraft(remoteUpdateTime = "old-token")
+    fun `SaveDraftUseCase passes remoteRevision through and returns the refreshed value`() = runTest {
+        val draft = sampleDraft(remoteRevision = "old-token")
         var capturedPrecondition: String? = null
         val repo = FakeCatalogRepository(saveResult = { d ->
-            capturedPrecondition = d.remoteUpdateTime
-            Resource.Success(d.copy(remoteUpdateTime = "new-token"))
+            capturedPrecondition = d.remoteRevision
+            Resource.Success(d.copy(remoteRevision = "new-token"))
         })
 
         val result = SaveDraftUseCase(repo)(draft)
 
         assertEquals("old-token", capturedPrecondition)
-        assertEquals("new-token", (result as Resource.Success).data.remoteUpdateTime)
+        assertEquals("new-token", (result as Resource.Success).data.remoteRevision)
     }
 
     @Test

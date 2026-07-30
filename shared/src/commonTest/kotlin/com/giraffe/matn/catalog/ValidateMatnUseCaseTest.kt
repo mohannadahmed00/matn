@@ -26,7 +26,7 @@ class ValidateMatnUseCaseTest {
         publicationState = PublicationState.DRAFT,
         createdAt = 0L,
         updatedAt = 0L,
-        remoteUpdateTime = null,
+        remoteRevision = null,
     )
 
     private fun verse(id: String, number: Int) = DraftVerse(id, null, number, "text", null, 0L)

@@ -33,7 +33,7 @@ fun SeedMatn.toDraft(): MatnDraft = MatnDraft(
     publicationState = PublicationState.DRAFT,
     createdAt = 0L,
     updatedAt = 0L,
-    remoteUpdateTime = null,
+    remoteRevision = null,
 )
 
 fun MatnDraft.toSeedMatn(packId: String = "", declaredSizeBytes: Long = 0L): SeedMatn = SeedMatn(

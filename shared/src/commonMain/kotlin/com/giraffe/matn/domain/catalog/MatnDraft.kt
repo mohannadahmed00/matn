@@ -19,7 +19,9 @@ data class MatnDraft(
     val publicationState: PublicationState,
     val createdAt: Long,
     val updatedAt: Long,
-    val remoteUpdateTime: String?,
+    /** The server-assigned `matns.revision` from the last read — the concurrency token (FR-043).
+     * `null` for a draft that has never been saved. */
+    val remoteRevision: String?,
 ) {
     val verseCount: Int get() = verses.size
 

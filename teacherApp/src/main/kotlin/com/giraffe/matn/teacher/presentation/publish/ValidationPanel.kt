@@ -67,7 +67,7 @@ private fun previewDraft(verses: List<com.giraffe.matn.domain.catalog.DraftVerse
     id = "m1", title = "T", author = "A", description = "", coverImageRef = null,
     structureKind = StructureKind.SIMPLE, defaultReciterId = "r1", chapters = emptyList(),
     verses = verses, publicationState = com.giraffe.matn.domain.catalog.PublicationState.DRAFT,
-    createdAt = 0L, updatedAt = 0L, remoteUpdateTime = null,
+    createdAt = 0L, updatedAt = 0L, remoteRevision = null,
 )
 
 private fun verse(id: String, number: Int) =

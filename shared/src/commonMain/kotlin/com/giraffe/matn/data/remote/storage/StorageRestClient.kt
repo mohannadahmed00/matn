@@ -3,7 +3,7 @@ package com.giraffe.matn.data.remote.storage
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.remote.RemoteErrorMapper
 import com.giraffe.matn.data.remote.SupabaseConfig
-import com.giraffe.matn.data.remote.identity.TokenRefresher
+import com.giraffe.matn.data.remote.auth.TokenRefresher
 import io.ktor.client.HttpClient
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
@@ -23,11 +23,10 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 /**
- * Cover uploads and storage-usage reads, on Supabase Storage (`contracts/rest-contract.md` §5,
- * amended per `design-notes.md` — moved off Firebase Storage, which now requires the Blaze plan
- * even at zero usage). Auth reuses the app's existing Firebase ID token: Supabase's third-party-
- * auth trust of the Firebase project is what lets it verify that token directly, so no second
- * sign-in flow is introduced.
+ * Cover uploads and storage-usage reads, on Supabase Storage (`contracts/rest-contract.md` §5).
+ * Storage was the first piece to move off Firebase (`design-notes.md`); it now shares the same
+ * Supabase access token as the rest of the backend, and the third-party-auth bridge it used to need
+ * is gone.
  */
 class StorageRestClient(
     private val httpClient: HttpClient,
@@ -38,7 +37,7 @@ class StorageRestClient(
      * overwrites (`x-upsert: true`) rather than accumulating orphans. Returns the same
      * [objectPath] on success. */
     suspend fun upload(objectPath: String, bytes: ByteArray, contentType: String): Resource<String> {
-        val tokenResult = tokenRefresher.currentIdToken()
+        val tokenResult = tokenRefresher.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {
@@ -66,7 +65,7 @@ class StorageRestClient(
     /** Sums each object's size under [prefix], paginated via offset — Supabase's list endpoint has
      * no page-token, just `limit`/`offset` (portal storage-usage row). */
     suspend fun totalUsageBytes(prefix: String): Resource<Long> {
-        val tokenResult = tokenRefresher.currentIdToken()
+        val tokenResult = tokenRefresher.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {

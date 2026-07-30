@@ -35,9 +35,9 @@ class MatnDraftFactoryTest {
     }
 
     @Test
-    fun `a fresh draft is DRAFT with no remoteUpdateTime`() {
+    fun `a fresh draft is DRAFT with no remoteRevision`() {
         val draft = MatnDraftFactory.newDraft(newId = ::newId, nowMillis = { 1L })
         assertEquals(PublicationState.DRAFT, draft.publicationState)
-        assertNull(draft.remoteUpdateTime)
+        assertNull(draft.remoteRevision)
     }
 }

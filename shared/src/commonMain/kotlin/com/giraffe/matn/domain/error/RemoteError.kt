@@ -19,12 +19,12 @@ sealed interface RemoteError : AppError {
         override val retryable: Boolean = false
     }
 
-    /** Authenticated, but the security rules refused the operation. */
+    /** Authenticated, but row-level security refused the operation. */
     data object Forbidden : RemoteError {
         override val retryable: Boolean = false
     }
 
-    /** The `updateTime` precondition failed (research D4) — someone else saved first. */
+    /** The `revision` precondition failed (research D4) — someone else saved first. */
     data object Conflict : RemoteError {
         override val retryable: Boolean = false
     }

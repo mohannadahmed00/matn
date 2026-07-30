@@ -1,14 +1,13 @@
 package com.giraffe.matn.teacher.di
 
-import com.giraffe.matn.data.remote.FirebaseConfig
 import com.giraffe.matn.data.remote.SupabaseConfig
+import com.giraffe.matn.data.remote.auth.SupabaseAuthClient
+import com.giraffe.matn.data.remote.auth.TokenRefresher
 import com.giraffe.matn.data.remote.createHttpClient
-import com.giraffe.matn.data.remote.firestore.FirestoreRestClient
-import com.giraffe.matn.data.remote.identity.IdentityToolkitClient
-import com.giraffe.matn.data.remote.identity.TokenRefresher
+import com.giraffe.matn.data.remote.postgrest.PostgrestClient
 import com.giraffe.matn.data.remote.storage.StorageRestClient
-import com.giraffe.matn.data.repository.FirestoreCatalogRepository
-import com.giraffe.matn.data.repository.IdentityTeacherAuthRepository
+import com.giraffe.matn.data.repository.SupabaseCatalogRepository
+import com.giraffe.matn.data.repository.SupabaseTeacherAuthRepository
 import com.giraffe.matn.domain.auth.TeacherAuthRepository
 import com.giraffe.matn.domain.catalog.CatalogRepository
 import com.giraffe.matn.domain.secret.SecretStore
@@ -35,9 +34,9 @@ import kotlin.time.ExperimentalTime
 
 /**
  * Explicit provider functions for every teacher-side dependency, per Ground Rule 11: teacher-side
- * classes added to `:shared` (`FirebaseConfig`'s consumers, the REST clients, repositories, use
+ * classes added to `:shared` (`SupabaseConfig`'s consumers, the REST clients, repositories, use
  * cases) MUST NOT carry Koin annotations there — `:shared`'s `ContentModule` `@ComponentScan`
- * would otherwise pull them into the student apps' graph, which has no `FirebaseConfig`/
+ * would otherwise pull them into the student apps' graph, which has no `SupabaseConfig`/
  * `HttpClient`/`SecretStore` to give them. `@ComponentScan` here is scoped to
  * `com.giraffe.matn.teacher` only, so it is safe to scan `:teacherApp`'s own ViewModels/platform
  * classes. Later tasks add their provider function here as they create each class.
@@ -47,18 +46,9 @@ import kotlin.time.ExperimentalTime
 @ComponentScan("com.giraffe.matn.teacher")
 class TeacherModule {
 
-    @Single
-    fun firebaseConfig(): FirebaseConfig {
-        val props = teacherLocalProperties()
-        return FirebaseConfig(
-            projectId = System.getenv("FIREBASE_PROJECT_ID") ?: props.getProperty("projectId", ""),
-            apiKey = System.getenv("FIREBASE_API_KEY") ?: props.getProperty("apiKey", ""),
-            emulatorHost = System.getenv("FIREBASE_EMULATOR_HOST"),
-        )
-    }
-
-    /** Backs binary object storage (cover images, Phase 12 audio) — moved off Firebase Storage,
-     * which now requires the Blaze plan even at zero usage; see `design-notes.md`. */
+    /** The whole backend: auth, the `matns` table, and binary object storage all live in one
+     * Supabase project. Pointing `SUPABASE_URL` at `http://127.0.0.1:54321` runs the tool against
+     * a local stack (`supabase start`). */
     @Single
     fun supabaseConfig(): SupabaseConfig {
         val props = teacherLocalProperties()
@@ -69,10 +59,20 @@ class TeacherModule {
         )
     }
 
+    /**
+     * Walks up from the working directory looking for `supabase/supabase.local.properties`, because
+     * the working directory differs between `./gradlew :teacherApp:run` (repo root) and an IDE run
+     * configuration (the module directory). A plain relative path silently produced an empty config,
+     * which surfaced as `RemoteError.Network` — a misleading "cannot reach the server" rather than
+     * "there is no server configured". Missing entirely is still legal: the environment variables in
+     * [supabaseConfig] override the file anyway.
+     */
     private fun teacherLocalProperties(): Properties {
         val props = Properties()
-        val file = File("firebase/firebase.local.properties")
-        if (file.exists()) file.inputStream().use { props.load(it) }
+        val file = generateSequence(File("").absoluteFile) { it.parentFile }
+            .map { File(it, LOCAL_PROPERTIES_PATH) }
+            .firstOrNull { it.isFile }
+        file?.inputStream()?.use { props.load(it) }
         return props
     }
 
@@ -80,19 +80,19 @@ class TeacherModule {
     fun httpClient(): HttpClient = createHttpClient()
 
     @Single
-    fun identityToolkitClient(httpClient: HttpClient, firebaseConfig: FirebaseConfig): IdentityToolkitClient =
-        IdentityToolkitClient(httpClient, firebaseConfig)
+    fun supabaseAuthClient(httpClient: HttpClient, supabaseConfig: SupabaseConfig): SupabaseAuthClient =
+        SupabaseAuthClient(httpClient, supabaseConfig)
 
     @Single
-    fun tokenRefresher(client: IdentityToolkitClient, secretStore: SecretStore): TokenRefresher =
+    fun tokenRefresher(client: SupabaseAuthClient, secretStore: SecretStore): TokenRefresher =
         TokenRefresher(client, secretStore, nowMillis = { Clock.System.now().toEpochMilliseconds() })
 
     @Single
     fun teacherAuthRepository(
-        client: IdentityToolkitClient,
+        client: SupabaseAuthClient,
         tokenRefresher: TokenRefresher,
         secretStore: SecretStore,
-    ): TeacherAuthRepository = IdentityTeacherAuthRepository(client, tokenRefresher, secretStore)
+    ): TeacherAuthRepository = SupabaseTeacherAuthRepository(client, tokenRefresher, secretStore)
 
     @Single
     fun signInUseCase(repository: TeacherAuthRepository): SignInUseCase = SignInUseCase(repository)
@@ -105,16 +105,16 @@ class TeacherModule {
         RestoreSessionUseCase(repository)
 
     @Single
-    fun firestoreRestClient(httpClient: HttpClient, firebaseConfig: FirebaseConfig, tokenRefresher: TokenRefresher): FirestoreRestClient =
-        FirestoreRestClient(httpClient, firebaseConfig, tokenRefresher)
+    fun postgrestClient(httpClient: HttpClient, supabaseConfig: SupabaseConfig, tokenRefresher: TokenRefresher): PostgrestClient =
+        PostgrestClient(httpClient, supabaseConfig, tokenRefresher)
 
     @Single
     fun storageRestClient(httpClient: HttpClient, supabaseConfig: SupabaseConfig, tokenRefresher: TokenRefresher): StorageRestClient =
         StorageRestClient(httpClient, supabaseConfig, tokenRefresher)
 
     @Single
-    fun catalogRepository(firestoreClient: FirestoreRestClient, storageClient: StorageRestClient): CatalogRepository =
-        FirestoreCatalogRepository(firestoreClient, storageClient)
+    fun catalogRepository(postgrest: PostgrestClient, storageClient: StorageRestClient): CatalogRepository =
+        SupabaseCatalogRepository(postgrest, storageClient)
 
     @Single
     fun saveDraftUseCase(repository: CatalogRepository): SaveDraftUseCase = SaveDraftUseCase(repository)
@@ -136,6 +136,10 @@ class TeacherModule {
 
     @Single
     fun unpublishMatnUseCase(repository: CatalogRepository): UnpublishMatnUseCase = UnpublishMatnUseCase(repository)
+
+    private companion object {
+        const val LOCAL_PROPERTIES_PATH = "supabase/supabase.local.properties"
+    }
 }
 
 /** Starts a Koin instance scoped to `:teacherApp` with only [TeacherModule] — never `:shared`'s

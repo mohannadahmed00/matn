@@ -61,9 +61,9 @@ private val sampleSession = TeacherSession(
     uid = "u1",
     displayName = "Teacher",
     email = "teacher@example.com",
-    idToken = "id-token",
+    accessToken = "id-token",
     refreshToken = "refresh-token",
-    idTokenExpiresAt = 0L,
+    accessTokenExpiresAt = 0L,
 )
 
 class AuthUseCaseTest {

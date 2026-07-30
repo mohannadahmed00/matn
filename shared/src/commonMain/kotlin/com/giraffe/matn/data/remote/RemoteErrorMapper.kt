@@ -12,13 +12,19 @@ import kotlinx.serialization.json.jsonPrimitive
 object RemoteErrorMapper {
 
     fun mapHttpError(status: Int, body: String?): AppError {
-        val firestoreStatus = body?.let { runCatching { firestoreErrorStatus(it) }.getOrNull() }
+        val code = body?.let { runCatching { postgrestErrorCode(it) }.getOrNull() }
         return when {
-            status == 400 && firestoreStatus == "FAILED_PRECONDITION" -> RemoteError.Conflict
-            status == 400 -> RemoteError.Decode
+            // A duplicate primary key: the "create only if absent" path found the matn already
+            // there. PostgREST reports the SQLSTATE, and 409 alone can also mean a FK conflict.
+            code == UNIQUE_VIOLATION -> RemoteError.Conflict
+            // An insert or update blocked by row-level security. PostgREST answers 403 for a
+            // `WITH CHECK` violation; the SQLSTATE is what names it unambiguously.
+            code == INSUFFICIENT_PRIVILEGE -> RemoteError.Forbidden
             status == 401 -> RemoteError.Unauthorized
             status == 403 -> RemoteError.Forbidden
             status == 404 -> AppError.NotFound
+            status == 409 -> RemoteError.Conflict
+            status == 413 -> RemoteError.QuotaExceeded
             status == 429 -> RemoteError.QuotaExceeded
             status in 500..599 -> RemoteError.Server
             else -> RemoteError.Decode
@@ -31,6 +37,11 @@ object RemoteErrorMapper {
         return RemoteError.Network
     }
 
-    private fun firestoreErrorStatus(body: String): String? =
-        Json.parseToJsonElement(body).jsonObject["error"]?.jsonObject?.get("status")?.jsonPrimitive?.contentOrNull
+    /** PostgREST errors are `{"code","details","hint","message"}`, where `code` is the Postgres
+     * SQLSTATE (or a `PGRST…` code for errors PostgREST raises itself). */
+    private fun postgrestErrorCode(body: String): String? =
+        Json.parseToJsonElement(body).jsonObject["code"]?.jsonPrimitive?.contentOrNull
+
+    private const val UNIQUE_VIOLATION = "23505"
+    private const val INSUFFICIENT_PRIVILEGE = "42501"
 }

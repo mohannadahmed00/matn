@@ -50,7 +50,7 @@ fun main() {
     }
 }
 
-/** Informational display cap only — no quota is enforced server-side beyond what Firebase itself
+/** Informational display cap only — no quota is enforced server-side beyond what Supabase itself
  * rejects (Assumptions, `contracts/rest-contract.md` §5.2). */
 private const val STORAGE_DISPLAY_CAP_BYTES = 10_000_000_000L
 
