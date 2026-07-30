@@ -1,17 +1,5 @@
 {
   "mcpServers": {
-    "firebase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "firebase-tools",
-        "mcp",
-        "--dir",
-        "firebase",
-        "--only",
-        "firestore,storage"
-      ]
-    },
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=orkoyvnlqufneasinvci&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"

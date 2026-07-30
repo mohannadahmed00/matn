@@ -51,5 +51,7 @@ hs_err_pid*
 .claude/
 .opencode/
 
-# Firebase project config — no secrets in the repo (research D13)
-firebase/firebase.local.properties
+# Supabase project config — no secrets in the repo (research D13)
+supabase/supabase.local.properties
+supabase/.branches
+supabase/.temp
