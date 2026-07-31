@@ -13,14 +13,22 @@ import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
 import com.giraffe.matn.teacher.presentation.strings.TeacherLanguage
 
-/** Library rows, editor header, publish dialog (`contracts/teacher-ui-contract.md` §4). */
+/** Library rows, editor header, publish dialog (`contracts/teacher-ui-contract.md` §4). When
+ * [recordedCount]/[totalCount] are known, `PARTIAL` reads "12 of 109 recorded" (FR-031) instead of
+ * the plain label — the library row's overview projection doesn't carry per-verse audio state
+ * (FR-012/FR-035 keep it off that read), so it passes neither and falls back to the plain label;
+ * the editor header and publish dialog have the full draft and pass both. */
 @Composable
-fun AudioCompletenessBadge(state: AudioCompleteness, modifier: Modifier = Modifier) {
+fun AudioCompletenessBadge(state: AudioCompleteness, recordedCount: Int? = null, totalCount: Int? = null, modifier: Modifier = Modifier) {
     val strings = LocalTeacherStrings.current
-    val label = when (state) {
-        AudioCompleteness.NONE -> strings.audioCompletenessNone
-        AudioCompleteness.PARTIAL -> strings.audioCompletenessPartial
-        AudioCompleteness.COMPLETE -> strings.audioCompletenessComplete
+    val label = if (state == AudioCompleteness.PARTIAL && recordedCount != null && totalCount != null) {
+        strings.audioCompletenessPartialCount.replaceFirst("%d", recordedCount.toString()).replaceFirst("%d", totalCount.toString())
+    } else {
+        when (state) {
+            AudioCompleteness.NONE -> strings.audioCompletenessNone
+            AudioCompleteness.PARTIAL -> strings.audioCompletenessPartial
+            AudioCompleteness.COMPLETE -> strings.audioCompletenessComplete
+        }
     }
     Text(
         text = label,
@@ -39,6 +47,18 @@ private fun AudioCompletenessBadgeNonePreview() = PreviewScaffold(TeacherLanguag
 @Preview
 @Composable
 private fun AudioCompletenessBadgePartialPreview() = PreviewScaffold(TeacherLanguage.ENGLISH) { AudioCompletenessBadge(AudioCompleteness.PARTIAL) }
+
+@Preview
+@Composable
+private fun AudioCompletenessBadgePartialCountArabicPreview() = PreviewScaffold(TeacherLanguage.ARABIC) {
+    AudioCompletenessBadge(AudioCompleteness.PARTIAL, recordedCount = 12, totalCount = 109)
+}
+
+@Preview
+@Composable
+private fun AudioCompletenessBadgePartialCountEnglishPreview() = PreviewScaffold(TeacherLanguage.ENGLISH) {
+    AudioCompletenessBadge(AudioCompleteness.PARTIAL, recordedCount = 12, totalCount = 109)
+}
 
 @Preview
 @Composable

@@ -41,6 +41,7 @@ import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.teacher.di.TeacherKoinHolder
+import com.giraffe.matn.teacher.platform.AudioPickResult
 import com.giraffe.matn.teacher.platform.ImagePickResult
 import com.giraffe.matn.teacher.platform.JvmFileChooser
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
@@ -73,6 +74,9 @@ data class EditorIntents(
     val onVerseTextChange: (String, String) -> Unit,
     val onDeleteVerse: (String) -> Unit,
     val onMoveVerse: (Int, Int) -> Unit,
+    val onAttachVerseAudio: (String) -> Unit,
+    val onPlayVerseAudio: (String) -> Unit,
+    val onRemoveVerseAudio: (String) -> Unit,
     val onSaveDraft: () -> Unit,
     val onCheckForProblems: () -> Unit,
     val onRequestPublish: () -> Unit,
@@ -86,6 +90,11 @@ data class EditorIntents(
     val onRequestClearAllVerses: () -> Unit,
     val onDismissClearAllVerses: () -> Unit,
     val onConfirmClearAllVerses: () -> Unit,
+    val onOpenSplit: () -> Unit,
+    val onPreviewMatn: () -> Unit,
+    val onPreviewPause: () -> Unit,
+    val onPreviewResume: () -> Unit,
+    val onPreviewStop: () -> Unit,
 )
 
 /** `contracts/teacher-ui-contract.md` §3.4. Metadata, chapters, the verse list, and validation. */
@@ -180,7 +189,9 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                         onAddVerse = intents.onAddVerse,
                         onBulkImport = intents.onImportRequested,
                         onClearAll = intents.onRequestClearAllVerses,
+                        onSplitFromRecording = intents.onOpenSplit,
                         clearAllEnabled = draft.verses.isNotEmpty(),
+                        splitEnabled = draft.verses.isNotEmpty(),
                     )
                 }
 
@@ -196,10 +207,14 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                     VerseRow(
                         verse = verse,
                         isFlagged = state.focusedProblem == verse.id,
+                        audioState = state.audioStateFor(verse),
                         onTextChange = { text -> intents.onVerseTextChange(verse.id, text) },
                         onDelete = { intents.onDeleteVerse(verse.id) },
                         onMoveUp = { if (index > 0) intents.onMoveVerse(index, index - 1) },
                         onMoveDown = { if (index < draft.verses.lastIndex) intents.onMoveVerse(index, index + 1) },
+                        onAttachAudio = { intents.onAttachVerseAudio(verse.id) },
+                        onPlayAudio = { intents.onPlayVerseAudio(verse.id) },
+                        onRemoveAudio = { intents.onRemoveVerseAudio(verse.id) },
                         dragHandleModifier = Modifier.pointerInput(verse.id, draft.verses.size) {
                             detectDragGestures(
                                 onDragEnd = { dragAccumPx = 0f },
@@ -230,6 +245,17 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 }
             }
 
+            if (draft.audioCompleteness != com.giraffe.matn.domain.catalog.AudioCompleteness.NONE) {
+                com.giraffe.matn.teacher.presentation.preview.PreviewBar(
+                    state = state.previewState,
+                    onPlayFromStart = intents.onPreviewMatn,
+                    onPause = intents.onPreviewPause,
+                    onResume = intents.onPreviewResume,
+                    onStop = intents.onPreviewStop,
+                    modifier = Modifier.padding(top = MatnSpacing.unit),
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit * 2),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -255,7 +281,12 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
             }
 
             if (state.showPublishConfirm) {
-                PublishConfirmDialog(onConfirm = intents.onConfirmPublish, onDismiss = intents.onDismissPublishConfirm)
+                PublishConfirmDialog(
+                    verseCount = draft.verseCount,
+                    audioCompleteness = draft.audioCompleteness,
+                    onConfirm = intents.onConfirmPublish,
+                    onDismiss = intents.onDismissPublishConfirm,
+                )
             }
 
             state.importPreview?.let { preview ->
@@ -270,7 +301,14 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
 }
 
 @Composable
-private fun VerseListHeader(onAddVerse: () -> Unit, onBulkImport: () -> Unit, onClearAll: () -> Unit, clearAllEnabled: Boolean) {
+private fun VerseListHeader(
+    onAddVerse: () -> Unit,
+    onBulkImport: () -> Unit,
+    onClearAll: () -> Unit,
+    onSplitFromRecording: () -> Unit,
+    clearAllEnabled: Boolean,
+    splitEnabled: Boolean,
+) {
     val strings = LocalTeacherStrings.current
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -280,6 +318,7 @@ private fun VerseListHeader(onAddVerse: () -> Unit, onBulkImport: () -> Unit, on
         Text(strings.verseListHeading, style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
             TextButton(onClick = onBulkImport) { Text(strings.bulkImport) }
+            TextButton(onClick = onSplitFromRecording, enabled = splitEnabled) { Text(strings.splitFromRecording) }
             TextButton(onClick = onClearAll, enabled = clearAllEnabled) { Text(strings.clearAllVerses) }
             TextButton(onClick = onAddVerse) { Text(strings.addVerse) }
         }
@@ -396,6 +435,10 @@ fun EditorScreen(
             validateMatn = koin.get(),
             publishMatn = koin.get(),
             loadMatnForEdit = koin.get(),
+            attachVerseAudio = koin.get(),
+            removeVerseAudio = koin.get(),
+            previewPlayer = koin.get(),
+            previewMatnAudio = koin.get(),
             newId = { Uuid.random().toString() },
             nowMillis = { Clock.System.now().toEpochMilliseconds() },
         )
@@ -423,6 +466,18 @@ fun EditorScreen(
             onVerseTextChange = viewModel::onVerseTextChange,
             onDeleteVerse = viewModel::onDeleteVerse,
             onMoveVerse = viewModel::onMoveVerse,
+            onAttachVerseAudio = { verseId ->
+                when (val result = JvmFileChooser.pickAudio(JvmFileChooser.MAX_PER_VERSE_AUDIO_BYTES)) {
+                    is AudioPickResult.Picked -> viewModel.onAttachVerseAudio(verseId, java.io.File(result.file.path).readBytes())
+                    is AudioPickResult.TooLarge ->
+                        viewModel.onVerseAudioPickRejected(verseId, com.giraffe.matn.domain.error.AudioAttachError.TooLarge)
+                    is AudioPickResult.Rejected ->
+                        viewModel.onVerseAudioPickRejected(verseId, com.giraffe.matn.domain.error.AudioAttachError.WrongFormat)
+                    is AudioPickResult.Cancelled -> Unit
+                }
+            },
+            onPlayVerseAudio = viewModel::onPlayVerseAudio,
+            onRemoveVerseAudio = viewModel::onRemoveVerseAudio,
             onSaveDraft = viewModel::onSaveDraft,
             onCheckForProblems = viewModel::onCheckForProblems,
             onRequestPublish = viewModel::onRequestPublish,
@@ -439,9 +494,22 @@ fun EditorScreen(
             onRequestClearAllVerses = viewModel::onRequestClearAllVerses,
             onDismissClearAllVerses = viewModel::onDismissClearAllVerses,
             onConfirmClearAllVerses = viewModel::onConfirmClearAllVerses,
+            onOpenSplit = viewModel::onOpenSplit,
+            onPreviewMatn = { viewModel.onPreviewMatn() },
+            onPreviewPause = viewModel::onPreviewPause,
+            onPreviewResume = viewModel::onPreviewResume,
+            onPreviewStop = viewModel::onPreviewStop,
         ),
         modifier = modifier,
     )
+
+    if (state.showSplitScreen) {
+        com.giraffe.matn.teacher.presentation.split.SplitScreen(
+            draft = state.draft,
+            onSplitComplete = viewModel::onSplitApplied,
+            onCancel = viewModel::onCloseSplit,
+        )
+    }
 }
 
 private fun previewDraft(structureKind: StructureKind = StructureKind.SIMPLE) = MatnDraft(
@@ -464,10 +532,12 @@ private val noOpIntents = EditorIntents(
     onTitleChange = {}, onAuthorChange = {}, onDescriptionChange = {}, onStructureKindChange = {},
     onPickCover = {}, onRemoveCover = {}, onAddChapter = {}, onEditChapterTitle = { _, _ -> },
     onDeleteChapter = {}, onAddVerse = {}, onVerseTextChange = { _, _ -> }, onDeleteVerse = {},
-    onMoveVerse = { _, _ -> }, onSaveDraft = {}, onCheckForProblems = {}, onRequestPublish = {},
+    onMoveVerse = { _, _ -> }, onAttachVerseAudio = {}, onPlayVerseAudio = {}, onRemoveVerseAudio = {},
+    onSaveDraft = {}, onCheckForProblems = {}, onRequestPublish = {},
     onConfirmPublish = {}, onDismissPublishConfirm = {}, onProblemSelected = {}, onReloadAfterConflict = {},
     onImportRequested = {}, onImportCancel = {}, onImportConfirm = {},
     onRequestClearAllVerses = {}, onDismissClearAllVerses = {}, onConfirmClearAllVerses = {},
+    onOpenSplit = {}, onPreviewMatn = {}, onPreviewPause = {}, onPreviewResume = {}, onPreviewStop = {},
 )
 
 @Preview

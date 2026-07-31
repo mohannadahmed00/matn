@@ -6,7 +6,7 @@ Matn is a Kotlin Multiplatform application that helps students read, listen to, 
 
 Development is broken into sequential **phases**, each scoped to a single [spec-kit](https://github.com/github/spec-kit) cycle (`/specify` → `/plan` → `/tasks` → `/implement`). Each phase produces an independently buildable and testable slice of the app.
 
-**Phases 1–10 are complete** (`23deb1b` … `2d4d63d`). They delivered the student app: Phases 1–3 in order as hard prerequisites, Phase 5 after Phases 2–4, and Phase 10's cross-cutting design-system retrofit ahead of Phases 6–9's UI work (see Dependency Notes). **Phases 11–13 are the current work** — they replace the binary-bundled content model with a Supabase-backed one (teacher uploads → student catalog → per-matn download), described under *Content Delivery & Authoring* below.
+**Phases 1–10 are complete** (`23deb1b` … `2d4d63d`). They delivered the student app: Phases 1–3 in order as hard prerequisites, Phase 5 after Phases 2–4, and Phase 10's cross-cutting design-system retrofit ahead of Phases 6–9's UI work (see Dependency Notes). **Phase 11 is complete** (`d2348c1`) and **Phase 12 is complete** — they replace the binary-bundled content model with a Supabase-backed one (teacher uploads → student catalog → per-matn download), described under *Content Delivery & Authoring* below. **Phase 13 is the current/next work.**
 
 > Phase numbers here are 1-indexed and match the `specs/NNN-*` folder each phase corresponds to
 > (Phase 1 → `specs/001-*`, Phase 5 → `specs/005-*`, etc.).
@@ -133,7 +133,7 @@ Publishing writes a `draft` → `published` document. **The `published` flag and
 are the only gate on student visibility** — there is no release process behind them — so the rules
 are load-bearing and must be tested, not merely written.
 
-### Phase 12 — Audio Capture & Slicing
+### Phase 12 — Audio Capture & Slicing (complete)
 Adds the audio half, via two paths producing the **same** artifact — an ordered set of per-verse
 files uploaded to Supabase Storage:
 - **Per-verse upload** (the audio column of `stitch-designs/11-Upload-Per-Verse`): per-row audio
@@ -149,10 +149,13 @@ files uploaded to Supabase Storage:
 Also adds preview playback, so the teacher hears the assembled matn as a student would before
 publishing.
 
-**Known new dependency — an MP3 decoder.** `DesktopAudioEngine`'s KDoc records that
-`javax.sound.sampled` "decodes WAV/AU/AIFF out of the box but ships no MP3 codec." Slicing and
-preview both need one, so this phase must justify a choice (JLayer/mp3spi vs. a bundled ffmpeg)
-under the constitution's dependency clause.
+**New dependency, shipped narrower than originally scoped — `javazoom:jlayer:1.0.1`, decode only,
+`:teacherApp` only.** `DesktopAudioEngine`'s KDoc records that `javax.sound.sampled` "decodes
+WAV/AU/AIFF out of the box but ships no MP3 codec." Cutting and duration turned out to need no
+decoder at all — pure frame-header arithmetic in `commonMain` — so JLayer is used only for waveform
+peaks and preview playback, and only on the JVM. No encoder, no ffmpeg, no `mp3spi`/`tritonus` (see
+`research.md` D1 and the plan's Complexity Tracking for the full comparison). `:shared`'s dependency
+graph, and every other client's, is unchanged.
 
 ### Phase 13 — Student Remote Catalog & Download
 The student-app retrofit — as much deletion as addition.

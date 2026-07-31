@@ -2,6 +2,7 @@ package com.giraffe.matn.data.remote.postgrest
 
 import com.giraffe.matn.domain.catalog.AudioCompleteness
 import com.giraffe.matn.domain.catalog.CatalogEntry
+import com.giraffe.matn.domain.catalog.DraftAudio
 import com.giraffe.matn.domain.catalog.DraftChapter
 import com.giraffe.matn.domain.catalog.DraftVerse
 import com.giraffe.matn.domain.catalog.MatnDraft
@@ -62,7 +63,6 @@ data class VerseRow(
     val displayNumber: Int = 0,
     val arabicText: String = "",
     val durationMs: Long = 0,
-    /** Always `null` in Phase 11 (FR-045) — the shape is reserved for Phase 12. */
     val audio: AudioRow? = null,
 )
 
@@ -71,6 +71,9 @@ data class AudioRow(
     val id: String,
     val fileRef: String,
     val durationMs: Long,
+    val sizeBytes: Long = 0L,
+    val sampleRate: Int = 0,
+    val channels: Int = 0,
 )
 
 /** Lenient on unknown columns so adding one server-side does not break an older build. */
@@ -140,8 +143,19 @@ fun MatnDraft.toRowJson(): JsonObject = buildJsonObject {
                         put("displayNumber", verse.displayNumber)
                         put("arabicText", verse.arabicText)
                         put("durationMs", verse.durationMs)
-                        // Always null in Phase 11 (FR-045).
-                        put("audio", JsonNull)
+                        put(
+                            "audio",
+                            verse.audio?.let { audio ->
+                                buildJsonObject {
+                                    put("id", audio.id)
+                                    put("fileRef", audio.fileRef)
+                                    put("durationMs", audio.durationMs)
+                                    put("sizeBytes", audio.sizeBytes)
+                                    put("sampleRate", audio.sampleRate)
+                                    put("channels", audio.channels)
+                                }
+                            } ?: JsonNull,
+                        )
                     },
                 )
             }
@@ -165,8 +179,16 @@ fun MatnRow.toMatnDraft(): MatnDraft = MatnDraft(
             chapterId = it.chapterId,
             displayNumber = it.displayNumber,
             arabicText = it.arabicText,
-            // Phase 11 never persists audio (FR-045); Phase 12 maps `it.audio` here.
-            audio = null,
+            audio = it.audio?.let { audio ->
+                DraftAudio(
+                    id = audio.id,
+                    fileRef = audio.fileRef,
+                    durationMs = audio.durationMs,
+                    sizeBytes = audio.sizeBytes,
+                    sampleRate = audio.sampleRate,
+                    channels = audio.channels,
+                )
+            },
             durationMs = it.durationMs,
         )
     },

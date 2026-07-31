@@ -6,6 +6,7 @@ import com.giraffe.matn.data.remote.postgrest.toMatnDraft
 import com.giraffe.matn.data.remote.postgrest.toMatnRow
 import com.giraffe.matn.data.remote.postgrest.toRowJson
 import com.giraffe.matn.domain.catalog.AudioCompleteness
+import com.giraffe.matn.domain.catalog.DraftAudio
 import com.giraffe.matn.domain.catalog.DraftChapter
 import com.giraffe.matn.domain.catalog.DraftVerse
 import com.giraffe.matn.domain.catalog.MatnDraft
@@ -86,10 +87,30 @@ class MatnRowTest {
     }
 
     @Test
-    fun `verse audio is always null in Phase 11`() {
+    fun `a verse with no audio serializes it as null`() {
         val verses = sampleDraft().toRowJson()["verses"]!!.jsonArray
 
         assertTrue(verses.all { it.jsonObject["audio"] == JsonNull })
+    }
+
+    @Test
+    fun `a verse with audio survives a round trip through the row encoding`() {
+        val audio = DraftAudio(
+            id = "a1",
+            fileRef = "matns/m1/verses/v1-abc123.mp3",
+            durationMs = 4200,
+            sizeBytes = 67_000,
+            sampleRate = 44100,
+            channels = 1,
+        )
+        val draft = sampleDraft().let { d ->
+            d.copy(verses = d.verses.map { if (it.id == "v1") it.copy(audio = audio) else it })
+        }
+
+        val roundTripped = draft.toRowJson().withRevision(4).toMatnRow().toMatnDraft()
+
+        assertEquals(draft, roundTripped)
+        assertEquals(audio, roundTripped.verses.first { it.id == "v1" }.audio)
     }
 
     @Test

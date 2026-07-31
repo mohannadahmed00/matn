@@ -4,16 +4,27 @@ import com.giraffe.matn.data.remote.SupabaseConfig
 import com.giraffe.matn.data.remote.auth.SupabaseAuthClient
 import com.giraffe.matn.data.remote.auth.TokenRefresher
 import com.giraffe.matn.data.remote.createHttpClient
+import com.giraffe.matn.data.audio.DefaultVerseAudioUploader
 import com.giraffe.matn.data.remote.postgrest.PostgrestClient
 import com.giraffe.matn.data.remote.storage.StorageRestClient
 import com.giraffe.matn.data.repository.SupabaseCatalogRepository
 import com.giraffe.matn.data.repository.SupabaseTeacherAuthRepository
+import com.giraffe.matn.data.audio.FrameAccurateSlicer
+import com.giraffe.matn.domain.audio.AudioProbe
+import com.giraffe.matn.domain.audio.AudioSlicer
+import com.giraffe.matn.domain.audio.PreviewPlayer
+import com.giraffe.matn.domain.audio.VerseAudioUploader
 import com.giraffe.matn.domain.auth.TeacherAuthRepository
 import com.giraffe.matn.domain.catalog.CatalogRepository
 import com.giraffe.matn.domain.secret.SecretStore
+import com.giraffe.matn.domain.usecase.ApplySplitUseCase
+import com.giraffe.matn.domain.usecase.AttachVerseAudioUseCase
 import com.giraffe.matn.domain.usecase.ListAuthoredMatnsUseCase
 import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
+import com.giraffe.matn.domain.usecase.LoadSplitSourceUseCase
+import com.giraffe.matn.domain.usecase.PreviewMatnAudioUseCase
 import com.giraffe.matn.domain.usecase.PublishMatnUseCase
+import com.giraffe.matn.domain.usecase.RemoveVerseAudioUseCase
 import com.giraffe.matn.domain.usecase.RestoreSessionUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.SignInUseCase
@@ -21,6 +32,9 @@ import com.giraffe.matn.domain.usecase.SignOutUseCase
 import com.giraffe.matn.domain.usecase.UnpublishMatnUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
+import com.giraffe.matn.teacher.platform.JLayerAudioProbe
+import com.giraffe.matn.teacher.platform.JvmPreviewPlayer
+import com.giraffe.matn.teacher.platform.PreviewCache
 import io.ktor.client.HttpClient
 import org.koin.core.Koin
 import org.koin.core.annotation.ComponentScan
@@ -113,8 +127,12 @@ class TeacherModule {
         StorageRestClient(httpClient, supabaseConfig, tokenRefresher)
 
     @Single
-    fun catalogRepository(postgrest: PostgrestClient, storageClient: StorageRestClient): CatalogRepository =
-        SupabaseCatalogRepository(postgrest, storageClient)
+    fun verseAudioUploader(storageClient: StorageRestClient): VerseAudioUploader =
+        DefaultVerseAudioUploader(storageClient)
+
+    @Single
+    fun catalogRepository(postgrest: PostgrestClient, storageClient: StorageRestClient, uploader: VerseAudioUploader): CatalogRepository =
+        SupabaseCatalogRepository(postgrest, storageClient, uploader)
 
     @Single
     fun saveDraftUseCase(repository: CatalogRepository): SaveDraftUseCase = SaveDraftUseCase(repository)
@@ -136,6 +154,34 @@ class TeacherModule {
 
     @Single
     fun unpublishMatnUseCase(repository: CatalogRepository): UnpublishMatnUseCase = UnpublishMatnUseCase(repository)
+
+    @Single
+    fun audioProbe(): AudioProbe = JLayerAudioProbe()
+
+    @Single
+    fun attachVerseAudioUseCase(repository: CatalogRepository, audioProbe: AudioProbe): AttachVerseAudioUseCase =
+        AttachVerseAudioUseCase(repository, audioProbe)
+
+    @Single
+    fun removeVerseAudioUseCase(repository: CatalogRepository): RemoveVerseAudioUseCase = RemoveVerseAudioUseCase(repository)
+
+    @Single
+    fun previewCache(storageClient: StorageRestClient): PreviewCache = PreviewCache(storageClient)
+
+    @Single
+    fun previewPlayer(previewCache: PreviewCache): PreviewPlayer = JvmPreviewPlayer(previewCache)
+
+    @Single
+    fun previewMatnAudioUseCase(previewPlayer: PreviewPlayer): PreviewMatnAudioUseCase = PreviewMatnAudioUseCase(previewPlayer)
+
+    @Single
+    fun audioSlicer(): AudioSlicer = FrameAccurateSlicer()
+
+    @Single
+    fun loadSplitSourceUseCase(audioProbe: AudioProbe): LoadSplitSourceUseCase = LoadSplitSourceUseCase(audioProbe)
+
+    @Single
+    fun applySplitUseCase(repository: CatalogRepository, slicer: AudioSlicer): ApplySplitUseCase = ApplySplitUseCase(repository, slicer)
 
     private companion object {
         const val LOCAL_PROPERTIES_PATH = "supabase/supabase.local.properties"

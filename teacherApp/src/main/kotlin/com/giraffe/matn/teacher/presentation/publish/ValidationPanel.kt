@@ -38,7 +38,7 @@ fun ValidationPanel(
                 ProblemRow(
                     message = strings.messageFor(error, draft),
                     severity = ProblemSeverity.BLOCKING,
-                    onClick = { onProblemClick(subjectIdOf(error)) },
+                    onClick = { onProblemClick(subjectIdOf(error, draft)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -49,7 +49,7 @@ fun ValidationPanel(
                 ProblemRow(
                     message = strings.messageFor(error, draft),
                     severity = ProblemSeverity.DEFERRED,
-                    onClick = { onProblemClick(subjectIdOf(error)) },
+                    onClick = { onProblemClick(subjectIdOf(error, draft)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -57,9 +57,12 @@ fun ValidationPanel(
     }
 }
 
-private fun subjectIdOf(error: ContentIntegrityError): String = when (error) {
+/** `validation-contract.md` §4: `DuplicateAudioRef` names a shared `fileRef`, not a verse — jumps
+ * to the first verse referencing it. */
+private fun subjectIdOf(error: ContentIntegrityError, draft: MatnDraft): String = when (error) {
     is ContentIntegrityError.MissingAudio -> error.verseId
     is ContentIntegrityError.OrphanChapterRef -> error.verseId
+    is ContentIntegrityError.DuplicateAudioRef -> draft.verses.firstOrNull { it.audio?.fileRef == error.fileRef }?.id ?: ""
     else -> ""
 }
 

@@ -17,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 private class FakeCatalogRepository(
     private val saveResult: (MatnDraft) -> Resource<MatnDraft> = { Resource.Success(it) },
@@ -33,6 +34,9 @@ private class FakeCatalogRepository(
         uploadCoverCalled = true
         return Resource.Success("matns/$matnId/cover.$ext")
     }
+    override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: com.giraffe.matn.domain.catalog.DraftAudio, bytes: ByteArray): Resource<MatnDraft> = Resource.Success(draft)
+    override suspend fun removeVerseAudio(draft: MatnDraft, verseId: String): Resource<MatnDraft> = Resource.Success(draft)
+    override suspend fun applySplit(draft: MatnDraft, updates: Map<String, com.giraffe.matn.domain.catalog.DraftAudio>, payloads: List<com.giraffe.matn.domain.audio.PendingUpload>): Resource<MatnDraft> = Resource.Success(draft)
 }
 
 private fun sampleDraft(remoteRevision: String? = "token-1") = MatnDraft(
@@ -66,6 +70,31 @@ class DraftUseCaseTest {
 
         assertEquals("old-token", capturedPrecondition)
         assertEquals("new-token", (result as Resource.Success).data.remoteRevision)
+    }
+
+    @Test
+    fun `SaveDraftUseCase refuses saving a published matn with missing audio`() = runTest {
+        val verse = com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", null, 0L)
+        val draft = sampleDraft().copy(publicationState = PublicationState.PUBLISHED, verses = listOf(verse))
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+
+        val result = SaveDraftUseCase(repo)(draft)
+
+        assertIs<Resource.Failure>(result)
+        val error = result.error as com.giraffe.matn.domain.error.ContentIntegrityError.Aggregate
+        assertTrue(error.problems.any { it is com.giraffe.matn.domain.error.ContentIntegrityError.MissingAudio && it.verseId == "v1" })
+    }
+
+    @Test
+    fun `SaveDraftUseCase allows saving a published matn with complete audio`() = runTest {
+        val audio = com.giraffe.matn.domain.catalog.DraftAudio("a1", "matns/m1/verses/v1-tag.mp3", 1000, 10, 44100, 1)
+        val verse = com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", audio, 1000L)
+        val draft = sampleDraft().copy(publicationState = PublicationState.PUBLISHED, verses = listOf(verse))
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+
+        val result = SaveDraftUseCase(repo)(draft)
+
+        assertIs<Resource.Success<MatnDraft>>(result)
     }
 
     @Test

@@ -97,8 +97,13 @@ Deferred TODOs:
     for desktop JVM, so all backend access is PostgREST/Storage/Auth REST from one commonMain
     implementation rather than three platform SDK paths.
     See docs/ROADMAP.md § "Backend access — REST, not platform SDKs".
-    (b) Phase 12 — an MP3 decoder (JLayer/mp3spi vs. bundled ffmpeg), needed for verse slicing and
-    preview. Unavoidable: DesktopAudioEngine records that javax.sound.sampled ships no MP3 codec.
+  - ~~(b) Phase 12 — an MP3 decoder (JLayer/mp3spi vs. bundled ffmpeg), needed for verse slicing and
+    preview. Unavoidable: DesktopAudioEngine records that javax.sound.sampled ships no MP3 codec.~~
+    Closed 2026-07-31: discharged by `specs/012-audio-capture-slicing/plan.md`'s Complexity
+    Tracking. Landed narrower than this TODO anticipated — slicing and duration needed no decoder
+    at all (pure frame-header arithmetic in `commonMain`); `javazoom:jlayer:1.0.1` is used only for
+    waveform peaks and preview playback, decode-only, declared by `:teacherApp` alone. See
+    `research.md` D1 for the JLayer vs. bundled-ffmpeg vs. mp3spi/tritonus comparison.
   - Phase 13 must delete, not merely bypass, the superseded delivery stack: the packs/* modules,
     play-asset-delivery-ktx, the three platform ContentDeliveryEngine implementations, the iOS ODR
     tags, bundledSampleMatns(), and the whole isStarter path. Leaving it in place would contradict

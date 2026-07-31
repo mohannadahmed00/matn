@@ -30,6 +30,8 @@ import kotlin.test.assertTrue
 private class FakeCatalogRepository(
     private val saveResult: (MatnDraft) -> Resource<MatnDraft>,
     private val loadResult: (String) -> Resource<MatnDraft> = { Resource.Failure(AppError.NotFound) },
+    private val attachVerseAudioResult: (suspend () -> Resource<Unit>)? = null,
+    private val removeVerseAudioResult: (suspend () -> Resource<Unit>)? = null,
 ) : CatalogRepository {
     var saveCallCount = 0
 
@@ -42,6 +44,45 @@ private class FakeCatalogRepository(
     override suspend fun publish(draft: MatnDraft): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun unpublish(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
     override suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String> = Resource.Success("ref")
+    override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: com.giraffe.matn.domain.catalog.DraftAudio, bytes: ByteArray): Resource<MatnDraft> {
+        val gate = attachVerseAudioResult?.invoke() ?: Resource.Success(Unit)
+        return when (gate) {
+            is Resource.Failure -> Resource.Failure(gate.error)
+            is Resource.Success -> Resource.Success(
+                draft.copy(verses = draft.verses.map { if (it.id == verseId) it.copy(audio = audio, durationMs = audio.durationMs) else it }),
+            )
+        }
+    }
+    override suspend fun removeVerseAudio(draft: MatnDraft, verseId: String): Resource<MatnDraft> {
+        val gate = removeVerseAudioResult?.invoke() ?: Resource.Success(Unit)
+        return when (gate) {
+            is Resource.Failure -> Resource.Failure(gate.error)
+            is Resource.Success -> Resource.Success(
+                draft.copy(verses = draft.verses.map { if (it.id == verseId) it.copy(audio = null, durationMs = 0L) else it }),
+            )
+        }
+    }
+    override suspend fun applySplit(draft: MatnDraft, updates: Map<String, com.giraffe.matn.domain.catalog.DraftAudio>, payloads: List<com.giraffe.matn.domain.audio.PendingUpload>): Resource<MatnDraft> = Resource.Success(draft)
+}
+
+private class FakeAudioProbe : com.giraffe.matn.domain.audio.AudioProbe {
+    override suspend fun probe(source: com.giraffe.matn.data.audio.ByteSource): Resource<com.giraffe.matn.domain.audio.ProbeResult> =
+        Resource.Success(com.giraffe.matn.domain.audio.ProbeResult(durationMs = 1000, profile = com.giraffe.matn.domain.audio.AudioProfile(44100, 1), frameCount = 1))
+    override suspend fun peaks(source: com.giraffe.matn.data.audio.ByteSource, buckets: Int): Resource<FloatArray> = Resource.Success(FloatArray(buckets))
+}
+
+private class FakePreviewPlayer : com.giraffe.matn.domain.audio.PreviewPlayer {
+    private val _state = kotlinx.coroutines.flow.MutableStateFlow<com.giraffe.matn.domain.audio.PreviewState>(com.giraffe.matn.domain.audio.PreviewState.Idle)
+    override val state: kotlinx.coroutines.flow.StateFlow<com.giraffe.matn.domain.audio.PreviewState> = _state
+    override suspend fun play(verses: List<com.giraffe.matn.domain.audio.PreviewVerse>, startIndex: Int) {
+        _state.value = com.giraffe.matn.domain.audio.PreviewState.Idle
+    }
+    override suspend fun playClip(bytes: ByteArray, displayNumber: Int) {
+        _state.value = com.giraffe.matn.domain.audio.PreviewState.Idle
+    }
+    override fun pause() = Unit
+    override fun resume() = Unit
+    override fun stop() { _state.value = com.giraffe.matn.domain.audio.PreviewState.Idle }
 }
 
 private fun newDraft() = MatnDraftFactory.newDraft(
@@ -68,6 +109,10 @@ class EditorViewModelTest {
             validateMatn = ValidateMatnUseCase(),
             publishMatn = PublishMatnUseCase(repo),
             loadMatnForEdit = LoadMatnForEditUseCase(repo),
+            attachVerseAudio = com.giraffe.matn.domain.usecase.AttachVerseAudioUseCase(repo, FakeAudioProbe()),
+            removeVerseAudio = com.giraffe.matn.domain.usecase.RemoveVerseAudioUseCase(repo),
+            previewPlayer = FakePreviewPlayer(),
+            previewMatnAudio = com.giraffe.matn.domain.usecase.PreviewMatnAudioUseCase(FakePreviewPlayer()),
             newId = { "gen-id-${counter++}" },
             nowMillis = { 0L },
         )
@@ -174,8 +219,9 @@ class EditorViewModelTest {
 
     @Test
     fun `checking for problems populates the validation report`() = runTest {
+        val audio = com.giraffe.matn.domain.catalog.DraftAudio("a1", "matns/m1/verses/v1-tag.mp3", 1000, 10, 44100, 1)
         val draft = newDraft().copy(
-            verses = listOf(com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", null, 0L)),
+            verses = listOf(com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", audio, 1000L)),
         )
         val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }), draft = draft)
 
@@ -201,8 +247,9 @@ class EditorViewModelTest {
 
     @Test
     fun `confirming publish on a valid draft flips publicationState to PUBLISHED`() = runTest {
+        val audio = com.giraffe.matn.domain.catalog.DraftAudio("a1", "matns/m1/verses/v1-tag.mp3", 1000, 10, 44100, 1)
         val draft = newDraft().copy(
-            verses = listOf(com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", null, 0L)),
+            verses = listOf(com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", audio, 1000L)),
         )
         val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }), draft = draft)
 
@@ -360,5 +407,82 @@ class EditorViewModelTest {
         assertEquals("verse text 400", verses[4].arabicText)
         assertTrue(importElapsed.inWholeMilliseconds < 1000, "parsing+staging 500 lines took $importElapsed")
         assertTrue(moveElapsed.inWholeMilliseconds < 1000, "reordering 500 verses took $moveElapsed")
+    }
+
+    /** [com.giraffe.matn.teacher.presentation.editor.EditorUiState.audioStateFor] reads the
+     * `DraftVerse` passed to it, so — as in production, where the row is always rendered from
+     * `state.draft.verses` — a test must re-fetch the verse from current state after each mutation
+     * rather than reuse a pre-mutation reference. */
+    private fun EditorViewModel.currentVerse(verseId: String) = state.value.draft.verses.first { it.id == verseId }
+
+    @Test
+    fun `attaching sets Uploading then Loaded`() = runTest {
+        val gate = kotlinx.coroutines.CompletableDeferred<Resource<Unit>>()
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) }, attachVerseAudioResult = { gate.await() })
+        val vm = newViewModel(repo)
+        vm.onAddVerse()
+        val verseId = vm.state.value.draft.verses.single().id
+
+        vm.onAttachVerseAudio(verseId, "bytes".encodeToByteArray())
+        assertEquals(
+            com.giraffe.matn.teacher.presentation.common.VerseAudioUiState.Uploading(0L, 5L),
+            vm.state.value.audioStateFor(vm.currentVerse(verseId)),
+        )
+
+        gate.complete(Resource.Success(Unit))
+        val loaded = vm.state.value.audioStateFor(vm.currentVerse(verseId))
+        assertTrue(loaded is com.giraffe.matn.teacher.presentation.common.VerseAudioUiState.Loaded)
+        assertEquals(1000L, (loaded as com.giraffe.matn.teacher.presentation.common.VerseAudioUiState.Loaded).durationMs)
+    }
+
+    @Test
+    fun `a failure sets Failed and leaves the verse's previous audio`() = runTest {
+        val repo = FakeCatalogRepository(
+            saveResult = { Resource.Success(it) },
+            attachVerseAudioResult = { Resource.Failure(RemoteError.Server) },
+        )
+        val vm = newViewModel(repo)
+        vm.onAddVerse()
+        val verseId = vm.state.value.draft.verses.single().id
+
+        vm.onAttachVerseAudio(verseId, "bytes".encodeToByteArray())
+
+        val state = vm.state.value.audioStateFor(vm.currentVerse(verseId))
+        assertTrue(state is com.giraffe.matn.teacher.presentation.common.VerseAudioUiState.Failed)
+        assertEquals(null, vm.currentVerse(verseId).audio) // unchanged: still had no audio
+    }
+
+    @Test
+    fun `removing returns the row to Empty`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+        val vm = newViewModel(repo)
+        vm.onAddVerse()
+        val verseId = vm.state.value.draft.verses.single().id
+        vm.onAttachVerseAudio(verseId, "bytes".encodeToByteArray())
+        assertTrue(vm.state.value.audioStateFor(vm.currentVerse(verseId)) is com.giraffe.matn.teacher.presentation.common.VerseAudioUiState.Loaded)
+
+        vm.onRemoveVerseAudio(verseId)
+
+        assertEquals(com.giraffe.matn.teacher.presentation.common.VerseAudioUiState.Empty, vm.state.value.audioStateFor(vm.currentVerse(verseId)))
+    }
+
+    @Test
+    fun `the completeness badge state follows attach and remove`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+        val vm = newViewModel(repo)
+        vm.onAddVerse()
+        vm.onAddVerse()
+        val (v1, v2) = vm.state.value.draft.verses
+
+        assertEquals(com.giraffe.matn.domain.catalog.AudioCompleteness.NONE, vm.state.value.draft.audioCompleteness)
+
+        vm.onAttachVerseAudio(v1.id, "bytes".encodeToByteArray())
+        assertEquals(com.giraffe.matn.domain.catalog.AudioCompleteness.PARTIAL, vm.state.value.draft.audioCompleteness)
+
+        vm.onAttachVerseAudio(v2.id, "bytes".encodeToByteArray())
+        assertEquals(com.giraffe.matn.domain.catalog.AudioCompleteness.COMPLETE, vm.state.value.draft.audioCompleteness)
+
+        vm.onRemoveVerseAudio(v1.id)
+        assertEquals(com.giraffe.matn.domain.catalog.AudioCompleteness.PARTIAL, vm.state.value.draft.audioCompleteness)
     }
 }

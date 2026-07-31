@@ -43,4 +43,10 @@ data class SeedAudio(
     val id: String,
     val fileRef: String,
     val durationMs: Long,
+    /** Phase 12: stored object's byte length. Defaulted so existing bundled JSON parses unchanged. */
+    val sizeBytes: Long = 0L,
+    /** Phase 12: from the first frame header. Defaulted so existing bundled JSON parses unchanged. */
+    val sampleRate: Int = 0,
+    /** Phase 12: 1 mono, 2 stereo. Defaulted so existing bundled JSON parses unchanged. */
+    val channels: Int = 0,
 )

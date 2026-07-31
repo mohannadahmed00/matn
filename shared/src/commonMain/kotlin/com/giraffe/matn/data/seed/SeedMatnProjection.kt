@@ -26,7 +26,16 @@ fun SeedMatn.toDraft(): MatnDraft = MatnDraft(
             chapterId = verse.chapterId,
             displayNumber = verse.displayNumber,
             arabicText = verse.arabicText,
-            audio = verse.audio?.let { DraftAudio(id = it.id, fileRef = it.fileRef, durationMs = it.durationMs) },
+            audio = verse.audio?.let {
+                DraftAudio(
+                    id = it.id,
+                    fileRef = it.fileRef,
+                    durationMs = it.durationMs,
+                    sizeBytes = it.sizeBytes,
+                    sampleRate = it.sampleRate,
+                    channels = it.channels,
+                )
+            },
             durationMs = verse.durationMs,
         )
     },
@@ -52,7 +61,16 @@ fun MatnDraft.toSeedMatn(packId: String = "", declaredSizeBytes: Long = 0L): See
             displayNumber = verse.displayNumber,
             arabicText = verse.arabicText,
             durationMs = verse.durationMs,
-            audio = verse.audio?.let { SeedAudio(id = it.id, fileRef = it.fileRef, durationMs = it.durationMs) },
+            audio = verse.audio?.let {
+                SeedAudio(
+                    id = it.id,
+                    fileRef = it.fileRef,
+                    durationMs = it.durationMs,
+                    sizeBytes = it.sizeBytes,
+                    sampleRate = it.sampleRate,
+                    channels = it.channels,
+                )
+            },
         )
     },
     packId = packId,
