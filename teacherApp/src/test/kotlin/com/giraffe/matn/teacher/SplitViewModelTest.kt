@@ -16,6 +16,7 @@ import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.usecase.ApplySplitUseCase
 import com.giraffe.matn.domain.usecase.LoadSplitSourceUseCase
 import com.giraffe.matn.teacher.platform.JLayerAudioProbe
+import com.giraffe.matn.teacher.presentation.split.ActiveBoundary
 import com.giraffe.matn.teacher.presentation.split.SplitUiState
 import com.giraffe.matn.teacher.presentation.split.SplitViewModel
 import kotlinx.coroutines.Dispatchers
@@ -227,7 +228,7 @@ class SplitViewModelTest {
     /** Consecutive verses in one recording abut, so the teacher asked not to type the same number
      * twice. Setting an End seeds the next verse's range starting exactly there. */
     @Test
-    fun `setting a verse End seeds the next verse's Start at the same instant`() = runTest {
+    fun `committing a verse End seeds the next verse's Start at the same instant`() = runTest {
         setUpMain()
         val vm = newViewModel(draftWithVerses(3))
         val file = createTempMp3(150)
@@ -235,29 +236,53 @@ class SplitViewModelTest {
         awaitReady(vm)
 
         vm.onRangeChanged("v1", 0, 1000)
+        vm.onEndCommitted("v1")
 
         val v2 = (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }
         assertEquals(1000L, v2.startMs)
     }
 
+    /**
+     * The teacher's first complaint: nothing may appear in the *next* verse while the current one is
+     * still being typed. Digits arrive one at a time, so chaining per keystroke wrote a start of 5,
+     * then 50, then 500 into a verse they had not reached yet.
+     */
+    @Test
+    fun `typing an End does not touch the next verse until it is committed`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(3))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+
+        // Digit by digit, as the field reports it.
+        vm.onRangeChanged("v1", 0, 1)
+        vm.onRangeChanged("v1", 0, 10)
+        vm.onRangeChanged("v1", 0, 100)
+
+        assertTrue((vm.state.value as SplitUiState.Ready).ranges.none { it.verseId == "v2" })
+    }
+
     /** Fine-tuning the same End must carry the next verse with it, or every adjustment opens a gap
      * the teacher has to close by hand. */
     @Test
-    fun `adjusting an End again moves the next Start that is still linked to it`() = runTest {
+    fun `adjusting an End again moves the next Start that is still auto-filled`() = runTest {
         setUpMain()
         val vm = newViewModel(draftWithVerses(3))
         val file = createTempMp3(150)
         vm.onSourcePicked(file.absolutePath, file.length())
         awaitReady(vm)
         vm.onRangeChanged("v1", 0, 1000)
+        vm.onEndCommitted("v1")
 
         vm.onRangeChanged("v1", 0, 1200)
+        vm.onEndCommitted("v1")
 
         assertEquals(1200L, (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }.startMs)
     }
 
-    /** …but only while it *is* linked. Once the teacher places that start themselves it is theirs,
-     * and a convenience feature may not overwrite a deliberate decision. */
+    /** …but only while it *is* auto-filled. Once the teacher places that start themselves it is
+     * theirs, and a convenience feature may not overwrite a deliberate decision. */
     @Test
     fun `a next Start the teacher moved is left alone`() = runTest {
         setUpMain()
@@ -266,12 +291,63 @@ class SplitViewModelTest {
         vm.onSourcePicked(file.absolutePath, file.length())
         awaitReady(vm)
         vm.onRangeChanged("v1", 0, 1000)
+        vm.onEndCommitted("v1")
         // The teacher skips a breath: v2 now starts later than v1 ends, on purpose.
         vm.onRangeChanged("v2", 1500, 2500)
 
         vm.onRangeChanged("v1", 0, 1100)
+        vm.onEndCommitted("v1")
 
         assertEquals(1500L, (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }.startMs)
+    }
+
+    /** Emptying a field must take the marker and the highlight with it — both are drawn from
+     * `ranges`, so a range left behind is a marker for a boundary that no longer exists. */
+    @Test
+    fun `clearing a boundary removes the range so its marker disappears`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(2))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+        vm.onRangeChanged("v1", 0, 1000)
+
+        vm.onRangeCleared("v1")
+
+        assertTrue((vm.state.value as SplitUiState.Ready).ranges.none { it.verseId == "v1" })
+    }
+
+    /** Losing focus hands the waveform back to the playhead. Without it the last field touched
+     * stayed armed and every drag moved that boundary instead of the transport. */
+    @Test
+    fun `releasing a focused boundary field disarms it`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(2))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+        vm.onBoundarySelected("v1", isStart = true)
+
+        vm.onBoundaryCleared("v1", isStart = true)
+
+        assertEquals(null, (vm.state.value as SplitUiState.Ready).activeBoundary)
+    }
+
+    /** Tabbing from Start to End fires "gained" for End *before* "lost" for Start. Only the field
+     * that still holds the boundary may release it, or the arrival disarms itself. */
+    @Test
+    fun `a stale release does not disarm the boundary that replaced it`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(2))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+
+        vm.onBoundarySelected("v1", isStart = true)
+        vm.onBoundarySelected("v1", isStart = false) // End gains focus
+        vm.onBoundaryCleared("v1", isStart = true) // Start then reports it lost focus
+
+        assertEquals(ActiveBoundary("v1", isStart = false), (vm.state.value as SplitUiState.Ready).activeBoundary)
     }
 
     @Test

@@ -137,6 +137,16 @@ class SplitViewModel(
      */
     @Volatile private var playbackOriginMs: Long = 0L
 
+    /**
+     * Verses whose Start was placed by [onEndCommitted] and not touched since.
+     *
+     * This is what keeps auto-fill a convenience: only a start still in this set will follow the
+     * previous verse's End. Typing a Start, or dragging a Start boundary, takes the verse out —
+     * from then on that boundary is the teacher's, and later edits to the verse before it leave it
+     * exactly where they put it.
+     */
+    private var autoFilledStarts = emptySet<String>()
+
     init {
         // Playhead only. This collector deliberately does **not** touch `auditioningVerseId` or
         // `isPlayingSource`: starting a clip stops the previous one first, which emits `Idle`, and
@@ -214,45 +224,61 @@ class SplitViewModel(
         updateReady(ready.copy(scopeVerseIds = newScope, ranges = newRanges))
     }
 
+    /** Writes a complete range. The caller only calls this once **both** boundaries parse — a range
+     * is not a meaningful thing with one end missing, and inventing the other one is how typing a
+     * Start used to silently fill in an End the teacher never chose. */
     fun onRangeChanged(verseId: String, startMs: Long, endMs: Long) {
         val ready = stateValue as? SplitUiState.Ready ?: return
         // Editing the range being auditioned invalidates what is playing — keeping it running would
         // have the teacher judging a new boundary against the old clip.
         if (ready.auditioningVerseId == verseId) stopAudition()
         val current = stateValue as? SplitUiState.Ready ?: ready
-        val previousEnd = current.ranges.find { it.verseId == verseId }?.endMs
+        // A start the teacher sets by hand is theirs from then on, and auto-fill stops touching it.
+        if (current.ranges.find { it.verseId == verseId }?.startMs != startMs) autoFilledStarts -= verseId
         val edited = current.ranges.filterNot { it.verseId == verseId } + VerseRange(verseId, startMs, endMs)
-        updateReady(current.copy(ranges = chainNextStart(current, edited, verseId, previousEnd, endMs)))
+        updateReady(current.copy(ranges = edited))
+    }
+
+    /** Either boundary was emptied, so there is no longer a range to draw or to cut. Removing it
+     * outright is what makes the marker and the highlight disappear with the text (they are drawn
+     * from `ranges`, so a stale entry left behind is a marker for a boundary that no longer
+     * exists). */
+    fun onRangeCleared(verseId: String) {
+        val ready = stateValue as? SplitUiState.Ready ?: return
+        if (ready.auditioningVerseId == verseId) stopAudition()
+        val current = stateValue as? SplitUiState.Ready ?: ready
+        if (current.ranges.none { it.verseId == verseId }) return
+        autoFilledStarts -= verseId
+        updateReady(current.copy(ranges = current.ranges.filterNot { it.verseId == verseId }))
     }
 
     /**
-     * Places the next verse's start where this verse's end just landed (the teacher's request:
-     * consecutive verses in one recording abut, so typing the same number twice is pure friction).
+     * The teacher has finished entering this verse's End — the field lost focus, or the drag that
+     * was moving it ended. **Only now** does the next verse's Start get filled in.
      *
-     * Convenience, never a constraint — two rules keep it from fighting the teacher:
-     *  - a next verse with **no range yet** gets one, seeded exactly as a first drag would;
-     *  - a next verse that **already has** a range only follows while its start still sits on this
-     *    verse's *old* end. The moment the teacher moves that start themselves it is theirs, and
-     *    later edits here leave it alone.
-     *
-     * It also declines to act when following would invert the next range — a convenience feature
-     * must not manufacture a blocking error.
+     * Deliberately not on every keystroke: chaining as the digits arrived meant typing `5000` wrote
+     * a start of 5, then 50, then 500 into the next verse, which is noise at best and, while the
+     * teacher was still working on the *current* verse, actively confusing.
      */
-    private fun chainNextStart(
-        ready: SplitUiState.Ready,
-        ranges: List<VerseRange>,
-        verseId: String,
-        previousEndMs: Long?,
-        newEndMs: Long,
-    ): List<VerseRange> {
+    fun onEndCommitted(verseId: String) {
+        val ready = stateValue as? SplitUiState.Ready ?: return
+        val end = ready.ranges.find { it.verseId == verseId }?.endMs ?: return
         val index = ready.scopeVerseIds.indexOf(verseId)
-        if (index < 0 || index == ready.scopeVerseIds.lastIndex) return ranges
+        if (index < 0 || index == ready.scopeVerseIds.lastIndex) return
         val nextId = ready.scopeVerseIds[index + 1]
-        val next = ranges.find { it.verseId == nextId }
-            ?: return ranges + VerseRange(nextId, newEndMs, minOf(newEndMs + SEED_RANGE_MS, ready.source.durationMs))
-        if (previousEndMs == null || next.startMs != previousEndMs) return ranges
-        if (newEndMs >= next.endMs) return ranges
-        return ranges.filterNot { it.verseId == nextId } + next.copy(startMs = newEndMs)
+
+        val next = ready.ranges.find { it.verseId == nextId }
+        val chained = when {
+            // No range yet: create one starting here, seeded exactly as a first drag would.
+            next == null -> ready.ranges + VerseRange(nextId, end, minOf(end + SEED_RANGE_MS, ready.source.durationMs))
+            // Already the teacher's own start — auto-fill does not get to overrule it.
+            nextId !in autoFilledStarts -> return
+            // Following would invert the next range. A convenience must not manufacture an error.
+            end >= next.endMs -> return
+            else -> ready.ranges.filterNot { it.verseId == nextId } + next.copy(startMs = end)
+        }
+        autoFilledStarts += nextId
+        updateReady(ready.copy(ranges = chained))
     }
 
     // ---- Transport: play the source recording itself, independent of any verse ----
@@ -319,6 +345,23 @@ class SplitViewModel(
     }
 
     /**
+     * Nothing is armed any more, so the waveform belongs to the playhead again.
+     *
+     * Called when a Start/End field loses focus — which is what makes "click anywhere else" and
+     * Escape work as ways out. Without it, the last field touched stayed armed for the rest of the
+     * session and every drag moved *that* boundary; with markers often milliseconds apart, the
+     * playhead became effectively unreachable outside its own narrow lane.
+     */
+    fun onBoundaryCleared(verseId: String, isStart: Boolean) {
+        val ready = stateValue as? SplitUiState.Ready ?: return
+        val active = ready.activeBoundary ?: return
+        // Only the field that actually held it may release it: moving from Start to End within one
+        // verse fires "lost" for Start *after* "gained" for End, which would disarm the new one.
+        if (active.verseId != verseId || active.isStart != isStart) return
+        setState { ready.copy(activeBoundary = null) }
+    }
+
+    /**
      * Drag in progress over the waveform. Writes the boundary continuously so the waveform redraws
      * under the finger, and publishes [SplitUiState.Ready.scrubMs] for the numeric readout — the
      * teacher needs to *see* the position they are about to commit, not guess it from pixels.
@@ -341,21 +384,19 @@ class SplitViewModel(
 
         if (ready.auditioningVerseId == active.verseId) stopAudition()
         val current = stateValue as? SplitUiState.Ready ?: ready
+        if (active.isStart) autoFilledStarts -= active.verseId
         val newRanges = current.ranges.filterNot { it.verseId == active.verseId } + updated
-        // Dragging an End chains onto the next verse exactly as typing one does — the two paths
-        // write the same range, so they must also carry the same convenience.
-        val chained = if (active.isStart) {
-            newRanges
-        } else {
-            chainNextStart(current, newRanges, active.verseId, existing?.endMs, updated.endMs)
-        }
-        updateReady(current.copy(ranges = chained, scrubMs = clamped))
+        updateReady(current.copy(ranges = newRanges, scrubMs = clamped))
     }
 
-    /** Drag released — the boundary is already written; this only drops the live readout. */
+    /** Drag released — the boundary is already written; this drops the live readout and, for an
+     * End, is the moment that boundary counts as decided, so the chain runs here rather than on
+     * every pixel of the drag. */
     fun onScrubEnd() {
         val ready = stateValue as? SplitUiState.Ready ?: return
+        val active = ready.activeBoundary
         setState { ready.copy(scrubMs = null) }
+        if (active != null && !active.isStart) onEndCommitted(active.verseId)
     }
 
     /**

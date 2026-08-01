@@ -2,16 +2,18 @@ package com.giraffe.matn.teacher.presentation.split
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,17 +28,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
@@ -57,8 +67,10 @@ import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.teacher.di.TeacherKoinHolder
 import com.giraffe.matn.teacher.platform.AudioPickResult
 import com.giraffe.matn.teacher.platform.JvmFileChooser
+import com.giraffe.matn.teacher.presentation.common.GLYPH_DOWN
 import com.giraffe.matn.teacher.presentation.common.GLYPH_PLAY
 import com.giraffe.matn.teacher.presentation.common.GLYPH_STOP
+import com.giraffe.matn.teacher.presentation.common.GLYPH_UP
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
 import com.giraffe.matn.teacher.presentation.strings.TeacherLanguage
@@ -70,6 +82,9 @@ data class SplitIntents(
     val onScopeChanged: (String, String) -> Unit,
     val onRangeChanged: (String, Long, Long) -> Unit,
     val onBoundarySelected: (String, Boolean) -> Unit,
+    val onBoundaryCleared: (String, Boolean) -> Unit,
+    val onRangeCleared: (String) -> Unit,
+    val onEndCommitted: (String) -> Unit,
     val onScrub: (Long) -> Unit,
     val onScrubEnd: () -> Unit,
     val onSeekStart: () -> Unit,
@@ -87,8 +102,23 @@ data class SplitIntents(
 @Composable
 fun SplitContent(state: SplitUiState, intents: SplitIntents, modifier: Modifier = Modifier) {
     val strings = LocalTeacherStrings.current
+    val focusManager = LocalFocusManager.current
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(modifier = Modifier.fillMaxSize().padding(MatnSpacing.gutter)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                // Clicking any empty part of the screen releases the focused Start/End field, which
+                // disarms its boundary and hands the waveform back to the playhead. Without a way
+                // out, whichever field was touched last stayed armed for good — and with markers
+                // often milliseconds apart, that made the playhead unreachable outside its lane.
+                // No ripple: this is a dismissal, not a control.
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { focusManager.clearFocus() },
+                )
+                .padding(MatnSpacing.gutter),
+        ) {
             Text(strings.splitFromRecording, style = MaterialTheme.typography.headlineSmall)
 
             // `weight(1f)` is load-bearing: without it the Ready state's verse list takes the whole
@@ -222,8 +252,11 @@ private fun ReadyContent(state: SplitUiState.Ready, intents: SplitIntents) {
                     isAuditioning = state.auditioningVerseId == verseId,
                     onSelected = { intents.onVerseSelected(verseId) },
                     onArmBoundary = { isStart -> intents.onBoundarySelected(verseId, isStart) },
+                    onDisarmBoundary = { isStart -> intents.onBoundaryCleared(verseId, isStart) },
                     onAudition = { intents.onAuditionRange(verseId) },
                     onChanged = { start, end -> intents.onRangeChanged(verseId, start, end) },
+                    onCleared = { intents.onRangeCleared(verseId) },
+                    onEndCommitted = { intents.onEndCommitted(verseId) },
                 )
             }
         }
@@ -312,12 +345,35 @@ private fun RangeFieldsRow(
     isAuditioning: Boolean,
     onSelected: () -> Unit,
     onArmBoundary: (isStart: Boolean) -> Unit,
+    onDisarmBoundary: (isStart: Boolean) -> Unit,
     onAudition: () -> Unit,
     onChanged: (Long, Long) -> Unit,
+    onCleared: () -> Unit,
+    onEndCommitted: () -> Unit,
 ) {
     val strings = LocalTeacherStrings.current
-    var startText by remember(range?.startMs) { mutableStateOf(range?.startMs?.toString() ?: "") }
-    var endText by remember(range?.endMs) { mutableStateOf(range?.endMs?.toString() ?: "") }
+    // Keyed by verse, not by the range's values: keying on the values meant clearing one field
+    // dropped the range, which reset *both* keys and wiped the other field's text along with it.
+    var startText by remember(verse.id) { mutableStateOf(range?.startMs?.toString() ?: "") }
+    var endText by remember(verse.id) { mutableStateOf(range?.endMs?.toString() ?: "") }
+
+    // Changes that came from somewhere else — a waveform drag, or the previous verse's End
+    // chaining into this Start — are pushed into the text. A cleared range deliberately does not
+    // write back, so emptying a field leaves it empty instead of the text springing back.
+    LaunchedEffect(range?.startMs) {
+        range?.startMs?.let { if (it.toString() != startText) startText = it.toString() }
+    }
+    LaunchedEffect(range?.endMs) {
+        range?.endMs?.let { if (it.toString() != endText) endText = it.toString() }
+    }
+
+    // A range needs both ends. Half a range is not a smaller range, it is no range — so an empty or
+    // unparseable field removes it, taking its marker and highlight off the timeline with it.
+    fun push() {
+        val start = startText.toLongOrNull()
+        val end = endText.toLongOrNull()
+        if (start != null && end != null) onChanged(start, end) else onCleared()
+    }
 
     Row(
         modifier = Modifier
@@ -345,37 +401,39 @@ private fun RangeFieldsRow(
         }
 
         // Focusing a field arms it for waveform dragging (FR-014): tap Start, drag the waveform,
-        // release. Typing still works — the two paths write the same range.
+        // release. Typing still works — the two paths write the same range. Losing focus disarms,
+        // which is what makes clicking elsewhere or pressing Escape hand the waveform back to the
+        // playhead.
         BoundaryField(
             value = startText,
             label = strings.rangeStart,
-            onValueChange = { value ->
-                startText = value
-                value.toLongOrNull()?.let { onChanged(it, endText.toLongOrNull() ?: (it + 1000)) }
-            },
+            onValueChange = { value -> startText = value; push() },
             onNudge = { delta ->
-                val current = startText.toLongOrNull() ?: 0L
-                val moved = (current + delta).coerceAtLeast(0L)
-                startText = moved.toString()
-                onChanged(moved, endText.toLongOrNull() ?: (moved + 1000))
+                startText = ((startText.toLongOrNull() ?: 0L) + delta).coerceAtLeast(0L).toString()
+                push()
             },
-            onFocused = { onArmBoundary(true) },
+            onFocusChange = { focused -> if (focused) onArmBoundary(true) else onDisarmBoundary(true) },
             modifier = Modifier.weight(1f),
         )
         BoundaryField(
             value = endText,
             label = strings.rangeEnd,
-            onValueChange = { value ->
-                endText = value
-                value.toLongOrNull()?.let { onChanged(startText.toLongOrNull() ?: 0L, it) }
-            },
+            onValueChange = { value -> endText = value; push() },
             onNudge = { delta ->
-                val current = endText.toLongOrNull() ?: 0L
-                val moved = (current + delta).coerceAtLeast(0L)
-                endText = moved.toString()
-                onChanged(startText.toLongOrNull() ?: 0L, moved)
+                endText = ((endText.toLongOrNull() ?: 0L) + delta).coerceAtLeast(0L).toString()
+                push()
             },
-            onFocused = { onArmBoundary(false) },
+            // Leaving the End field is what "I have finished this verse" means, and only then does
+            // the next verse's Start get filled in.
+            onFocusChange = { focused ->
+                if (focused) {
+                    onArmBoundary(false)
+                } else {
+                    onDisarmBoundary(false)
+                    onEndCommitted()
+                }
+            },
+            onCommit = onEndCommitted,
             modifier = Modifier.weight(1f),
         )
         // Auditions the slice this range would actually produce (FR-014), and stops it on a second
@@ -393,14 +451,15 @@ private fun RangeFieldsRow(
 }
 
 /**
- * One boundary field with nudge controls either side.
+ * One boundary field, with a stepper tucked into its trailing edge.
  *
  * Dragging places a boundary to within a few pixels, which at a typical zoom is tens of
  * milliseconds — close, but the last stretch is exactly where a boundary matters, and chasing it
  * with the pointer means overshooting in both directions. [NUDGE_STEP_MS] per press is small enough
  * to converge and large enough to be audible.
  *
- * Pressing a nudge does not steal focus from the field, so the boundary stays armed for dragging.
+ * Escape releases the field, which disarms the boundary and gives the waveform back to the
+ * playhead. Enter commits without leaving.
  */
 @Composable
 private fun BoundaryField(
@@ -408,38 +467,71 @@ private fun BoundaryField(
     label: String,
     onValueChange: (String) -> Unit,
     onNudge: (Long) -> Unit,
-    onFocused: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onCommit: () -> Unit = {},
 ) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        NudgeButton(text = "−", delta = -NUDGE_STEP_MS, onNudge = onNudge)
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = { Text(label) },
-            singleLine = true,
-            modifier = Modifier
-                .weight(1f)
-                .onFocusChanged { if (it.isFocused) onFocused() },
-        )
-        NudgeButton(text = "+", delta = NUDGE_STEP_MS, onNudge = onNudge)
+    val focusManager = LocalFocusManager.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        trailingIcon = { Stepper(onNudge) },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onCommit() }),
+        modifier = modifier
+            .onFocusChanged { onFocusChange(it.isFocused) }
+            // Escape is the keyboard's way out, matching "click anywhere else" for the pointer.
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                    focusManager.clearFocus()
+                    true
+                } else {
+                    false
+                }
+            },
+    )
+}
+
+/**
+ * The two arrows inside the field's trailing edge — the shape people already know from every other
+ * numeric input, rather than buttons flanking the field and stealing its width.
+ *
+ * Both arrows are **non-focusable on purpose**. A stepper that took focus would release the text
+ * field, which now disarms the boundary — so adjusting a boundary by 50 ms would silently stop it
+ * being the one the waveform drags.
+ */
+@Composable
+private fun Stepper(onNudge: (Long) -> Unit) {
+    Column(
+        modifier = Modifier.padding(end = MatnSpacing.unit / 2),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        StepperArrow(GLYPH_UP, NUDGE_STEP_MS, onNudge)
+        StepperArrow(GLYPH_DOWN, -NUDGE_STEP_MS, onNudge)
     }
 }
 
 @Composable
-private fun NudgeButton(text: String, delta: Long, onNudge: (Long) -> Unit) {
+private fun StepperArrow(glyph: String, delta: Long, onNudge: (Long) -> Unit) {
     val strings = LocalTeacherStrings.current
-    TextButton(
-        onClick = { onNudge(delta) },
-        contentPadding = PaddingValues(horizontal = MatnSpacing.unit / 2),
+    Box(
         modifier = Modifier
-            .widthIn(min = MatnSpacing.unit * 4)
+            .size(width = STEPPER_WIDTH, height = STEPPER_ARROW_HEIGHT)
+            .focusProperties { canFocus = false }
+            .clickable { onNudge(delta) }
             .semantics {
                 contentDescription = (if (delta < 0) strings.nudgeEarlier else strings.nudgeLater)
                     .replace("%d", NUDGE_STEP_MS.toString())
             },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = glyph,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -509,9 +601,13 @@ private fun ProgressAndProblems(state: SplitUiState.Ready, displayNumberOf: (Str
 
 private const val MAX_VISIBLE_PROBLEMS = 4
 
-/** One press of a nudge control. Comfortably under the validator's 300 ms minimum range, so nudging
+/** One press of a stepper arrow. Comfortably under the validator's 300 ms minimum range, so nudging
  * cannot walk a boundary through a valid range in a single press. */
 private const val NUDGE_STEP_MS = 50L
+
+/** Sized so both arrows together clear the field's inner height without stretching it. */
+private val STEPPER_WIDTH = MatnSpacing.unit * 3
+private val STEPPER_ARROW_HEIGHT = MatnSpacing.unit * 2
 
 /** [draft] is the matn being split; [onSplitComplete] receives the updated draft with the new
  * per-verse audio, and [onCancel] returns to the editor unchanged. */
@@ -548,6 +644,9 @@ fun SplitScreen(draft: MatnDraft, onSplitComplete: (MatnDraft) -> Unit, onCancel
             onScopeChanged = viewModel::onScopeChanged,
             onRangeChanged = viewModel::onRangeChanged,
             onBoundarySelected = viewModel::onBoundarySelected,
+            onBoundaryCleared = viewModel::onBoundaryCleared,
+            onRangeCleared = viewModel::onRangeCleared,
+            onEndCommitted = viewModel::onEndCommitted,
             onScrub = viewModel::onScrub,
             onScrubEnd = viewModel::onScrubEnd,
             onSeekStart = {
@@ -583,7 +682,8 @@ private fun previewDraft() = MatnDraft(
 
 private val noOpSplitIntents = SplitIntents(
     onPickSource = {}, onReplaceSource = {}, onScopeChanged = { _, _ -> }, onRangeChanged = { _, _, _ -> },
-    onBoundarySelected = { _, _ -> }, onScrub = {}, onScrubEnd = {},
+    onBoundarySelected = { _, _ -> }, onBoundaryCleared = { _, _ -> }, onRangeCleared = {}, onEndCommitted = {},
+    onScrub = {}, onScrubEnd = {},
     onSeekStart = {}, onSeek = {}, onSeekEnd = {}, onTogglePlaySource = {},
     onVerseSelected = {}, onAuditionRange = {}, onSplitAndUpload = {}, onCancel = {},
 )

@@ -577,3 +577,39 @@ Three details worth keeping:
 
 The frame is fixed at the 2:3 the hint asks for, so a wrongly proportioned image is visibly
 letterboxed rather than silently accepted.
+
+### Boundary fields: commit, clear, release (second feedback pass)
+
+**A range needs both ends, and half a range is no range.** The fields used to push on every
+keystroke and invent whatever was missing — typing a Start with an empty End wrote `start + 1000`
+into End, so a field the teacher had not touched filled itself in. They now push only when *both*
+parse, and an empty or unparseable field removes the range outright. That is also what makes a
+cleared value take its marker and highlight off the timeline: both are drawn from `ranges`, so a
+range left behind is a marker for a boundary that no longer exists.
+
+That change forced a second one. The text state was keyed on `range?.startMs` / `range?.endMs`, so
+dropping the range reset *both* keys and wiped the other field's text along with it. The state is
+keyed by verse now, with a `LaunchedEffect` pushing in changes that came from elsewhere (a waveform
+drag, or the previous verse's End chaining in). A cleared range deliberately does not write back, so
+an emptied field stays empty instead of springing back.
+
+**Auto-fill moved to commit.** Chaining per keystroke meant typing `5000` wrote a start of 5, then
+50, then 500 into a verse the teacher had not reached. It now runs on `onEndCommitted` — the End
+field losing focus, Enter, or the end of a boundary drag. The "still linked" test also changed:
+comparing the next start against the previous end was fragile across repeated edits, so the
+ViewModel tracks `autoFilledStarts`, the set of verses whose Start it placed and nobody has touched
+since. Typing a Start or dragging a Start boundary removes the verse from that set permanently.
+
+**Focus loss disarms.** There was no way to stop editing a boundary: whichever field was touched
+last stayed armed, so every waveform drag moved *that* marker, and with markers often milliseconds
+apart the playhead was unreachable outside its own narrow lane. A Start/End field losing focus now
+disarms, and there are three ways to cause that — click any empty part of the screen, press Escape,
+or click the waveform (which already cleared focus). `onBoundaryCleared` checks that the field
+releasing it is the one that holds it, because tabbing from Start to End fires "gained" for End
+*before* "lost" for Start, and the naive version had the arrival disarm itself.
+
+**Steppers moved inside the field.** `−`/`+` buttons flanking the input ate its width and read as
+two more controls in an already busy row; `▲`/`▼` in the trailing edge is the shape people already
+know from numeric inputs. They are **non-focusable on purpose** — now that focus loss disarms, a
+stepper that took focus would mean nudging a boundary by 50 ms silently stopped it being the one the
+waveform drags.

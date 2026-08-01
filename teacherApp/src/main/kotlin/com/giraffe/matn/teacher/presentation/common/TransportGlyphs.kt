@@ -16,3 +16,8 @@ internal const val GLYPH_PAUSE = "❚❚"
 
 /** `◼` (U+25FC) is emoji-capable but text by default, so it renders in the theme colour. */
 internal const val GLYPH_STOP = "◼"
+
+/** Stepper arrows. `▲`/`▼` (U+25B2/U+25BC) are not emoji at all — unlike their left/right
+ * counterparts `▶`/`◀`, which are. */
+internal const val GLYPH_UP = "▲"
+internal const val GLYPH_DOWN = "▼"
