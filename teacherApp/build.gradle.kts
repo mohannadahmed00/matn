@@ -25,6 +25,9 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+    testImplementation(compose.uiTest)
+    testImplementation(compose.desktop.currentOs)
 }
 
 tasks.test {

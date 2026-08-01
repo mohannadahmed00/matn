@@ -481,3 +481,36 @@ lives *inside* `Ready` as `uploadError`: every range stays put, the message sits
 button that produced it, and pressing upload again retries the same plan. `Failed` is now only for
 failures that leave nothing to work with — a source that could not be read or was refused before it
 was read — and its dead `previous` field is gone.
+
+### Reopening a matn from the library showed a stale, blank editor
+
+Clicking a matn navigated to the editor with none of its content. The backend was innocent — a probe
+against the real project restored the session, loaded the matn, and got the title and both verses
+back — and so was the screen: rendering `EditorScreen` with that exact draft displays it correctly.
+
+The defect was in ViewModel identity. The desktop portal has no navigation library, so every screen
+shares one process-wide `ViewModelStore` that is never cleared (`LibraryScreen` already carried a
+comment about this). `EditorScreen` did `viewModel(key = initialDraft.id)`, and `viewModel` runs its
+factory **only when nothing is stored under that key**. Seeding is a constructor argument, so
+handing the screen a newer draft with the same id silently returned the old ViewModel holding the
+old state. Whatever the editor contained the first time that id appeared is what came back —
+including a blank draft from the app's default landing screen. Reproduced in a Compose UI test
+before changing anything, and locked down by `ScopedViewModelStoreOwnerTest`.
+
+The id was the wrong identity: what wants a fresh ViewModel is an **open**, not a matn.
+`rememberScopedViewModelStoreOwner(key)` gives the editor a store scoped to one open and clears the
+previous one when the key changes — which also cancels the superseded editor's `viewModelScope`,
+and with it an autosave scheduler that was otherwise left alive holding a stale draft and able to
+save over a newer one. `TeacherMain` bumps an epoch on exactly two events: opening from the library
+and starting a new matn. Typing, recomposing, and leaving the editor for the library and back all
+keep the same epoch, so work in progress survives.
+
+Two smaller things fixed in passing:
+
+- **`remember` in a default parameter.** `EditorScreen(initialDraft = remember { newDraft() })`
+  minted the blank draft inside the screen, so two opens could share one id. It is hoisted into
+  `TeacherMain`, keyed to the epoch. The two call sites
+  (`editingDraft?.let { EditorScreen(it) } ?: EditorScreen()`) collapse to one.
+- **A failed open was swallowed.** `is Resource.Failure -> Unit` meant a load error left the teacher
+  on the library with no navigation and no message — indistinguishable from a dead button. It now
+  reports itself above the list.
