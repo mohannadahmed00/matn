@@ -3,6 +3,7 @@ package com.giraffe.matn.teacher.presentation.editor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +34,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import com.giraffe.matn.domain.audio.PreviewState
 import com.giraffe.matn.domain.catalog.AudioCompleteness
 import com.giraffe.matn.domain.catalog.DraftChapter
@@ -57,6 +63,7 @@ import com.giraffe.matn.teacher.presentation.publish.PublishConfirmDialog
 import com.giraffe.matn.teacher.presentation.publish.ValidationPanel
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
 import com.giraffe.matn.teacher.presentation.strings.TeacherLanguage
+import org.jetbrains.skia.Image as SkiaImage
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -179,7 +186,13 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 }
 
                 item {
-                    CoverArtCard(draft.coverImageRef, state.coverError, intents.onPickCover, intents.onRemoveCover)
+                    CoverArtCard(
+                        coverImageRef = draft.coverImageRef,
+                        coverPreview = state.coverPreview,
+                        coverError = state.coverError,
+                        onPick = intents.onPickCover,
+                        onRemove = intents.onRemoveCover,
+                    )
                 }
 
                 if (draft.structureKind == StructureKind.STRUCTURED) {
@@ -384,7 +397,13 @@ private fun StructureKindPicker(selected: StructureKind, onSelected: (StructureK
 }
 
 @Composable
-private fun CoverArtCard(coverImageRef: String?, coverError: CoverError?, onPick: () -> Unit, onRemove: () -> Unit) {
+private fun CoverArtCard(
+    coverImageRef: String?,
+    coverPreview: ByteArray?,
+    coverError: CoverError?,
+    onPick: () -> Unit,
+    onRemove: () -> Unit,
+) {
     val strings = LocalTeacherStrings.current
     Column(
         modifier = Modifier
@@ -395,7 +414,14 @@ private fun CoverArtCard(coverImageRef: String?, coverError: CoverError?, onPick
         verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit),
     ) {
         Text(strings.coverArtLabel, style = MaterialTheme.typography.titleMedium)
-        Text(coverImageRef ?: strings.coverArtHint, style = MaterialTheme.typography.labelSmall)
+        // The image is the point of a cover; an object path told the teacher a file existed but
+        // nothing about whether it was the right one, or right way up.
+        CoverThumbnail(coverPreview)
+        // Only the hint, and only when there is nothing to show. Once the image is on screen the
+        // path is noise — the picture already answers "which cover is this".
+        if (coverImageRef == null) {
+            Text(strings.coverArtHint, style = MaterialTheme.typography.labelSmall)
+        }
         if (coverError != null) {
             val message = when (coverError) {
                 CoverError.INVALID_FILE -> strings.coverInvalidFileError
@@ -411,6 +437,42 @@ private fun CoverArtCard(coverImageRef: String?, coverError: CoverError?, onPick
         }
     }
 }
+
+/**
+ * The cover at roughly the 2:3 aspect the hint asks for, so the frame itself communicates the shape
+ * a cover should be — and a wrongly proportioned image is visibly letterboxed rather than silently
+ * accepted.
+ *
+ * Decoding is `remember`ed on the byte array: it is a full image decode, and the card recomposes on
+ * every keystroke in the metadata fields above it. Undecodable bytes leave the placeholder rather
+ * than throwing — the file picker already screens for type, so this is the belt to that braces, not
+ * an error worth a message.
+ */
+@Composable
+private fun CoverThumbnail(bytes: ByteArray?) {
+    val bitmap = remember(bytes) {
+        bytes?.let { runCatching { SkiaImage.makeFromEncoded(it).toComposeImageBitmap() }.getOrNull() }
+    }
+    Box(
+        modifier = Modifier
+            .size(width = COVER_PREVIEW_WIDTH, height = COVER_PREVIEW_HEIGHT)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, MatnShapes.lg),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = LocalTeacherStrings.current.coverArtLabel,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().clip(MatnShapes.lg),
+            )
+        }
+    }
+}
+
+/** Matches the 800 × 1200 guidance in `coverArtHint`, scaled to a thumbnail. */
+private val COVER_PREVIEW_WIDTH = MatnSpacing.unit * 16
+private val COVER_PREVIEW_HEIGHT = MatnSpacing.unit * 24
 
 @Composable
 private fun ChaptersSection(
@@ -468,6 +530,7 @@ fun EditorScreen(
             initialDraft = initialDraft,
             saveDraft = koin.get(),
             uploadCoverImage = koin.get(),
+            loadCoverImage = koin.get(),
             validateMatn = koin.get(),
             publishMatn = koin.get(),
             loadMatnForEdit = koin.get(),

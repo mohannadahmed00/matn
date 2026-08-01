@@ -30,6 +30,7 @@ import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.SignInUseCase
 import com.giraffe.matn.domain.usecase.SignOutUseCase
 import com.giraffe.matn.domain.usecase.UnpublishMatnUseCase
+import com.giraffe.matn.domain.usecase.LoadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
 import com.giraffe.matn.teacher.platform.JLayerAudioProbe
@@ -142,6 +143,9 @@ class TeacherModule {
 
     @Single
     fun uploadCoverImageUseCase(repository: CatalogRepository): UploadCoverImageUseCase = UploadCoverImageUseCase(repository)
+
+    @Single
+    fun loadCoverImageUseCase(repository: CatalogRepository): LoadCoverImageUseCase = LoadCoverImageUseCase(repository)
 
     @Single
     fun validateMatnUseCase(): ValidateMatnUseCase = ValidateMatnUseCase()

@@ -17,6 +17,7 @@ import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.model.StructureKind
 import com.giraffe.matn.domain.usecase.AttachVerseAudioUseCase
+import com.giraffe.matn.domain.usecase.LoadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
 import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.RemoveVerseAudioUseCase
@@ -47,6 +48,16 @@ data class EditorUiState(
     val missingTitle: Boolean = false,
     val missingAuthor: Boolean = false,
     val coverError: CoverError? = null,
+    /**
+     * The cover's encoded bytes, for showing the image itself instead of its object path. `null`
+     * means there is nothing to show *yet* — no cover, or one still being fetched — which is why
+     * the card falls back to the size hint rather than an empty frame.
+     *
+     * Bytes rather than a decoded image: decoding is a UI concern and the platform's decoder is not
+     * available here. Compared by reference like `SplitUiState.Ready.peaks`, which is correct — a
+     * new fetch produces a new array, and re-decoding the same array is what `remember` prevents.
+     */
+    val coverPreview: ByteArray? = null,
     val validation: ValidationReport? = null,
     val focusedProblem: String? = null,
     val showPublishConfirm: Boolean = false,
@@ -81,6 +92,7 @@ class EditorViewModel(
     initialDraft: MatnDraft,
     private val saveDraft: SaveDraftUseCase,
     private val uploadCoverImage: UploadCoverImageUseCase,
+    private val loadCoverImage: LoadCoverImageUseCase,
     private val validateMatn: ValidateMatnUseCase,
     private val publishMatn: PublishMatnUseCase,
     private val loadMatnForEdit: LoadMatnForEditUseCase,
@@ -109,6 +121,7 @@ class EditorViewModel(
         // playback instead of stopping the first. Ownership of `playingVerseId` belongs to the
         // coroutine that awaits playback, below.
         previewPlayer.state.collectInto { playerState -> setState { it.copy(previewState = playerState) } }
+        initialDraft.coverImageRef?.let(::loadCoverPreview)
     }
 
     private fun mutateDraft(reduce: (MatnDraft) -> MatnDraft) {
@@ -274,13 +287,17 @@ class EditorViewModel(
         }
     }
 
+    /** Shows the picked image straight away, before the upload is attempted: these are the exact
+     * bytes being sent, so waiting for a round trip to confirm what the teacher just chose would
+     * only add latency to an answer already in hand. A failed upload clears it again, so the card
+     * never shows a cover that is not stored. */
     fun onCoverPicked(bytes: ByteArray, ext: String) {
-        setState { it.copy(coverError = null) }
+        setState { it.copy(coverError = null, coverPreview = bytes) }
         runUseCase(
             useCase = uploadCoverImage,
             params = UploadCoverImageUseCase.Params(stateValue.draft.id, bytes, ext),
             onSuccess = { ref -> mutateDraft { it.copy(coverImageRef = ref) } },
-            onError = { setState { it.copy(coverError = CoverError.UPLOAD_FAILED) } },
+            onError = { setState { it.copy(coverError = CoverError.UPLOAD_FAILED, coverPreview = null) } },
         )
     }
 
@@ -288,7 +305,23 @@ class EditorViewModel(
         setState { it.copy(coverError = CoverError.INVALID_FILE) }
     }
 
-    fun onRemoveCover() = mutateDraft { it.copy(coverImageRef = null) }
+    fun onRemoveCover() {
+        setState { it.copy(coverPreview = null) }
+        mutateDraft { it.copy(coverImageRef = null) }
+    }
+
+    /** Fetches an already-stored cover so reopening a matn shows the image, not just its path. A
+     * failure is silent: the card degrades to the hint it showed before, and a thumbnail that could
+     * not be fetched is not a problem the teacher can act on. */
+    private fun loadCoverPreview(objectPath: String) {
+        viewModelScope.launch {
+            val result = loadCoverImage(objectPath)
+            if (result is Resource.Success) {
+                // Only if the cover has not changed underneath the fetch.
+                setState { if (it.draft.coverImageRef == objectPath) it.copy(coverPreview = result.data) else it }
+            }
+        }
+    }
 
     /** FR-018: the field-level required-check for a draft save — distinct from full validation,
      * which is the publish-time gate (`contracts/validation-contract.md` §5). `structureKind` is a

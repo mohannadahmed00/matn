@@ -551,3 +551,29 @@ follows *while its start still sits on this verse's old end*. The moment the tea
 start themselves it is theirs. It also declines when following would invert the next range — a
 convenience feature must not manufacture a blocking error. Typing and dragging share the rule,
 because they write the same range.
+
+### The cover card shows the cover
+
+It listed the object path — `matns/{id}/cover.jpg` — which tells the teacher a file exists and
+nothing about whether it is the right one, or the right way up. The card now renders the image, and
+the path is dropped entirely: once the picture is on screen it answers the question the path was
+standing in for.
+
+The bucket is private, so there is no URL to point an image at and the bytes have to be fetched.
+`CatalogRepository.downloadCover` is the counterpart to the `uploadCover` already there, behind
+`LoadCoverImageUseCase` — putting cover reads anywhere else would split cover handling across
+layers for no gain.
+
+Three details worth keeping:
+
+- **A freshly picked cover shows immediately**, before the upload is attempted: those are the exact
+  bytes being sent, so a round trip would only delay an answer already in hand. A failed upload
+  clears it again, so the card never shows a cover that is not stored.
+- **A failed *fetch* is silent.** The card degrades to the size hint it showed before. A thumbnail
+  that could not be downloaded is not a problem the teacher can act on, and an error line about one
+  is noise on a screen that already has real ones.
+- **Decoding is `remember`ed on the byte array.** It is a full image decode, and the card recomposes
+  on every keystroke in the metadata fields directly above it.
+
+The frame is fixed at the 2:3 the hint asks for, so a wrongly proportioned image is visibly
+letterboxed rather than silently accepted.

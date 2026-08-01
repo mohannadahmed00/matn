@@ -78,6 +78,9 @@ class SupabaseCatalogRepository(
         return storageClient.upload("matns/$matnId/cover.$ext", bytes, contentType)
     }
 
+    override suspend fun downloadCover(objectPath: String): Resource<ByteArray> =
+        storageClient.download(objectPath)
+
     /** Attach/replace/split all converge here: list → upload → write row (the commit) → delete
      * stale objects (`contracts/audio-artifact-contract.md` §4). A delete failure is swallowed —
      * the operation has already succeeded by the time step 4 runs (FR-033b). */

@@ -47,6 +47,7 @@ private class RecordingFakeRepository : CatalogRepository {
     override suspend fun publish(draft: MatnDraft): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun unpublish(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
     override suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String> = Resource.Success("ref")
+    override suspend fun downloadCover(objectPath: String): Resource<ByteArray> = Resource.Success(ByteArray(0))
     override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: DraftAudio, bytes: ByteArray): Resource<MatnDraft> {
         attachCallCount++
         return Resource.Success(

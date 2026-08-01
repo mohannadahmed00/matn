@@ -12,6 +12,7 @@ import com.giraffe.matn.domain.usecase.PublishMatnUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
+import com.giraffe.matn.teacher.presentation.editor.CoverError
 import com.giraffe.matn.teacher.presentation.editor.EditorViewModel
 import com.giraffe.matn.teacher.presentation.editor.SaveState
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,8 @@ private class FakeCatalogRepository(
     private val loadResult: (String) -> Resource<MatnDraft> = { Resource.Failure(AppError.NotFound) },
     private val attachVerseAudioResult: (suspend () -> Resource<Unit>)? = null,
     private val removeVerseAudioResult: (suspend () -> Resource<Unit>)? = null,
+    private val uploadCoverResult: (() -> Resource<String>)? = null,
+    private val downloadCoverResult: (() -> Resource<ByteArray>)? = null,
 ) : CatalogRepository {
     var saveCallCount = 0
 
@@ -43,7 +46,10 @@ private class FakeCatalogRepository(
     }
     override suspend fun publish(draft: MatnDraft): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun unpublish(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
-    override suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String> = Resource.Success("ref")
+    override suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String> =
+        uploadCoverResult?.invoke() ?: Resource.Success("matns/$matnId/cover.$ext")
+    override suspend fun downloadCover(objectPath: String): Resource<ByteArray> =
+        downloadCoverResult?.invoke() ?: Resource.Success(ByteArray(0))
     override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: com.giraffe.matn.domain.catalog.DraftAudio, bytes: ByteArray): Resource<MatnDraft> {
         val gate = attachVerseAudioResult?.invoke() ?: Resource.Success(Unit)
         return when (gate) {
@@ -106,6 +112,7 @@ class EditorViewModelTest {
             initialDraft = draft,
             saveDraft = SaveDraftUseCase(repo),
             uploadCoverImage = UploadCoverImageUseCase(repo),
+            loadCoverImage = com.giraffe.matn.domain.usecase.LoadCoverImageUseCase(repo),
             validateMatn = ValidateMatnUseCase(),
             publishMatn = PublishMatnUseCase(repo),
             loadMatnForEdit = LoadMatnForEditUseCase(repo),
@@ -116,6 +123,63 @@ class EditorViewModelTest {
             newId = { "gen-id-${counter++}" },
             nowMillis = { 0L },
         )
+    }
+
+    /** The card shows the image, so the bytes must be there the moment they are picked — these are
+     * the exact bytes being uploaded, and waiting for the round trip would delay an answer already
+     * in hand. */
+    @Test
+    fun `picking a cover shows it before the upload finishes`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+        val vm = newViewModel(repo)
+        val picked = byteArrayOf(1, 2, 3)
+
+        vm.onCoverPicked(picked, "png")
+
+        assertTrue(picked.contentEquals(vm.state.value.coverPreview))
+    }
+
+    /** …but never a cover that is not stored: a failed upload has to take the preview with it, or
+     * the card claims a cover the matn does not have. */
+    @Test
+    fun `a failed cover upload clears the preview`() = runTest {
+        val repo = FakeCatalogRepository(
+            saveResult = { Resource.Success(it) },
+            uploadCoverResult = { Resource.Failure(RemoteError.Network) },
+        )
+        val vm = newViewModel(repo)
+
+        vm.onCoverPicked(byteArrayOf(1, 2, 3), "png")
+
+        assertEquals(null, vm.state.value.coverPreview)
+        assertEquals(CoverError.UPLOAD_FAILED, vm.state.value.coverError)
+    }
+
+    /** Reopening a matn has no local bytes, so the stored cover has to be fetched — the bucket is
+     * private and there is no URL to point an image at. */
+    @Test
+    fun `an existing cover is fetched when the editor opens`() = runTest {
+        val stored = byteArrayOf(9, 8, 7)
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) }, downloadCoverResult = { Resource.Success(stored) })
+
+        val vm = newViewModel(repo, draft = newDraft().copy(coverImageRef = "matns/m1/cover.png"))
+
+        assertTrue(stored.contentEquals(vm.state.value.coverPreview))
+    }
+
+    /** A thumbnail that could not be fetched is not something the teacher can act on, so the card
+     * degrades to its hint rather than reporting an error. */
+    @Test
+    fun `a failed cover fetch leaves the card empty and silent`() = runTest {
+        val repo = FakeCatalogRepository(
+            saveResult = { Resource.Success(it) },
+            downloadCoverResult = { Resource.Failure(RemoteError.Network) },
+        )
+
+        val vm = newViewModel(repo, draft = newDraft().copy(coverImageRef = "matns/m1/cover.png"))
+
+        assertEquals(null, vm.state.value.coverPreview)
+        assertEquals(null, vm.state.value.coverError)
     }
 
     @Test

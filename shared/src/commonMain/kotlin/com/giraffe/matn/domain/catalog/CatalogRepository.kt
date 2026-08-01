@@ -13,6 +13,10 @@ interface CatalogRepository {
     suspend fun unpublish(matnId: String): Resource<MatnDraft>
     suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String>
 
+    /** Reads a cover back by the object path [uploadCover] returned. The bucket is private, so a
+     * stored cover cannot be shown from its URL — the bytes have to be fetched. */
+    suspend fun downloadCover(objectPath: String): Resource<ByteArray>
+
     /** Attaches or replaces one verse's recording, following the commit ordering in
      * `contracts/audio-artifact-contract.md` §4. [audio] is the [DraftAudio] the caller has already
      * built from [bytes] (id, fileRef, measured duration/size/profile); this is the single write. */

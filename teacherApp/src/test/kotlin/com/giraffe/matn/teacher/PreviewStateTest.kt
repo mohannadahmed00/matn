@@ -64,6 +64,7 @@ private class PsNoOpRepository : CatalogRepository {
     override suspend fun publish(draft: MatnDraft): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun unpublish(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
     override suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String> = Resource.Success("ref")
+    override suspend fun downloadCover(objectPath: String): Resource<ByteArray> = Resource.Success(ByteArray(0))
     override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: DraftAudio, bytes: ByteArray): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun removeVerseAudio(draft: MatnDraft, verseId: String): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun applySplit(draft: MatnDraft, updates: Map<String, DraftAudio>, payloads: List<PendingUpload>): Resource<MatnDraft> = Resource.Success(draft)
@@ -116,6 +117,7 @@ class PreviewStateTest {
             initialDraft = draftWithAudio(true, true),
             saveDraft = com.giraffe.matn.domain.usecase.SaveDraftUseCase(PsNoOpRepository()),
             uploadCoverImage = com.giraffe.matn.domain.usecase.UploadCoverImageUseCase(PsNoOpRepository()),
+            loadCoverImage = com.giraffe.matn.domain.usecase.LoadCoverImageUseCase(PsNoOpRepository()),
             validateMatn = com.giraffe.matn.domain.usecase.ValidateMatnUseCase(),
             publishMatn = com.giraffe.matn.domain.usecase.PublishMatnUseCase(PsNoOpRepository()),
             loadMatnForEdit = com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase(PsNoOpRepository()),
