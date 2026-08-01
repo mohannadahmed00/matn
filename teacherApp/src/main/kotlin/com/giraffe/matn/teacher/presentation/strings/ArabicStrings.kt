@@ -108,6 +108,7 @@ object ArabicStrings : TeacherStrings {
     override val errorQuotaExceededMessage = "مساحة التخزين ممتلئة. احذف بعض المحتوى وحاول مجددًا."
     override val errorServerMessage = "مشكلة في الخادم. حاول مجددًا."
     override val errorServerAction = "إعادة المحاولة"
+    override val errorRejectedMessage = "رفض الخادم هذا المحتوى — نوعه أو حجمه غير مسموح به."
     override val errorDecodeMessage = "استجابة غير متوقعة — يُرجى الإبلاغ عن هذا."
 
     override val addRecording = "إضافة تسجيل"

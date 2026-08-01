@@ -40,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.giraffe.matn.core.AppError
 import com.giraffe.matn.domain.audio.AudioProfile
 import com.giraffe.matn.domain.audio.SourceRecording
 import com.giraffe.matn.domain.audio.SplitPlan
@@ -96,7 +97,7 @@ fun SplitContent(state: SplitUiState, intents: SplitIntents, modifier: Modifier 
                     is SplitUiState.Loading -> LoadingContent(strings.splitLoadingSource)
                     is SplitUiState.Ready -> ReadyContent(state, intents)
                     is SplitUiState.Splitting -> LoadingContent(strings.splitUploading)
-                    is SplitUiState.Failed -> FailedContent(state, intents)
+                    is SplitUiState.Failed -> FailedContent(state.error, intents.onPickSource)
                 }
             }
 
@@ -160,12 +161,15 @@ private fun LoadingContent(label: String) {
     }
 }
 
+/** Only reached when there is no loaded source to fall back to — starting over *is* the whole
+ * remaining option. An upload failure never lands here; it stays in [ReadyContent] with the plan
+ * intact (see [SplitUiState.Ready.uploadError]). */
 @Composable
-private fun FailedContent(state: SplitUiState.Failed, intents: SplitIntents) {
+private fun FailedContent(error: AppError, onPickSource: () -> Unit) {
     val strings = LocalTeacherStrings.current
     Column(modifier = Modifier.fillMaxWidth().padding(MatnSpacing.unit * 2)) {
-        Text(strings.messageFor(state.error), color = MaterialTheme.colorScheme.error)
-        Button(onClick = intents.onPickSource) { Text(strings.pickRecording) }
+        Text(strings.messageFor(error), color = MaterialTheme.colorScheme.error)
+        Button(onClick = onPickSource) { Text(strings.pickRecording) }
     }
 }
 
@@ -396,7 +400,7 @@ private fun ProgressAndProblems(state: SplitUiState.Ready, displayNumberOf: (Str
     val visibleWarnings = warnings.take(MAX_VISIBLE_PROBLEMS - visibleProblems.size)
     val hidden = (realProblems.size + warnings.size) - visibleProblems.size - visibleWarnings.size
 
-    val hasErrors = realProblems.isNotEmpty()
+    val hasErrors = realProblems.isNotEmpty() || state.uploadError != null
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -408,6 +412,12 @@ private fun ProgressAndProblems(state: SplitUiState.Ready, displayNumberOf: (Str
             .padding(MatnSpacing.unit * 2),
         verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit / 2),
     ) {
+        // First, and in full: this is the one message here that reports something that already
+        // happened rather than something still to do, and it sits directly above the button that
+        // caused it.
+        state.uploadError?.let { error ->
+            Text(strings.messageFor(error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+        }
         Text(
             text = strings.splitRangedCount
                 .replaceFirst("%d", ranged.toString())

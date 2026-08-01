@@ -60,6 +60,16 @@ sealed interface SplitUiState {
         /** True while the playhead itself is being dragged, which suppresses position updates from
          * the player so playback cannot fight the pointer for control of [playheadMs]. */
         val isSeeking: Boolean = false,
+        /**
+         * Why the last split-and-upload attempt failed, or `null` if none has.
+         *
+         * Reported **inside** `Ready` rather than by moving to [Failed]: the plan is minutes of
+         * careful boundary work, and a failure that happens entirely server-side says nothing about
+         * whether those boundaries are right. Discarding them and offering only "pick a recording"
+         * — which is what the [Failed] screen did — made a transient backend refusal cost the whole
+         * session's work. Cleared by the next edit or the next attempt.
+         */
+        val uploadError: AppError? = null,
     ) : SplitUiState {
         /**
          * Current position of the armed boundary, or `null` when nothing is armed (or the armed
@@ -77,7 +87,11 @@ sealed interface SplitUiState {
             }
     }
     data class Splitting(val progress: Float) : SplitUiState
-    data class Failed(val error: AppError, val previous: Ready?) : SplitUiState
+
+    /** Only for failures that leave nothing to work with — the source could not be read or was
+     * refused before it was read. A failure *after* a source is loaded stays in [Ready] and is
+     * reported through [Ready.uploadError], so the plan survives it. */
+    data class Failed(val error: AppError) : SplitUiState
 }
 
 /**
@@ -178,7 +192,7 @@ class SplitViewModel(
                         )
                     }
                 }
-                is Resource.Failure -> setState { SplitUiState.Failed(outcome.error, previous = null) }
+                is Resource.Failure -> setState { SplitUiState.Failed(outcome.error) }
             }
         }
     }
@@ -187,7 +201,7 @@ class SplitViewModel(
      * ceiling). Surfaced as [SplitUiState.Failed] rather than dropped — a silently ignored pick
      * looks to the teacher exactly like a broken button. */
     fun onSourceRejected(error: AppError) {
-        setState { SplitUiState.Failed(error, previous = stateValue as? SplitUiState.Ready) }
+        setState { SplitUiState.Failed(error) }
     }
 
     fun onScopeChanged(firstVerseId: String, lastVerseId: String) {
@@ -419,6 +433,10 @@ class SplitViewModel(
         val path = localPath ?: return
         if (ready.report.blocking.isNotEmpty()) return
 
+        // Nothing may be sounding while the source file is being re-read for slicing, and a stale
+        // error from the previous attempt must not outlive the attempt that replaces it.
+        stopAudition()
+        stopSourcePlayback()
         setState { SplitUiState.Splitting(progress = 0f) }
         viewModelScope.launch {
             val plan = SplitPlan(ready.source, ready.scopeVerseIds, ready.ranges)
@@ -428,14 +446,17 @@ class SplitViewModel(
             }
             when (result) {
                 is Resource.Success -> onSplitComplete(result.data)
-                is Resource.Failure -> setState { SplitUiState.Failed(result.error, previous = ready) }
+                // Back to exactly the plan the teacher submitted, error attached — they can fix
+                // whatever the server objected to and press upload again without redoing any of it.
+                is Resource.Failure -> setState { ready.copy(uploadError = result.error) }
             }
         }
     }
 
     private fun updateReady(ready: SplitUiState.Ready) {
         val plan = SplitPlan(ready.source, ready.scopeVerseIds, ready.ranges)
-        setState { ready.copy(report = SplitPlanValidator.validate(plan)) }
+        // Any edit invalidates the previous attempt's verdict, so the banner goes with it.
+        setState { ready.copy(report = SplitPlanValidator.validate(plan), uploadError = null) }
     }
 
     private companion object {

@@ -109,6 +109,7 @@ object EnglishStrings : TeacherStrings {
     override val errorQuotaExceededMessage = "Storage is full. Remove some content and try again."
     override val errorServerMessage = "Server problem. Please try again."
     override val errorServerAction = "Retry"
+    override val errorRejectedMessage = "The server refused this content — its type or size isn't allowed."
     override val errorDecodeMessage = "Unexpected response — please report this."
 
     override val addRecording = "Add recording"

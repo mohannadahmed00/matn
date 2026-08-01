@@ -113,4 +113,20 @@ class StorageRestClientAudioTest {
 
         assertEquals(Resource.Failure(RemoteError.QuotaExceeded), result)
     }
+
+    /**
+     * Regression for a shipped bug. Before the bucket's `allowed_mime_types` included `audio/mpeg`,
+     * every verse upload came back exactly like this — and the 400 fell through the mapper's `else`
+     * to `Decode`, so the teacher was told "unexpected response, please report this" about a
+     * response that was neither unexpected nor malformed. A refusal must read as a refusal.
+     */
+    @Test
+    fun `a 400 invalid mime type maps to RemoteError Rejected, not Decode`() = runTest {
+        val body = """{"statusCode":"400","error":"invalid_mime_type","message":"mime type audio/mpeg is not supported"}"""
+        val storage = client { HttpStatusCode.BadRequest to body.encodeToByteArray() }
+
+        val result = storage.upload("matns/m1/verses/v1-tag.mp3", byteArrayOf(1, 2), "audio/mpeg")
+
+        assertEquals(Resource.Failure(RemoteError.Rejected), result)
+    }
 }

@@ -12,6 +12,7 @@ import com.giraffe.matn.domain.catalog.DraftAudio
 import com.giraffe.matn.domain.catalog.DraftVerse
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.MatnDraftFactory
+import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.usecase.ApplySplitUseCase
 import com.giraffe.matn.domain.usecase.LoadSplitSourceUseCase
 import com.giraffe.matn.teacher.platform.JLayerAudioProbe
@@ -116,7 +117,9 @@ private class RecordingPreviewPlayer : com.giraffe.matn.domain.audio.PreviewPlay
     }
 }
 
-private class NoOpRepository : CatalogRepository {
+/** [splitFailure] stands in for the backend refusing the commit — the bucket turning away
+ * `audio/mpeg`, RLS denying the write, the connection dropping mid-upload. */
+private class NoOpRepository(private val splitFailure: com.giraffe.matn.core.AppError? = null) : CatalogRepository {
     override fun observeAuthored(): Flow<List<CatalogEntry>> = flowOf(emptyList())
     override suspend fun load(matnId: String): Resource<MatnDraft> = Resource.Failure(com.giraffe.matn.core.AppError.NotFound)
     override suspend fun save(draft: MatnDraft): Resource<MatnDraft> = Resource.Success(draft)
@@ -126,7 +129,8 @@ private class NoOpRepository : CatalogRepository {
     override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: DraftAudio, bytes: ByteArray): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun removeVerseAudio(draft: MatnDraft, verseId: String): Resource<MatnDraft> = Resource.Success(draft)
     override suspend fun applySplit(draft: MatnDraft, updates: Map<String, DraftAudio>, payloads: List<PendingUpload>): Resource<MatnDraft> =
-        Resource.Success(draft.copy(verses = draft.verses.map { v -> updates[v.id]?.let { v.copy(audio = it) } ?: v }))
+        splitFailure?.let { Resource.Failure(it) }
+            ?: Resource.Success(draft.copy(verses = draft.verses.map { v -> updates[v.id]?.let { v.copy(audio = it) } ?: v }))
 }
 
 private fun draftWithVerses(count: Int): MatnDraft {
@@ -173,17 +177,50 @@ class SplitViewModelTest {
         slicer: FakeSlicer = FakeSlicer(),
         player: com.giraffe.matn.domain.audio.PreviewPlayer = RecordingPreviewPlayer(),
         onDone: (MatnDraft) -> Unit = {},
+        splitFailure: com.giraffe.matn.core.AppError? = null,
     ): SplitViewModel {
         val probe = JLayerAudioProbe()
         return SplitViewModel(
             draft = draft,
             loadSplitSource = LoadSplitSourceUseCase(probe),
-            applySplit = ApplySplitUseCase(NoOpRepository(), slicer, newId = { "new-id" }),
+            applySplit = ApplySplitUseCase(NoOpRepository(splitFailure), slicer, newId = { "new-id" }),
             audioProbe = probe,
             slicer = slicer,
             previewPlayer = player,
             onSplitComplete = onDone,
         )
+    }
+
+    /**
+     * Regression for a shipped bug. The bucket had not yet been widened to accept `audio/mpeg`, so
+     * the upload came back 400 — and the screen threw the entire plan away and offered nothing but
+     * "pick a recording". Minutes of boundary work, gone to a server-side setting the teacher could
+     * neither see nor have caused. The failure now reports itself *inside* `Ready`, leaving every
+     * range where it was so the same upload can simply be retried.
+     */
+    @Test
+    fun `a failed upload keeps the plan and reports the error in place`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(2), splitFailure = RemoteError.Rejected)
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+        // Both ranges must fall inside the 150-frame source (~3.9 s), or the plan is blocking and
+        // the upload never leaves the button.
+        vm.onRangeChanged("v1", 0, 1000)
+        vm.onRangeChanged("v2", 1000, 2000)
+
+        vm.onSplitAndUpload()
+        awaitUntil { (vm.state.value as? SplitUiState.Ready)?.uploadError != null }
+
+        val after = vm.state.value as SplitUiState.Ready
+        assertEquals(RemoteError.Rejected, after.uploadError)
+        assertEquals(2, after.ranges.size)
+        assertEquals(1000L, after.ranges.first { it.verseId == "v1" }.endMs)
+
+        // Touching anything retracts the verdict — it was about the plan as submitted.
+        vm.onRangeChanged("v1", 0, 1200)
+        assertEquals(null, (vm.state.value as SplitUiState.Ready).uploadError)
     }
 
     @Test

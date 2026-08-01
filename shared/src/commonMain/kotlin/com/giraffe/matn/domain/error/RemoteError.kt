@@ -39,6 +39,19 @@ sealed interface RemoteError : AppError {
         override val retryable: Boolean = true
     }
 
+    /**
+     * The server understood the request perfectly well and refused it — a 4xx that is none of the
+     * cases above. In practice this is a Storage upload the bucket's own constraints turned away
+     * (`allowed_mime_types`, `file_size_limit`), which arrives as a 400 naming the reason.
+     *
+     * Deliberately distinct from [Decode]: a rejected upload used to fall through to "unexpected
+     * response — please report this", which sends the teacher hunting a client bug when the server
+     * has already said exactly what it will not accept.
+     */
+    data object Rejected : RemoteError {
+        override val retryable: Boolean = false
+    }
+
     /** The response did not match the expected shape. */
     data object Decode : RemoteError {
         override val retryable: Boolean = false

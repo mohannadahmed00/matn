@@ -454,3 +454,30 @@ discoverable at the moment it is needed.
 The playhead tracks playback in both modes already — `playbackOriginMs` maps the player's
 clip-relative position onto the source timeline, set to the verse's start for an audition and to the
 chunk's start for source playback — so it follows a sliced verse and the whole recording alike.
+
+### "Unexpected response — please report this" on upload
+
+The first real upload failed with the `Decode` message. Three separate defects, one visible symptom.
+
+**The bucket had never been widened.** `20260801000000_matn_content_audio_limits.sql` was written
+with the phase but never applied — the live `matn-content` bucket still carried Phase 11's
+`allowed_mime_types` of PNG/JPEG/WebP and a 5 MB ceiling, so Storage refused every `audio/mpeg`
+object with a 400. This is the actual cause; the migration is now applied (10 MB, `audio/mpeg`
+added). Recorded here because the failure mode is worth knowing: the tool's client-side checks all
+pass, the slice is correct, and the only thing wrong lives in a bucket setting no screen shows.
+
+**A refusal was reported as a malformed response.** `RemoteErrorMapper.mapHttpError` classified
+401/403/404/409/413/429/5xx and sent *everything else* to `RemoteError.Decode` — so every 4xx the
+list did not name arrived as "unexpected response, please report this". The response was neither
+unexpected nor unparseable: the server said plainly what it would not accept, and the message sent
+the teacher hunting a client bug. Added `RemoteError.Rejected` for unclassified 4xx; `Decode` now
+means only what its name says, a body that could not be parsed.
+
+**A failed upload threw away the whole plan.** `SplitUiState.Failed` carried a `previous: Ready?`
+that `FailedContent` never read, so the screen collapsed to an error line and a "Pick a recording"
+button — minutes of boundary work discarded over a server-side setting the teacher could neither see
+nor have caused. The plan is not invalidated by the backend refusing to store it, so the failure now
+lives *inside* `Ready` as `uploadError`: every range stays put, the message sits directly above the
+button that produced it, and pressing upload again retries the same plan. `Failed` is now only for
+failures that leave nothing to work with — a source that could not be read or was refused before it
+was read — and its dead `previous` field is gone.

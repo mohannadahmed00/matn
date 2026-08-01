@@ -27,6 +27,10 @@ object RemoteErrorMapper {
             status == 413 -> RemoteError.QuotaExceeded
             status == 429 -> RemoteError.QuotaExceeded
             status in 500..599 -> RemoteError.Server
+            // Everything else the server refused — chiefly a 400 from Storage when the bucket's
+            // `allowed_mime_types` does not admit the upload. Reporting that as `Decode` blamed the
+            // response for being malformed when it was in fact a clear, well-formed refusal.
+            status in 400..499 -> RemoteError.Rejected
             else -> RemoteError.Decode
         }
     }

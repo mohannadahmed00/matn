@@ -134,6 +134,7 @@ interface TeacherStrings {
     val errorQuotaExceededMessage: String
     val errorServerMessage: String
     val errorServerAction: String
+    val errorRejectedMessage: String
     val errorDecodeMessage: String
 
     // Verse audio slot (US1, contracts/teacher-ui-contract.md §1)
@@ -213,16 +214,18 @@ fun TeacherStrings.messageFor(error: RemoteError): String = when (error) {
     RemoteError.Conflict -> errorConflictMessage
     RemoteError.QuotaExceeded -> errorQuotaExceededMessage
     RemoteError.Server -> errorServerMessage
+    RemoteError.Rejected -> errorRejectedMessage
     RemoteError.Decode -> errorDecodeMessage
 }
 
-/** `null` when the error offers no action (Forbidden, QuotaExceeded, Decode). */
+/** `null` when the error offers no action (Forbidden, QuotaExceeded, Rejected, Decode) — retrying
+ * an upload the server has already refused on its own terms would just fail identically. */
 fun TeacherStrings.actionFor(error: RemoteError): String? = when (error) {
     RemoteError.Network -> errorNetworkAction
     RemoteError.Unauthorized -> errorUnauthorizedAction
     RemoteError.Conflict -> errorConflictAction
     RemoteError.Server -> errorServerAction
-    RemoteError.Forbidden, RemoteError.QuotaExceeded, RemoteError.Decode -> null
+    RemoteError.Forbidden, RemoteError.QuotaExceeded, RemoteError.Rejected, RemoteError.Decode -> null
 }
 
 /**
