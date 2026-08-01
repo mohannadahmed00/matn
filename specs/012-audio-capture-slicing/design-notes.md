@@ -766,3 +766,23 @@ says which verses each one holds, and rewriting one while they type the other is
 The rows are keyed by chapter id, which is what should have identified them from the start. The
 start field's own text is no longer keyed on its value either — typing `0` parses to "no start",
 and re-keying would have wiped the digit as it was typed.
+
+### CI's bucket was still images-only
+
+The RLS job failed three audio cases with `invalid_mime_type: audio/mpeg is not supported` — the
+same refusal the teacher hit on the hosted project, in a different place.
+
+`20260801000000_matn_content_audio_limits.sql` widens a bucket that already exists, which is right
+for a hosted project. A **local** stack has no such bucket: the CLI creates it from
+`[storage.buckets.matn-content]` in `supabase/config.toml`, and that declaration still said 5 MiB
+and images only. Its own comment even said "Phase 12 extends this list with the audio types" —
+Phase 12 extended the migration and never came back for it.
+
+Both now carry the audio type and the 10 MB ceiling, and both say in their comments that they are a
+pair. It is a genuinely easy trap: the migration is the file you think of, it is the one that shows
+up in `supabase/migrations`, and locally it silently updates nothing because there is nothing there
+to update yet.
+
+Worth noting that this is the *only* place these tests can run — there is no local stack on the
+development machine, so the RLS suite is CI-gated by construction and a bucket setting it depends on
+is invisible until the job runs.

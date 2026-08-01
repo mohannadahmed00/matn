@@ -33,9 +33,15 @@ enabled = true
 
 [storage.buckets.matn-content]
 public = false
-# FR-016, enforced server-side. Phase 12 extends this list with the audio types.
-file_size_limit = "5MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+# FR-016 and FR-004b, enforced server-side.
+#
+# This declaration is what creates the bucket on a local stack, so it — not
+# `20260801000000_matn_content_audio_limits.sql` — is what the CI job's storage ends up with. The
+# migration covers hosted projects, where the bucket already exists. **The two have to be kept in
+# step**: Phase 12 widened only the migration, and the RLS job failed with `invalid_mime_type` on
+# every audio upload because the local bucket was still images-only.
+file_size_limit = "10MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "audio/mpeg"]
 
 [studio]
 enabled = false
