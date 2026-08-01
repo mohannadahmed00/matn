@@ -18,7 +18,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +33,7 @@ import com.giraffe.matn.teacher.di.TeacherKoinHolder
 import com.giraffe.matn.teacher.presentation.common.AudioCompletenessBadge
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.common.PublicationBadge
+import com.giraffe.matn.teacher.presentation.common.rememberScopedViewModelStoreOwner
 import com.giraffe.matn.teacher.presentation.publish.UnpublishConfirmDialog
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
 import com.giraffe.matn.teacher.presentation.strings.TeacherLanguage
@@ -118,12 +118,18 @@ private fun LibraryRow(entry: CatalogEntry, onClick: () -> Unit, onRequestUnpubl
 @Composable
 fun LibraryScreen(onOpenMatn: (String) -> Unit, onCreateNew: () -> Unit, modifier: Modifier = Modifier) {
     val koin = TeacherKoinHolder.koin
-    val viewModel: LibraryViewModel = viewModel { LibraryViewModel(koin.get(), koin.get()) }
-    // `viewModel {}` reuses the same instance across destination switches (TeacherMain has no
-    // per-destination ViewModelStore), so `init { load() }` only ever fires once per process —
-    // re-trigger on every fresh entry into this screen so a just-published matn shows up without
-    // an app restart.
-    LaunchedEffect(Unit) { viewModel.load() }
+    // A store scoped to this *visit*, created and cleared with the screen.
+    //
+    // On the shared application-wide store the ViewModel outlived the screen, so re-entering the
+    // library rendered whatever the previous visit had ended on — a stale error, most visibly —
+    // for the frames before a `LaunchedEffect` could start a new load. The teacher saw "server
+    // problem", then data, having done nothing. A fresh ViewModel per visit starts where the
+    // screen should: `isLoading = true`, with `init { load() }` doing the fetch. That also drops
+    // the extra load the `LaunchedEffect` used to fire on top of `init`'s.
+    val storeOwner = rememberScopedViewModelStoreOwner(Unit)
+    val viewModel: LibraryViewModel = viewModel(viewModelStoreOwner = storeOwner) {
+        LibraryViewModel(koin.get(), koin.get())
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
     LibraryContent(
         state = state,

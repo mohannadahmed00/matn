@@ -83,6 +83,41 @@ class ScopedViewModelStoreOwnerTest {
         onNodeWithText("TITLE[TYPED]").assertExists()
     }
 
+    /**
+     * Regression for a shipped bug. The library's ViewModel lived in the application-wide store, so
+     * re-entering the screen rendered whatever the previous visit had ended on — a stale error, in
+     * the report — before any new load could start: the teacher saw "server problem", then data,
+     * having done nothing.
+     *
+     * Owning the store *inside* the screen is what fixes it: leaving composition disposes the owner
+     * and clears the ViewModel, so the next visit starts from its initial state.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun `an owner created inside a screen gives each visit a fresh view model`() = runComposeUiTest {
+        var onScreen by mutableStateOf(true)
+        var current: DocViewModel? = null
+
+        setContent {
+            if (onScreen) {
+                CompositionLocalProvider(LocalViewModelStoreOwner provides rememberScopedViewModelStoreOwner(Unit)) {
+                    DocScreen(Doc("matn-1", "loading")) { vm -> current = vm }
+                }
+            } else {
+                Text("ELSEWHERE")
+            }
+        }
+        val firstVisit = requireNotNull(current)
+
+        onScreen = false // leave the library
+        waitForIdle()
+        onScreen = true // come back
+        waitForIdle()
+
+        assertTrue(firstVisit.cleared, "the previous visit's ViewModel outlived the screen")
+        assertTrue(current !== firstVisit, "the new visit reused the previous visit's state")
+    }
+
     /** The superseded ViewModel must be cleared, not merely orphaned: its `viewModelScope` runs the
      * autosave scheduler, and an editor left alive holding a stale draft can save over a newer one. */
     @OptIn(ExperimentalTestApi::class)

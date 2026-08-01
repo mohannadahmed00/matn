@@ -659,3 +659,24 @@ Reproduced in a Compose UI test first, which is also the fix's guard: `ViewModel
 fails outright when both keys match. Keys are now prefixed by screen (`editor:`, `split:`). The
 prefixes are load-bearing, not decoration, and both call sites say so — this is a silent, type-level
 trap that any future nested screen keyed on a matn id would fall into the same way.
+
+### The library greeted the teacher with a stale error
+
+Entering the library showed "server problem", which replaced itself with the matn list a moment
+later without the teacher doing anything.
+
+Nothing was failing at that moment. `LibraryViewModel` lived in the application-wide store, so its
+state outlived the screen: re-entering rendered whatever the *previous* visit had ended on. If any
+earlier load had failed — a cold start, a dropped connection — that error was the first frame of
+every subsequent visit, until the `LaunchedEffect(Unit) { load() }` workaround got a new load going
+and the result replaced it. The screen was reporting history as if it were now.
+
+That `LaunchedEffect` existed only because the shared store meant `init { load() }` fired once per
+process. Owning the store *inside* the screen removes the cause instead: `rememberScopedViewModelStoreOwner`
+is created and disposed with `LibraryScreen`, so each visit builds a fresh ViewModel that starts at
+`isLoading = true` and fetches from `init`. The workaround and the duplicate load it caused on first
+entry are both gone.
+
+Third instance of the same root cause this phase, after the stale editor and the split screen's key
+collision: **a process-wide `ViewModelStore` and no navigation library means screen state has to be
+scoped deliberately, every time.** `rememberScopedViewModelStoreOwner` is where that decision lives.
