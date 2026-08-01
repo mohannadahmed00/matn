@@ -37,6 +37,17 @@ sealed interface SplitUiState {
         val peaks: FloatArray,
         val scopeVerseIds: List<String>,
         val ranges: List<VerseRange>,
+        /**
+         * Starts that auto-fill has placed but that are not yet part of a range, because their End
+         * has not been set.
+         *
+         * Kept apart from [ranges] rather than represented as a half-built [VerseRange]: a range is
+         * a thing with two ends — the validator, the slicer and the waveform all assume that — and
+         * filling in a plausible End so the type fits is exactly the invention the teacher asked to
+         * be rid of. A pending start puts a number in the Start field and nothing anywhere else: no
+         * marker, no highlight, and not counted as ranged.
+         */
+        val pendingStarts: Map<String, Long> = emptyMap(),
         val report: SplitReport,
         val selectedVerseId: String? = null,
         /** The verse whose range is currently being auditioned, if any (FR-014). */
@@ -234,9 +245,12 @@ class SplitViewModel(
         if (ready.auditioningVerseId == verseId) stopAudition()
         val current = stateValue as? SplitUiState.Ready ?: ready
         // A start the teacher sets by hand is theirs from then on, and auto-fill stops touching it.
-        if (current.ranges.find { it.verseId == verseId }?.startMs != startMs) autoFilledStarts -= verseId
+        // Accepting an auto-filled start by typing the End is not setting it by hand, so the
+        // comparison has to see the pending value too.
+        val startBefore = current.ranges.find { it.verseId == verseId }?.startMs ?: current.pendingStarts[verseId]
+        if (startBefore != startMs) autoFilledStarts -= verseId
         val edited = current.ranges.filterNot { it.verseId == verseId } + VerseRange(verseId, startMs, endMs)
-        updateReady(current.copy(ranges = edited))
+        updateReady(current.copy(ranges = edited, pendingStarts = current.pendingStarts - verseId))
     }
 
     /** Either boundary was emptied, so there is no longer a range to draw or to cut. Removing it
@@ -247,9 +261,14 @@ class SplitViewModel(
         val ready = stateValue as? SplitUiState.Ready ?: return
         if (ready.auditioningVerseId == verseId) stopAudition()
         val current = stateValue as? SplitUiState.Ready ?: ready
-        if (current.ranges.none { it.verseId == verseId }) return
+        if (current.ranges.none { it.verseId == verseId } && verseId !in current.pendingStarts) return
         autoFilledStarts -= verseId
-        updateReady(current.copy(ranges = current.ranges.filterNot { it.verseId == verseId }))
+        updateReady(
+            current.copy(
+                ranges = current.ranges.filterNot { it.verseId == verseId },
+                pendingStarts = current.pendingStarts - verseId,
+            ),
+        )
     }
 
     /**
@@ -268,17 +287,24 @@ class SplitViewModel(
         val nextId = ready.scopeVerseIds[index + 1]
 
         val next = ready.ranges.find { it.verseId == nextId }
-        val chained = when {
-            // No range yet: create one starting here, seeded exactly as a first drag would.
-            next == null -> ready.ranges + VerseRange(nextId, end, minOf(end + SEED_RANGE_MS, ready.source.durationMs))
+        val updated = when {
+            // No range yet: fill in the Start alone and leave the End for the teacher. Seeding a
+            // plausible End here would be the tool deciding where a verse finishes, which is the
+            // one judgement this whole screen exists to let a person make.
+            next == null ->
+                if (nextId in autoFilledStarts || nextId !in ready.pendingStarts) {
+                    ready.copy(pendingStarts = ready.pendingStarts + (nextId to end))
+                } else {
+                    return // a pending start the teacher typed themselves
+                }
             // Already the teacher's own start — auto-fill does not get to overrule it.
             nextId !in autoFilledStarts -> return
             // Following would invert the next range. A convenience must not manufacture an error.
             end >= next.endMs -> return
-            else -> ready.ranges.filterNot { it.verseId == nextId } + next.copy(startMs = end)
+            else -> ready.copy(ranges = ready.ranges.filterNot { it.verseId == nextId } + next.copy(startMs = end))
         }
         autoFilledStarts += nextId
-        updateReady(ready.copy(ranges = chained))
+        updateReady(updated)
     }
 
     // ---- Transport: play the source recording itself, independent of any verse ----
@@ -374,10 +400,13 @@ class SplitViewModel(
         val active = ready.activeBoundary ?: return
         val clamped = positionMs.coerceIn(0L, ready.source.durationMs)
         val existing = ready.ranges.find { it.verseId == active.verseId }
+        // A verse whose Start was auto-filled has one real boundary already; dragging its End
+        // completes that range rather than inventing a second Start somewhere else entirely.
+        val pendingStart = ready.pendingStarts[active.verseId]
 
         val updated = when {
             existing == null && active.isStart -> VerseRange(active.verseId, clamped, minOf(clamped + SEED_RANGE_MS, ready.source.durationMs))
-            existing == null -> VerseRange(active.verseId, maxOf(clamped - SEED_RANGE_MS, 0L), clamped)
+            existing == null -> VerseRange(active.verseId, pendingStart ?: maxOf(clamped - SEED_RANGE_MS, 0L), clamped)
             active.isStart -> existing.copy(startMs = clamped)
             else -> existing.copy(endMs = clamped)
         }
@@ -386,7 +415,13 @@ class SplitViewModel(
         val current = stateValue as? SplitUiState.Ready ?: ready
         if (active.isStart) autoFilledStarts -= active.verseId
         val newRanges = current.ranges.filterNot { it.verseId == active.verseId } + updated
-        updateReady(current.copy(ranges = newRanges, scrubMs = clamped))
+        updateReady(
+            current.copy(
+                ranges = newRanges,
+                pendingStarts = current.pendingStarts - active.verseId,
+                scrubMs = clamped,
+            ),
+        )
     }
 
     /** Drag released — the boundary is already written; this drops the live readout and, for an

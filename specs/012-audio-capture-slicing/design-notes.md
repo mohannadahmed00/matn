@@ -613,3 +613,28 @@ two more controls in an already busy row; `▲`/`▼` in the trailing edge is th
 know from numeric inputs. They are **non-focusable on purpose** — now that focus loss disarms, a
 stepper that took focus would mean nudging a boundary by 50 ms silently stopped it being the one the
 waveform drags.
+
+### Stepper arrows are buttons; auto-fill fills one field
+
+**The arrows read as text, because nothing said otherwise.** They were a `Box` with `clickable`
+inside the field's trailing slot — no hover state, and the text field's own I-beam cursor carried
+straight over them, so the one signal the teacher had said "type here". They now claim a hand
+cursor, tint their background on hover and press, and carry `Role.Button` with an `onClickLabel`.
+Still non-focusable: focus loss disarms the boundary, so a stepper that took focus would mean
+nudging by 50 ms silently stopped that boundary being the one the waveform drags.
+
+**Auto-fill now fills the Start alone.** It was creating a whole `VerseRange` for the next verse,
+seeded `end + 2 s` — so committing one verse's End invented the next verse's End too, put a marker
+and a highlight on the timeline for a range nobody had chosen, and counted it as ranged.
+
+Doing this properly needed a place for a boundary that exists without its partner.
+`SplitUiState.Ready.pendingStarts` is that place, deliberately *not* a half-built `VerseRange`: the
+validator, the slicer and the waveform all take a range to be a thing with two ends, and inventing
+one so the type fits is the same mistake in a different spot. A pending start puts a number in the
+Start field and nothing anywhere else — no marker, no highlight, not counted as ranged — and becomes
+a real range the moment the teacher supplies the End, by typing it or by dragging (`onScrub` reads
+the pending start rather than seeding a second one).
+
+The linkage rule needed one adjustment: `onRangeChanged` compares the incoming start against the
+pending value as well as the stored range, because *accepting* an offered Start by typing the End is
+not the same as overriding it, and the naive comparison unlinked the verse on the spot.

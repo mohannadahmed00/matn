@@ -238,8 +238,36 @@ class SplitViewModelTest {
         vm.onRangeChanged("v1", 0, 1000)
         vm.onEndCommitted("v1")
 
-        val v2 = (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }
-        assertEquals(1000L, v2.startMs)
+        val after = vm.state.value as SplitUiState.Ready
+        assertEquals(1000L, after.pendingStarts["v2"])
+        // The Start only. Guessing an End would be the tool deciding where a verse finishes, and it
+        // would put a marker and a highlight on the timeline for a range nobody has chosen.
+        assertTrue(after.ranges.none { it.verseId == "v2" })
+    }
+
+    /** Typing the End of a verse whose Start was auto-filled turns the pair into a real range, and
+     * accepting the offered Start does not count as overriding it. */
+    @Test
+    fun `setting the End of an auto-filled verse completes its range`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(3))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+        vm.onRangeChanged("v1", 0, 1000)
+        vm.onEndCommitted("v1")
+
+        vm.onRangeChanged("v2", 1000, 2000)
+
+        val after = vm.state.value as SplitUiState.Ready
+        assertEquals(VerseRange("v2", 1000, 2000), after.ranges.first { it.verseId == "v2" })
+        assertTrue("v2" !in after.pendingStarts)
+
+        // Still linked: nudging v1's End moves v2's Start, because the teacher accepted it rather
+        // than replacing it.
+        vm.onRangeChanged("v1", 0, 1100)
+        vm.onEndCommitted("v1")
+        assertEquals(1100L, (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }.startMs)
     }
 
     /**
@@ -260,7 +288,9 @@ class SplitViewModelTest {
         vm.onRangeChanged("v1", 0, 10)
         vm.onRangeChanged("v1", 0, 100)
 
-        assertTrue((vm.state.value as SplitUiState.Ready).ranges.none { it.verseId == "v2" })
+        val after = vm.state.value as SplitUiState.Ready
+        assertTrue(after.ranges.none { it.verseId == "v2" })
+        assertTrue("v2" !in after.pendingStarts)
     }
 
     /** Fine-tuning the same End must carry the next verse with it, or every adjustment opens a gap
@@ -278,7 +308,7 @@ class SplitViewModelTest {
         vm.onRangeChanged("v1", 0, 1200)
         vm.onEndCommitted("v1")
 
-        assertEquals(1200L, (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }.startMs)
+        assertEquals(1200L, (vm.state.value as SplitUiState.Ready).pendingStarts["v2"])
     }
 
     /** …but only while it *is* auto-filled. Once the teacher places that start themselves it is

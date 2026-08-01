@@ -3,6 +3,8 @@ package com.giraffe.matn.teacher.presentation.split
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,15 +37,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -248,6 +255,7 @@ private fun ReadyContent(state: SplitUiState.Ready, intents: SplitIntents) {
                 RangeFieldsRow(
                     verse = verse,
                     range = state.ranges.find { it.verseId == verseId },
+                    pendingStartMs = state.pendingStarts[verseId],
                     isSelected = state.selectedVerseId == verseId,
                     isAuditioning = state.auditioningVerseId == verseId,
                     onSelected = { intents.onVerseSelected(verseId) },
@@ -341,6 +349,8 @@ private fun VersePicker(label: String, verses: List<DraftVerse>, selectedId: Str
 private fun RangeFieldsRow(
     verse: DraftVerse,
     range: VerseRange?,
+    /** A Start placed by auto-fill whose End is still the teacher's to set. */
+    pendingStartMs: Long?,
     isSelected: Boolean,
     isAuditioning: Boolean,
     onSelected: () -> Unit,
@@ -354,14 +364,14 @@ private fun RangeFieldsRow(
     val strings = LocalTeacherStrings.current
     // Keyed by verse, not by the range's values: keying on the values meant clearing one field
     // dropped the range, which reset *both* keys and wiped the other field's text along with it.
-    var startText by remember(verse.id) { mutableStateOf(range?.startMs?.toString() ?: "") }
+    var startText by remember(verse.id) { mutableStateOf((range?.startMs ?: pendingStartMs)?.toString() ?: "") }
     var endText by remember(verse.id) { mutableStateOf(range?.endMs?.toString() ?: "") }
 
     // Changes that came from somewhere else — a waveform drag, or the previous verse's End
     // chaining into this Start — are pushed into the text. A cleared range deliberately does not
     // write back, so emptying a field leaves it empty instead of the text springing back.
-    LaunchedEffect(range?.startMs) {
-        range?.startMs?.let { if (it.toString() != startText) startText = it.toString() }
+    LaunchedEffect(range?.startMs, pendingStartMs) {
+        (range?.startMs ?: pendingStartMs)?.let { if (it.toString() != startText) startText = it.toString() }
     }
     LaunchedEffect(range?.endMs) {
         range?.endMs?.let { if (it.toString() != endText) endText = it.toString() }
@@ -516,21 +526,42 @@ private fun Stepper(onNudge: (Long) -> Unit) {
 @Composable
 private fun StepperArrow(glyph: String, delta: Long, onNudge: (Long) -> Unit) {
     val strings = LocalTeacherStrings.current
+    val interactions = remember { MutableInteractionSource() }
+    val hovered by interactions.collectIsHoveredAsState()
+    val pressed by interactions.collectIsPressedAsState()
+
+    // Sitting inside a text field, an arrow has to say "button" on its own: the field's own hover
+    // state paints the whole control, and the caret cursor it sets carries over the arrows unless
+    // they claim their own. A hand cursor plus a background that answers the pointer is what tells
+    // the teacher this is pressed, not typed into.
+    val background = when {
+        pressed -> MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+        hovered -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        else -> Color.Transparent
+    }
     Box(
         modifier = Modifier
             .size(width = STEPPER_WIDTH, height = STEPPER_ARROW_HEIGHT)
+            .clip(MatnShapes.lg)
+            .background(background)
+            .pointerHoverIcon(PointerIcon.Hand)
+            // A stepper that took focus would release the text field, and releasing the field
+            // disarms the boundary — so nudging would silently stop it being the draggable one.
             .focusProperties { canFocus = false }
-            .clickable { onNudge(delta) }
-            .semantics {
-                contentDescription = (if (delta < 0) strings.nudgeEarlier else strings.nudgeLater)
-                    .replace("%d", NUDGE_STEP_MS.toString())
-            },
+            .clickable(
+                interactionSource = interactions,
+                indication = null,
+                role = Role.Button,
+                onClickLabel = (if (delta < 0) strings.nudgeEarlier else strings.nudgeLater)
+                    .replace("%d", NUDGE_STEP_MS.toString()),
+                onClick = { onNudge(delta) },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = glyph,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (hovered || pressed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
