@@ -125,7 +125,7 @@ private fun VerseAudioSlot(
             is VerseAudioUiState.Loaded -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onPlay, modifier = Modifier.semantics { contentDescription = strings.playRecording }) {
-                        Text(if (audioState.isPlaying) "⏸" else "▶")
+                        Text(if (audioState.isPlaying) GLYPH_PAUSE else GLYPH_PLAY)
                     }
                     Text(formatDurationMs(audioState.durationMs), style = MaterialTheme.typography.labelSmall)
                 }

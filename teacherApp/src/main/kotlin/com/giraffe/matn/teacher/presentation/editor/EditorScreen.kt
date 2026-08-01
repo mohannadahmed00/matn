@@ -33,6 +33,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.giraffe.matn.domain.audio.PreviewState
+import com.giraffe.matn.domain.catalog.AudioCompleteness
 import com.giraffe.matn.domain.catalog.DraftChapter
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.MatnDraftFactory
@@ -44,6 +46,8 @@ import com.giraffe.matn.teacher.di.TeacherKoinHolder
 import com.giraffe.matn.teacher.platform.AudioPickResult
 import com.giraffe.matn.teacher.platform.ImagePickResult
 import com.giraffe.matn.teacher.platform.JvmFileChooser
+import com.giraffe.matn.teacher.presentation.common.GLYPH_PLAY
+import com.giraffe.matn.teacher.presentation.common.GLYPH_STOP
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.common.SaveStateIndicator
 import com.giraffe.matn.teacher.presentation.common.TeacherTextField
@@ -190,8 +194,12 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                         onBulkImport = intents.onImportRequested,
                         onClearAll = intents.onRequestClearAllVerses,
                         onSplitFromRecording = intents.onOpenSplit,
+                        onPreviewMatn = intents.onPreviewMatn,
+                        onStopPreview = intents.onPreviewStop,
                         clearAllEnabled = draft.verses.isNotEmpty(),
                         splitEnabled = draft.verses.isNotEmpty(),
+                        previewEnabled = draft.audioCompleteness != AudioCompleteness.NONE,
+                        previewState = state.previewState,
                     )
                 }
 
@@ -245,17 +253,6 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
                 }
             }
 
-            if (draft.audioCompleteness != com.giraffe.matn.domain.catalog.AudioCompleteness.NONE) {
-                com.giraffe.matn.teacher.presentation.preview.PreviewBar(
-                    state = state.previewState,
-                    onPlayFromStart = intents.onPreviewMatn,
-                    onPause = intents.onPreviewPause,
-                    onResume = intents.onPreviewResume,
-                    onStop = intents.onPreviewStop,
-                    modifier = Modifier.padding(top = MatnSpacing.unit),
-                )
-            }
-
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit * 2),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -306,8 +303,12 @@ private fun VerseListHeader(
     onBulkImport: () -> Unit,
     onClearAll: () -> Unit,
     onSplitFromRecording: () -> Unit,
+    onPreviewMatn: () -> Unit,
+    onStopPreview: () -> Unit,
     clearAllEnabled: Boolean,
     splitEnabled: Boolean,
+    previewEnabled: Boolean,
+    previewState: PreviewState,
 ) {
     val strings = LocalTeacherStrings.current
     Row(
@@ -317,10 +318,45 @@ private fun VerseListHeader(
     ) {
         Text(strings.verseListHeading, style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
+            // One toggle rather than the pinned transport bar this replaced: that bar occupied a
+            // permanent strip above the action row to expose controls the per-verse play buttons
+            // already cover, and the only thing it added that a single button cannot is a pause —
+            // which for a whole-matn playthrough is worth less than the space it cost.
+            PreviewMatnButton(previewState, previewEnabled, onPreviewMatn, onStopPreview)
             TextButton(onClick = onBulkImport) { Text(strings.bulkImport) }
             TextButton(onClick = onSplitFromRecording, enabled = splitEnabled) { Text(strings.splitFromRecording) }
             TextButton(onClick = onClearAll, enabled = clearAllEnabled) { Text(strings.clearAllVerses) }
             TextButton(onClick = onAddVerse) { Text(strings.addVerse) }
+        }
+    }
+}
+
+/** Starts a whole-matn playthrough, and becomes its stop control while one is running — so there is
+ * always a way out of a preview without a bar dedicated to holding one. */
+@Composable
+private fun PreviewMatnButton(
+    previewState: PreviewState,
+    enabled: Boolean,
+    onPreviewMatn: () -> Unit,
+    onStopPreview: () -> Unit,
+) {
+    val strings = LocalTeacherStrings.current
+    when (previewState) {
+        is PreviewState.Playing -> TextButton(onClick = onStopPreview) {
+            Text("$GLYPH_STOP ${strings.previewPlaying.replace("%s", previewState.verseNumber.toString())}")
+        }
+        is PreviewState.Paused -> TextButton(onClick = onStopPreview) {
+            Text("$GLYPH_STOP ${strings.previewPaused.replace("%s", previewState.verseNumber.toString())}")
+        }
+        is PreviewState.Buffering -> TextButton(onClick = onStopPreview) { Text(strings.previewBuffering) }
+        is PreviewState.MissingAudio -> TextButton(onClick = onStopPreview) {
+            Text(
+                text = strings.previewMissingAudio.replace("%s", previewState.verseNumber.toString()),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        is PreviewState.Idle -> TextButton(onClick = onPreviewMatn, enabled = enabled) {
+            Text("$GLYPH_PLAY ${strings.previewMatn}")
         }
     }
 }

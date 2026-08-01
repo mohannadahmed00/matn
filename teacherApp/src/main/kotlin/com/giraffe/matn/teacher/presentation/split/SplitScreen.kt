@@ -5,10 +5,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -55,6 +57,8 @@ import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.teacher.di.TeacherKoinHolder
 import com.giraffe.matn.teacher.platform.AudioPickResult
 import com.giraffe.matn.teacher.platform.JvmFileChooser
+import com.giraffe.matn.teacher.presentation.common.GLYPH_PLAY
+import com.giraffe.matn.teacher.presentation.common.GLYPH_STOP
 import com.giraffe.matn.teacher.presentation.common.PreviewScaffold
 import com.giraffe.matn.teacher.presentation.strings.LocalTeacherStrings
 import com.giraffe.matn.teacher.presentation.strings.TeacherLanguage
@@ -238,10 +242,13 @@ private fun TransportRow(state: SplitUiState.Ready, intents: SplitIntents, displ
         horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit),
     ) {
         TextButton(onClick = intents.onTogglePlaySource) {
-            Text(if (state.isPlayingSource) "◼ ${strings.pauseSource}" else "▶ ${strings.playSource}")
+            Text(if (state.isPlayingSource) "$GLYPH_STOP ${strings.pauseSource}" else "$GLYPH_PLAY ${strings.playSource}")
         }
+        // The playhead's own readout is copyable for the same reason the on-waveform labels are:
+        // it is usually the number the teacher wants in a Start or End field.
+        CopyableTimestamp(ms = state.playheadMs, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
-            text = formatTimestamp(state.playheadMs) + " / " + formatTimestamp(state.source.durationMs),
+            text = "/ " + formatTimestamp(state.source.durationMs),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -339,29 +346,37 @@ private fun RangeFieldsRow(
 
         // Focusing a field arms it for waveform dragging (FR-014): tap Start, drag the waveform,
         // release. Typing still works — the two paths write the same range.
-        OutlinedTextField(
+        BoundaryField(
             value = startText,
+            label = strings.rangeStart,
             onValueChange = { value ->
                 startText = value
                 value.toLongOrNull()?.let { onChanged(it, endText.toLongOrNull() ?: (it + 1000)) }
             },
-            label = { Text(strings.rangeStart) },
-            singleLine = true,
-            modifier = Modifier
-                .weight(1f)
-                .onFocusChanged { if (it.isFocused) onArmBoundary(true) },
+            onNudge = { delta ->
+                val current = startText.toLongOrNull() ?: 0L
+                val moved = (current + delta).coerceAtLeast(0L)
+                startText = moved.toString()
+                onChanged(moved, endText.toLongOrNull() ?: (moved + 1000))
+            },
+            onFocused = { onArmBoundary(true) },
+            modifier = Modifier.weight(1f),
         )
-        OutlinedTextField(
+        BoundaryField(
             value = endText,
+            label = strings.rangeEnd,
             onValueChange = { value ->
                 endText = value
                 value.toLongOrNull()?.let { onChanged(startText.toLongOrNull() ?: 0L, it) }
             },
-            label = { Text(strings.rangeEnd) },
-            singleLine = true,
-            modifier = Modifier
-                .weight(1f)
-                .onFocusChanged { if (it.isFocused) onArmBoundary(false) },
+            onNudge = { delta ->
+                val current = endText.toLongOrNull() ?: 0L
+                val moved = (current + delta).coerceAtLeast(0L)
+                endText = moved.toString()
+                onChanged(startText.toLongOrNull() ?: 0L, moved)
+            },
+            onFocused = { onArmBoundary(false) },
+            modifier = Modifier.weight(1f),
         )
         // Auditions the slice this range would actually produce (FR-014), and stops it on a second
         // press — disabled until the verse has a range at all, since there is nothing to cut yet.
@@ -372,8 +387,59 @@ private fun RangeFieldsRow(
                 contentDescription = if (isAuditioning) strings.stopAudition else strings.auditionRange
             },
         ) {
-            Text(if (isAuditioning) "◼ ${strings.stopAudition}" else "▶")
+            Text(if (isAuditioning) "$GLYPH_STOP ${strings.stopAudition}" else GLYPH_PLAY)
         }
+    }
+}
+
+/**
+ * One boundary field with nudge controls either side.
+ *
+ * Dragging places a boundary to within a few pixels, which at a typical zoom is tens of
+ * milliseconds — close, but the last stretch is exactly where a boundary matters, and chasing it
+ * with the pointer means overshooting in both directions. [NUDGE_STEP_MS] per press is small enough
+ * to converge and large enough to be audible.
+ *
+ * Pressing a nudge does not steal focus from the field, so the boundary stays armed for dragging.
+ */
+@Composable
+private fun BoundaryField(
+    value: String,
+    label: String,
+    onValueChange: (String) -> Unit,
+    onNudge: (Long) -> Unit,
+    onFocused: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        NudgeButton(text = "−", delta = -NUDGE_STEP_MS, onNudge = onNudge)
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            singleLine = true,
+            modifier = Modifier
+                .weight(1f)
+                .onFocusChanged { if (it.isFocused) onFocused() },
+        )
+        NudgeButton(text = "+", delta = NUDGE_STEP_MS, onNudge = onNudge)
+    }
+}
+
+@Composable
+private fun NudgeButton(text: String, delta: Long, onNudge: (Long) -> Unit) {
+    val strings = LocalTeacherStrings.current
+    TextButton(
+        onClick = { onNudge(delta) },
+        contentPadding = PaddingValues(horizontal = MatnSpacing.unit / 2),
+        modifier = Modifier
+            .widthIn(min = MatnSpacing.unit * 4)
+            .semantics {
+                contentDescription = (if (delta < 0) strings.nudgeEarlier else strings.nudgeLater)
+                    .replace("%d", NUDGE_STEP_MS.toString())
+            },
+    ) {
+        Text(text, style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -442,6 +508,10 @@ private fun ProgressAndProblems(state: SplitUiState.Ready, displayNumberOf: (Str
 }
 
 private const val MAX_VISIBLE_PROBLEMS = 4
+
+/** One press of a nudge control. Comfortably under the validator's 300 ms minimum range, so nudging
+ * cannot walk a boundary through a valid range in a single press. */
+private const val NUDGE_STEP_MS = 50L
 
 /** [draft] is the matn being split; [onSplitComplete] receives the updated draft with the new
  * per-verse audio, and [onCancel] returns to the editor unchanged. */

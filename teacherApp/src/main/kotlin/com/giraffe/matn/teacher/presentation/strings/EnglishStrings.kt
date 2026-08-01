@@ -130,6 +130,8 @@ object EnglishStrings : TeacherStrings {
     override val scopeLastVerse = "Last verse"
     override val rangeStart = "Start (ms)"
     override val rangeEnd = "End (ms)"
+    override val nudgeEarlier = "%d ms earlier"
+    override val nudgeLater = "%d ms later"
     override val splitAndUpload = "Split and upload"
     override val splitSourceHint = "Pick one MP3 recording covering several verses — up to 300 MB and 4 hours."
     override val splitLoadingSource = "Analysing the recording… this can take a minute for a long one."

@@ -129,6 +129,8 @@ object ArabicStrings : TeacherStrings {
     override val scopeLastVerse = "آخر بيت"
     override val rangeStart = "البداية (مل ث)"
     override val rangeEnd = "النهاية (مل ث)"
+    override val nudgeEarlier = "أبكر بـ %d مل ث"
+    override val nudgeLater = "أأخر بـ %d مل ث"
     override val splitAndUpload = "تقسيم ورفع"
     override val splitSourceHint = "اختر تسجيلًا واحدًا بصيغة MP3 يغطي عدة أبيات — حتى 300 ميغابايت و4 ساعات."
     override val splitLoadingSource = "جارٍ تحليل التسجيل… قد يستغرق هذا دقيقة للتسجيلات الطويلة."

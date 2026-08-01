@@ -1,6 +1,7 @@
 package com.giraffe.matn.teacher.presentation.split
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,16 +13,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.LayoutDirection
 import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 /**
@@ -183,9 +192,8 @@ private fun TimestampLabel(
     // instead of after it. `LABEL_WIDTH` is an estimate for the widest `m:ss.mmm` — measuring the
     // text to place it exactly is not worth a layout pass for a hint that moves every frame.
     val placed = if (xDp + LABEL_WIDTH > with(density) { widthPx.toDp() }) xDp - LABEL_WIDTH else xDp + MatnSpacing.unit / 2
-    Text(
-        text = formatTimestamp(ms),
-        style = MaterialTheme.typography.labelSmall,
+    CopyableTimestamp(
+        ms = ms,
         color = foreground,
         modifier = modifier
             .offset(x = placed.coerceAtLeast(MatnSpacing.unit / 2))
@@ -193,6 +201,45 @@ private fun TimestampLabel(
             .padding(horizontal = MatnSpacing.unit / 2),
     )
 }
+
+/**
+ * A timestamp that reads as `m:ss.mmm` but hands over its **raw millisecond count** when clicked —
+ * because that is the unit the Start/End fields take, and transcribing `1:07.480` into `67480` by
+ * hand for every boundary is both tedious and easy to get wrong.
+ *
+ * Shows what it copied for a moment afterwards, so the click has a visible result and the teacher
+ * can see the exact number now sitting on the clipboard.
+ */
+@Composable
+internal fun CopyableTimestamp(
+    ms: Long,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    val clipboard = LocalClipboardManager.current
+    // A tick rather than a boolean: clicking again while the confirmation is still up must restart
+    // the window, and a boolean that is already `true` would not re-launch the effect.
+    var copies by remember { mutableIntStateOf(0) }
+    var showingCopied by remember { mutableStateOf(false) }
+    LaunchedEffect(copies) {
+        if (copies == 0) return@LaunchedEffect
+        showingCopied = true
+        delay(COPIED_FEEDBACK_MS)
+        showingCopied = false
+    }
+    Text(
+        text = if (showingCopied) "$ms ✓" else formatTimestamp(ms),
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        modifier = modifier.clickable {
+            clipboard.setText(AnnotatedString(ms.toString()))
+            copies++
+        },
+    )
+}
+
+/** How long a copied timestamp shows its millisecond value before returning to `m:ss.mmm`. */
+private const val COPIED_FEEDBACK_MS = 1_400L
 
 /** `m:ss.mmm` — milliseconds shown because the range fields are in milliseconds, so the readout and
  * the field the teacher is filling speak the same units. */

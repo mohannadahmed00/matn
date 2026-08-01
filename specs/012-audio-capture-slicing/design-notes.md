@@ -514,3 +514,40 @@ Two smaller things fixed in passing:
 - **A failed open was swallowed.** `is Resource.Failure -> Unit` meant a load error left the teacher
   on the library with no navigation and no message — indistinguishable from a dead button. It now
   reports itself above the list.
+
+### Timestamp-editing ergonomics (teacher feedback pass)
+
+Four changes from watching the tool actually being used to segment a matn.
+
+**The pause glyph ignored the theme.** `⏸` (U+23F8) carries `Emoji_Presentation=Yes`, so the font
+stack substituted a colour emoji — a blue box next to a correctly themed white play triangle. The
+triangle looked right because `▶` (U+25B6) is emoji-*capable* but defaults to text presentation. The
+distinction is the property, not the block, so the glyphs now live in `TransportGlyphs.kt` with that
+rule written down rather than being rediscovered the next time one is picked.
+
+**The whole-matn preview bar is gone.** It held a permanent strip above the action row to expose
+controls the per-verse play buttons already covered; the only thing it added was a pause, which for
+a full playthrough is worth less than the space. `Preview matn` now sits in the verse-list toolbar
+alongside `Bulk import`, and becomes the stop control while a preview runs — so there is still a way
+out of one without a bar dedicated to holding it. `PreviewBar.kt` is deleted rather than left
+orphaned.
+
+**Timestamps copy milliseconds.** The labels read `m:ss.mmm` because that is what a human judges a
+position by, but the Start/End fields take a raw millisecond count — so every boundary meant
+transcribing `1:07.480` into `67480` by hand. Clicking any timestamp (either waveform label, or the
+transport readout) now puts the millisecond value on the clipboard and shows it for a moment, so the
+click has a visible result *and* confirms the exact number that was copied.
+
+**Nudge controls, and chained starts.** Dragging lands a boundary within a few pixels — tens of
+milliseconds at a typical zoom — and the last stretch is exactly where a boundary matters. `−`/`+`
+either side of each field move it by `NUDGE_STEP_MS` (50 ms, comfortably under the validator's
+300 ms minimum, so one press cannot walk a valid range into an invalid one) without stealing focus,
+so the boundary stays armed for dragging.
+
+Setting a verse's End also places the next verse's Start there, since consecutive verses in one
+recording abut. Two rules keep that a convenience rather than a constraint: a next verse with no
+range yet gets one seeded exactly as a first drag would, and a next verse that already has one only
+follows *while its start still sits on this verse's old end*. The moment the teacher moves that
+start themselves it is theirs. It also declines when following would invert the next range — a
+convenience feature must not manufacture a blocking error. Typing and dragging share the rule,
+because they write the same range.

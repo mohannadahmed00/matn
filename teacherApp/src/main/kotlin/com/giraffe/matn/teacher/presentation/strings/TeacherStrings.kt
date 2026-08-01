@@ -157,6 +157,8 @@ interface TeacherStrings {
     val scopeLastVerse: String
     val rangeStart: String
     val rangeEnd: String
+    val nudgeEarlier: String
+    val nudgeLater: String
     val splitAndUpload: String
     /** The empty state's up-front statement of accepted format and limits (FR-004). Deliberately
      * separate from [sourceTooLong]/[sourceTooLarge], which are *rejection* messages — showing

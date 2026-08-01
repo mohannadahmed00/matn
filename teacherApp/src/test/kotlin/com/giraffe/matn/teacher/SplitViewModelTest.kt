@@ -223,6 +223,56 @@ class SplitViewModelTest {
         assertEquals(null, (vm.state.value as SplitUiState.Ready).uploadError)
     }
 
+    /** Consecutive verses in one recording abut, so the teacher asked not to type the same number
+     * twice. Setting an End seeds the next verse's range starting exactly there. */
+    @Test
+    fun `setting a verse End seeds the next verse's Start at the same instant`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(3))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+
+        vm.onRangeChanged("v1", 0, 1000)
+
+        val v2 = (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }
+        assertEquals(1000L, v2.startMs)
+    }
+
+    /** Fine-tuning the same End must carry the next verse with it, or every adjustment opens a gap
+     * the teacher has to close by hand. */
+    @Test
+    fun `adjusting an End again moves the next Start that is still linked to it`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(3))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+        vm.onRangeChanged("v1", 0, 1000)
+
+        vm.onRangeChanged("v1", 0, 1200)
+
+        assertEquals(1200L, (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }.startMs)
+    }
+
+    /** …but only while it *is* linked. Once the teacher places that start themselves it is theirs,
+     * and a convenience feature may not overwrite a deliberate decision. */
+    @Test
+    fun `a next Start the teacher moved is left alone`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(3))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+        vm.onRangeChanged("v1", 0, 1000)
+        // The teacher skips a breath: v2 now starts later than v1 ends, on purpose.
+        vm.onRangeChanged("v2", 1500, 2500)
+
+        vm.onRangeChanged("v1", 0, 1100)
+
+        assertEquals(1500L, (vm.state.value as SplitUiState.Ready).ranges.first { it.verseId == "v2" }.startMs)
+    }
+
     @Test
     fun `scrubbing an armed End boundary moves it and reports the live position`() = runTest {
         setUpMain()

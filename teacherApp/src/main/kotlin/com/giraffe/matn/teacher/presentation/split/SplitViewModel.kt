@@ -219,8 +219,40 @@ class SplitViewModel(
         // Editing the range being auditioned invalidates what is playing — keeping it running would
         // have the teacher judging a new boundary against the old clip.
         if (ready.auditioningVerseId == verseId) stopAudition()
-        val newRanges = ready.ranges.filterNot { it.verseId == verseId } + VerseRange(verseId, startMs, endMs)
-        updateReady((stateValue as? SplitUiState.Ready ?: ready).copy(ranges = newRanges))
+        val current = stateValue as? SplitUiState.Ready ?: ready
+        val previousEnd = current.ranges.find { it.verseId == verseId }?.endMs
+        val edited = current.ranges.filterNot { it.verseId == verseId } + VerseRange(verseId, startMs, endMs)
+        updateReady(current.copy(ranges = chainNextStart(current, edited, verseId, previousEnd, endMs)))
+    }
+
+    /**
+     * Places the next verse's start where this verse's end just landed (the teacher's request:
+     * consecutive verses in one recording abut, so typing the same number twice is pure friction).
+     *
+     * Convenience, never a constraint — two rules keep it from fighting the teacher:
+     *  - a next verse with **no range yet** gets one, seeded exactly as a first drag would;
+     *  - a next verse that **already has** a range only follows while its start still sits on this
+     *    verse's *old* end. The moment the teacher moves that start themselves it is theirs, and
+     *    later edits here leave it alone.
+     *
+     * It also declines to act when following would invert the next range — a convenience feature
+     * must not manufacture a blocking error.
+     */
+    private fun chainNextStart(
+        ready: SplitUiState.Ready,
+        ranges: List<VerseRange>,
+        verseId: String,
+        previousEndMs: Long?,
+        newEndMs: Long,
+    ): List<VerseRange> {
+        val index = ready.scopeVerseIds.indexOf(verseId)
+        if (index < 0 || index == ready.scopeVerseIds.lastIndex) return ranges
+        val nextId = ready.scopeVerseIds[index + 1]
+        val next = ranges.find { it.verseId == nextId }
+            ?: return ranges + VerseRange(nextId, newEndMs, minOf(newEndMs + SEED_RANGE_MS, ready.source.durationMs))
+        if (previousEndMs == null || next.startMs != previousEndMs) return ranges
+        if (newEndMs >= next.endMs) return ranges
+        return ranges.filterNot { it.verseId == nextId } + next.copy(startMs = newEndMs)
     }
 
     // ---- Transport: play the source recording itself, independent of any verse ----
@@ -310,7 +342,14 @@ class SplitViewModel(
         if (ready.auditioningVerseId == active.verseId) stopAudition()
         val current = stateValue as? SplitUiState.Ready ?: ready
         val newRanges = current.ranges.filterNot { it.verseId == active.verseId } + updated
-        updateReady(current.copy(ranges = newRanges, scrubMs = clamped))
+        // Dragging an End chains onto the next verse exactly as typing one does — the two paths
+        // write the same range, so they must also carry the same convenience.
+        val chained = if (active.isStart) {
+            newRanges
+        } else {
+            chainNextStart(current, newRanges, active.verseId, existing?.endMs, updated.endMs)
+        }
+        updateReady(current.copy(ranges = chained, scrubMs = clamped))
     }
 
     /** Drag released — the boundary is already written; this only drops the live readout. */
