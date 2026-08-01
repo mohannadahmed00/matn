@@ -43,6 +43,16 @@ data class DraftChapter(
     val id: String,
     val title: String,
     val order: Int,
+    /**
+     * The [DraftVerse.displayNumber] this chapter opens with, or `null` while the teacher has not
+     * said. Every verse from here up to the next chapter's start belongs to this one — which is how
+     * [ChapterAssignment] turns a handful of numbers into every verse's [DraftVerse.chapterId].
+     *
+     * Stored rather than derived from the assignment it produces: a chapter whose first verse has
+     * not been written yet has nowhere to derive from, and losing the number the moment it is typed
+     * is worse than keeping a field.
+     */
+    val startVerseNumber: Int? = null,
 )
 
 data class DraftVerse(

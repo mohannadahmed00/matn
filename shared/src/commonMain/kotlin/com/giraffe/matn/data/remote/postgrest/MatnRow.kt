@@ -54,6 +54,9 @@ data class ChapterRow(
     val id: String,
     val title: String = "",
     val order: Int = 0,
+    /** Absent on rows written before chapter starts existed, which decode to `null` — exactly the
+     * "not said" the domain uses, so those matns keep whatever assignment they already had. */
+    val startVerseNumber: Int? = null,
 )
 
 @Serializable
@@ -127,6 +130,7 @@ fun MatnDraft.toRowJson(): JsonObject = buildJsonObject {
                         put("id", chapter.id)
                         put("title", chapter.title)
                         put("order", chapter.order)
+                        put("startVerseNumber", chapter.startVerseNumber?.let { JsonPrimitive(it) } ?: JsonNull)
                     },
                 )
             }
@@ -172,7 +176,9 @@ fun MatnRow.toMatnDraft(): MatnDraft = MatnDraft(
     coverImageRef = coverImageRef,
     structureKind = StructureKind.fromStorageOrNull(structureKind) ?: StructureKind.SIMPLE,
     defaultReciterId = defaultReciterId,
-    chapters = chapters.map { DraftChapter(id = it.id, title = it.title, order = it.order) },
+    chapters = chapters.map {
+        DraftChapter(id = it.id, title = it.title, order = it.order, startVerseNumber = it.startVerseNumber)
+    },
     verses = verses.map {
         DraftVerse(
             id = it.id,

@@ -5,6 +5,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.audio.PreviewPlayer
 import com.giraffe.matn.domain.audio.PreviewState
 import com.giraffe.matn.domain.audio.PreviewVerse
+import com.giraffe.matn.domain.catalog.ChapterAssignment
 import com.giraffe.matn.domain.catalog.DraftAutosaveScheduler
 import com.giraffe.matn.domain.catalog.ImportPreview
 import com.giraffe.matn.domain.catalog.MatnDraft
@@ -137,7 +138,10 @@ class EditorViewModel(
         // FR-026: any content edit stops preview cleanly — a stale queue built before the edit
         // would otherwise keep playing bytes for a verse that no longer matches what's on screen.
         previewPlayer.stop()
-        setState { it.copy(draft = reduce(it.draft), missingTitle = false, missingAuthor = false) }
+        // Chapter membership is recomputed here rather than at each call site, because it can go
+        // stale from either side: editing a chapter's start, and adding, removing or reordering
+        // verses. One place means the two can never drift.
+        setState { it.copy(draft = ChapterAssignment.apply(reduce(it.draft)), missingTitle = false, missingAuthor = false) }
         autosaveScheduler.notifyChanged(stateValue.draft)
     }
 
@@ -163,6 +167,17 @@ class EditorViewModel(
 
     fun onEditChapterTitle(chapterId: String, title: String) = mutateDraft { draft ->
         draft.copy(chapters = draft.chapters.map { chapter -> if (chapter.id == chapterId) chapter.copy(title = title) else chapter })
+    }
+
+    /** Where this chapter opens. `null` means the teacher has cleared the field — the chapter owns
+     * nothing until they say where it starts, rather than defaulting to somewhere they did not
+     * choose. [ChapterAssignment] does the rest via [mutateDraft]. */
+    fun onEditChapterStart(chapterId: String, startVerseNumber: Int?) = mutateDraft { draft ->
+        draft.copy(
+            chapters = draft.chapters.map { chapter ->
+                if (chapter.id == chapterId) chapter.copy(startVerseNumber = startVerseNumber) else chapter
+            },
+        )
     }
 
     /** Orphaned verses are reassigned to no chapter rather than deleted (FR-022). */

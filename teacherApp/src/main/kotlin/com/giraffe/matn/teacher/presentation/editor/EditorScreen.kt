@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -37,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -81,6 +83,7 @@ data class EditorIntents(
     val onRemoveCover: () -> Unit,
     val onAddChapter: (String) -> Unit,
     val onEditChapterTitle: (String, String) -> Unit,
+    val onEditChapterStart: (String, Int?) -> Unit,
     val onDeleteChapter: (String) -> Unit,
     val onAddVerse: () -> Unit,
     val onVerseTextChange: (String, String) -> Unit,
@@ -198,7 +201,13 @@ fun EditorContent(state: EditorUiState, intents: EditorIntents, modifier: Modifi
 
                 if (draft.structureKind == StructureKind.STRUCTURED) {
                     item {
-                        ChaptersSection(draft.chapters, intents.onAddChapter, intents.onEditChapterTitle, intents.onDeleteChapter)
+                        ChaptersSection(
+                            chapters = draft.chapters,
+                            onAddChapter = intents.onAddChapter,
+                            onEditChapterTitle = intents.onEditChapterTitle,
+                            onEditChapterStart = intents.onEditChapterStart,
+                            onDeleteChapter = intents.onDeleteChapter,
+                        )
                     }
                 }
 
@@ -480,6 +489,7 @@ private fun ChaptersSection(
     chapters: List<DraftChapter>,
     onAddChapter: (String) -> Unit,
     onEditChapterTitle: (String, String) -> Unit,
+    onEditChapterStart: (String, Int?) -> Unit,
     onDeleteChapter: (String) -> Unit,
 ) {
     val strings = LocalTeacherStrings.current
@@ -496,14 +506,42 @@ private fun ChaptersSection(
                 TeacherTextField(
                     value = chapter.title,
                     onValueChange = { onEditChapterTitle(chapter.id, it) },
-                    label = strings.chaptersHeading,
+                    label = strings.chapterTitleLabel,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = { onDeleteChapter(chapter.id) }) { Text(strings.deleteVerse) }
+                ChapterStartField(
+                    startVerseNumber = chapter.startVerseNumber,
+                    onChanged = { onEditChapterStart(chapter.id, it) },
+                )
+                TextButton(onClick = { onDeleteChapter(chapter.id) }) { Text(strings.deleteChapter) }
             }
         }
         TextButton(onClick = { onAddChapter("") }) { Text(strings.addChapter) }
     }
+}
+
+/**
+ * Where a chapter opens, entered as a verse number.
+ *
+ * The field owns its text so a half-typed number survives: `"1"` on the way to `"15"` is a valid
+ * `Int`, and echoing the assignment it triggers back into the field would fight the second
+ * keystroke. Emptying it clears the start, which is a real state — a chapter owns nothing until the
+ * teacher says where it begins.
+ */
+@Composable
+private fun ChapterStartField(startVerseNumber: Int?, onChanged: (Int?) -> Unit) {
+    val strings = LocalTeacherStrings.current
+    var text by remember(startVerseNumber) { mutableStateOf(startVerseNumber?.toString() ?: "") }
+    TeacherTextField(
+        value = text,
+        onValueChange = { value ->
+            val digits = value.filter { it.isDigit() }
+            text = digits
+            onChanged(digits.toIntOrNull()?.takeIf { it > 0 })
+        },
+        label = strings.chapterStartsAtVerse,
+        modifier = Modifier.width(MatnSpacing.unit * 18),
+    )
 }
 
 /** [initialDraft] is a fresh [MatnDraftFactory.newDraft] for "create new"; the Library flow
@@ -577,6 +615,7 @@ fun EditorScreen(
             onRemoveCover = viewModel::onRemoveCover,
             onAddChapter = viewModel::onAddChapter,
             onEditChapterTitle = viewModel::onEditChapterTitle,
+            onEditChapterStart = viewModel::onEditChapterStart,
             onDeleteChapter = viewModel::onDeleteChapter,
             onAddVerse = viewModel::onAddVerse,
             onVerseTextChange = viewModel::onVerseTextChange,
@@ -647,6 +686,7 @@ private fun previewDraft(structureKind: StructureKind = StructureKind.SIMPLE) = 
 private val noOpIntents = EditorIntents(
     onTitleChange = {}, onAuthorChange = {}, onDescriptionChange = {}, onStructureKindChange = {},
     onPickCover = {}, onRemoveCover = {}, onAddChapter = {}, onEditChapterTitle = { _, _ -> },
+    onEditChapterStart = { _, _ -> },
     onDeleteChapter = {}, onAddVerse = {}, onVerseTextChange = { _, _ -> }, onDeleteVerse = {},
     onMoveVerse = { _, _ -> }, onAttachVerseAudio = {}, onPlayVerseAudio = {}, onRemoveVerseAudio = {},
     onSaveDraft = {}, onCheckForProblems = {}, onRequestPublish = {},

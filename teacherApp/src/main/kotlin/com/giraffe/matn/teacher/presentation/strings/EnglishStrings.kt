@@ -54,6 +54,9 @@ object EnglishStrings : TeacherStrings {
     override val structureKindSimple = "Simple"
     override val structureKindStructured = "Structured (with chapters)"
     override val chaptersHeading = "Chapters"
+    override val chapterTitleLabel = "Chapter title"
+    override val chapterStartsAtVerse = "Starts at verse"
+    override val deleteChapter = "Delete chapter"
     override val addChapter = "Add Chapter"
 
     override val verseListHeading = "Verse List"

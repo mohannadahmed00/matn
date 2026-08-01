@@ -72,6 +72,9 @@ interface TeacherStrings {
     val structureKindSimple: String
     val structureKindStructured: String
     val chaptersHeading: String
+    val chapterTitleLabel: String
+    val chapterStartsAtVerse: String
+    val deleteChapter: String
     val addChapter: String
 
     // Editor — verses (US3)

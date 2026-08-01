@@ -53,6 +53,9 @@ object ArabicStrings : TeacherStrings {
     override val structureKindSimple = "بسيطة"
     override val structureKindStructured = "منظمة (بفصول)"
     override val chaptersHeading = "الفصول"
+    override val chapterTitleLabel = "عنوان الفصل"
+    override val chapterStartsAtVerse = "يبدأ عند البيت"
+    override val deleteChapter = "حذف الفصل"
     override val addChapter = "إضافة فصل"
 
     override val verseListHeading = "قائمة الأبيات"

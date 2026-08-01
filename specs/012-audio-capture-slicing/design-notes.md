@@ -705,3 +705,36 @@ is the same one the phase has been guarding against throughout: work vanishing f
 Worth revisiting if it grates: Save as draft is also how a teacher checkpoints mid-edit, and being
 ejected to a blank form then is a plausible annoyance. Restricting the reset to Publish alone is a
 one-line change if that turns out to be the way it is used.
+
+### Chapters: wrong labels, and no way to fill them
+
+The chapters card reused `deleteVerse` for its delete button and `chaptersHeading` for the title
+field, so a row read "Chapters … Delete verse". Both now have their own strings.
+
+The larger finding behind the report: **verses could not be assigned to a chapter at all.** The
+teacher tool never wrote `DraftVerse.chapterId` — `assignChapter` was declared in the string table
+and used nowhere — so chapters were titles with no contents, and V7 blocks publishing a STRUCTURED
+matn while any verse lacks a chapter. Structured matns were unpublishable in practice.
+
+Entering the start verse is what the teacher asked for and also the least work for them: a handful
+of numbers instead of a chapter picker on every one of a hundred rows. `DraftChapter.startVerseNumber`
+holds it and `ChapterAssignment` derives every verse's `chapterId` from the set of starts — a verse
+belongs to the last chapter starting at or before it. Chapter `order` is reindexed from the same
+sort, so it can never describe a layout different from the starts, and never collides (V2b).
+
+Three decisions worth keeping:
+
+- **Stored, not derived.** The start could be read back as "lowest verse number in this chapter",
+  but a chapter whose first verse has not been written yet has nowhere to derive from, and losing
+  the number as it is typed is worse than carrying a field. `ChapterRow.startVerseNumber` defaults
+  to `null`, so existing rows decode unchanged.
+- **A draft where no chapter names a start is returned untouched.** Matns predate this field and
+  may carry `chapterId`s set another way; recomputing from an empty set of starts would unassign
+  every one of them.
+- **Assignment runs in `mutateDraft`, not at each call site.** It can go stale from either
+  direction — editing a start, or adding, deleting and reordering verses — and one place is what
+  keeps the two from drifting.
+
+Verses before the first chapter's start belong to no chapter. That is deliberate: a preamble ahead
+of chapter one is ordinary, and the publish-time validator is the right place for it to be a
+problem, if it is one.
