@@ -646,7 +646,10 @@ private val STEPPER_ARROW_HEIGHT = MatnSpacing.unit * 2
 fun SplitScreen(draft: MatnDraft, onSplitComplete: (MatnDraft) -> Unit, onCancel: () -> Unit, modifier: Modifier = Modifier) {
     val koin = TeacherKoinHolder.koin
     val focusManager = LocalFocusManager.current
-    val viewModel: SplitViewModel = viewModel(key = draft.id) {
+    // `split:` keeps this out of the slot `EditorScreen` uses — an explicit `viewModel` key is the
+    // whole store key, class name and all excluded, so two screens keying on the same matn id evict
+    // each other. See the prefix note in `EditorScreen` and `ViewModelKeyCollisionTest`.
+    val viewModel: SplitViewModel = viewModel(key = "split:${draft.id}") {
         SplitViewModel(
             draft = draft,
             loadSplitSource = koin.get(),

@@ -525,7 +525,14 @@ fun EditorScreen(
     // Keyed by draft id — `viewModel {}` otherwise caches the first-ever instance across
     // destination switches (same as the Library screen's staleness bug) and every subsequent
     // "open to edit" click would keep showing whichever matn was loaded first.
-    val viewModel: EditorViewModel = viewModel(key = initialDraft.id) {
+    //
+    // The `editor:` prefix is **not** decoration. `ViewModelProvider` stores an explicit key
+    // verbatim — unlike the default key, it does not fold in the class name — so two screens that
+    // key on the same id share one slot. `SplitScreen` is composed inside this one and also keys on
+    // the draft id: without distinct prefixes, opening it evicted and cleared this ViewModel, and
+    // closing it built a fresh one from `initialDraft`, throwing away everything the split had just
+    // written. See `ViewModelKeyCollisionTest`.
+    val viewModel: EditorViewModel = viewModel(key = "editor:${initialDraft.id}") {
         EditorViewModel(
             initialDraft = initialDraft,
             saveDraft = koin.get(),

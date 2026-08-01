@@ -638,3 +638,24 @@ the pending start rather than seeding a second one).
 The linkage rule needed one adjustment: `onRangeChanged` compares the incoming start against the
 pending value as well as the stored range, because *accepting* an offered Start by typing the End is
 not the same as overriding it, and the naive comparison unlinked the verse on the spot.
+
+### A successful split returned to an editor showing no audio
+
+The write was fine — the row came back with all four verses carrying audio and
+`audio_completeness = COMPLETE` — and so was the ViewModel: driving `onSplitApplied` with the draft
+the use case returns produces four `Loaded` slots. The defect was one level below both.
+
+**`EditorScreen` and the `SplitScreen` nested inside it both called `viewModel(key = draft.id)`.**
+An *explicit* key is used verbatim as the `ViewModelStore` slot — unlike the default key, it does
+not fold in the class name — so the two screens shared one slot. Opening the split screen found an
+`EditorViewModel` under that key, rejected it as the wrong type, and put a `SplitViewModel` there
+instead; `ViewModelStore.put` clears whatever it replaces, so the editor's ViewModel was destroyed
+the moment the split screen opened, taking its `viewModelScope` and autosave scheduler with it.
+Closing the split screen then found the wrong type again and built a **fresh** `EditorViewModel`
+from `initialDraft` — the pre-split draft. Hence: upload succeeds, editor returns showing no audio,
+and only leaving and re-entering (which reloads from the server) shows the truth.
+
+Reproduced in a Compose UI test first, which is also the fix's guard: `ViewModelKeyCollisionTest`
+fails outright when both keys match. Keys are now prefixed by screen (`editor:`, `split:`). The
+prefixes are load-bearing, not decoration, and both call sites say so — this is a silent, type-level
+trap that any future nested screen keyed on a matn id would fall into the same way.
