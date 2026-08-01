@@ -738,3 +738,31 @@ Three decisions worth keeping:
 Verses before the first chapter's start belong to no chapter. That is deliberate: a preamble ahead
 of chapter one is ordinary, and the publish-time validator is the right place for it to be a
 problem, if it is one.
+
+### Two follow-ups from the same feedback round
+
+**The chain waited for focus to leave.** Committing on blur meant an End nudged with the stepper
+arrows left the next verse behind until the teacher happened to click away — the arrows do not
+change focus, by design. Every End change now writes the range *and* commits it, typed or stepped.
+Writing and committing stay separate calls so a **Start** edit can do the first without the second;
+that is what keeps a Start edit from disturbing its neighbours. Dragging still commits on
+`onScrubEnd`, since a drag has a natural end and a live chain would fire on every pixel.
+
+This reverses the earlier "commit, not keystroke" decision, on the teacher's word. The reasoning
+behind that one — digits arriving as 5, 50, 500 — turned out not to matter, because a pending start
+is only a number in a field: it draws no marker, no highlight, and is not counted as ranged. Nothing
+flickers on the timeline while it settles.
+
+**Chapter start fields appeared linked.** Typing in one chapter's start changed the others'. Two
+causes, both mine:
+
+`ChapterAssignment` reindexed `order` from the starts on every keystroke, so `15` sorted the chapter
+as if it started at verse 1 before its second digit arrived and the row jumped up the list. And the
+rows had no `key`, so each row's remembered field text belonged to a *position* rather than a
+chapter — when the list resorted, one chapter's half-typed value was handed to another.
+
+`apply` no longer touches `order`: order is the teacher's arrangement of the chapters, the start
+says which verses each one holds, and rewriting one while they type the other is not its business.
+The rows are keyed by chapter id, which is what should have identified them from the start. The
+start field's own text is no longer keyed on its value either — typing `0` parses to "no start",
+and re-keying would have wiped the digit as it was typed.

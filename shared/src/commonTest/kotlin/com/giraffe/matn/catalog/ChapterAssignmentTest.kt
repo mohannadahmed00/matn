@@ -62,11 +62,14 @@ class ChapterAssignmentTest {
         assertEquals("c1", result.ownerOf(3))
     }
 
-    /** Chapters entered out of sequence are reordered by where they start, so `order` can never
-     * describe a different layout from the starts — and never collides, which the validator treats
-     * as blocking. */
+    /**
+     * Assignment reads the starts in order regardless of how the chapters are arranged, but it
+     * **leaves `order` alone**. Reindexing it here would re-sort the list on every keystroke, and
+     * `15` sorts as `1` before its second digit arrives — the row being edited would jump around
+     * the screen mid-entry. Order is the teacher's arrangement; the start says what a chapter holds.
+     */
     @Test
-    fun `order follows the starts, however the chapters were entered`() {
+    fun `chapters entered out of sequence still assign correctly, and keep their order`() {
         val result = ChapterAssignment.apply(
             draft(
                 chapters = listOf(
@@ -77,7 +80,7 @@ class ChapterAssignmentTest {
             ),
         )
 
-        assertEquals(listOf("early" to 0, "late" to 1), result.chapters.map { it.id to it.order })
+        assertEquals(listOf("late" to 0, "early" to 1), result.chapters.map { it.id to it.order })
         assertEquals("early", result.ownerOf(4))
         assertEquals("late", result.ownerOf(5))
     }
@@ -98,7 +101,6 @@ class ChapterAssignmentTest {
 
         assertEquals("placed", result.ownerOf(1))
         assertEquals("placed", result.ownerOf(2))
-        assertEquals(1, result.chapters.first { it.id == "unplaced" }.order)
     }
 
     /**

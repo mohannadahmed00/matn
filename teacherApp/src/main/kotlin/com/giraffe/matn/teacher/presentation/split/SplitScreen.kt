@@ -385,6 +385,14 @@ private fun RangeFieldsRow(
         if (start != null && end != null) onChanged(start, end) else onCleared()
     }
 
+    /** Every change to the End — typed or stepped — carries straight into the next verse's Start.
+     * Waiting for the field to lose focus meant a boundary nudged with the arrows left the next
+     * verse behind until the teacher happened to click away. */
+    fun pushEnd() {
+        push()
+        onEndCommitted()
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -428,22 +436,12 @@ private fun RangeFieldsRow(
         BoundaryField(
             value = endText,
             label = strings.rangeEnd,
-            onValueChange = { value -> endText = value; push() },
+            onValueChange = { value -> endText = value; pushEnd() },
             onNudge = { delta ->
                 endText = ((endText.toLongOrNull() ?: 0L) + delta).coerceAtLeast(0L).toString()
-                push()
+                pushEnd()
             },
-            // Leaving the End field is what "I have finished this verse" means, and only then does
-            // the next verse's Start get filled in.
-            onFocusChange = { focused ->
-                if (focused) {
-                    onArmBoundary(false)
-                } else {
-                    onDisarmBoundary(false)
-                    onEndCommitted()
-                }
-            },
-            onCommit = onEndCommitted,
+            onFocusChange = { focused -> if (focused) onArmBoundary(false) else onDisarmBoundary(false) },
             modifier = Modifier.weight(1f),
         )
         // Auditions the slice this range would actually produce (FR-014), and stops it on a second
@@ -479,7 +477,6 @@ private fun BoundaryField(
     onNudge: (Long) -> Unit,
     onFocusChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    onCommit: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     OutlinedTextField(
@@ -489,7 +486,9 @@ private fun BoundaryField(
         singleLine = true,
         trailingIcon = { Stepper(onNudge) },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onCommit() }),
+        // Enter finishes with the field, the same as Escape or clicking away — the value itself is
+        // already written on every keystroke, so there is nothing left to "confirm".
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
         modifier = modifier
             .onFocusChanged { onFocusChange(it.isFocused) }
             // Escape is the keyboard's way out, matching "click anywhere else" for the pointer.

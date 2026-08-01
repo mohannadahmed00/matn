@@ -23,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -501,19 +502,24 @@ private fun ChaptersSection(
         verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit * 2),
     ) {
         Text(strings.chaptersHeading, style = MaterialTheme.typography.titleMedium)
+        // `key` on the chapter's id, not its position: without it each row's remembered field text
+        // is tied to a slot rather than a chapter, so any reordering — adding, deleting — hands one
+        // chapter's typed value to another.
         chapters.sortedBy { it.order }.forEach { chapter ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
-                TeacherTextField(
-                    value = chapter.title,
-                    onValueChange = { onEditChapterTitle(chapter.id, it) },
-                    label = strings.chapterTitleLabel,
-                    modifier = Modifier.weight(1f),
-                )
-                ChapterStartField(
-                    startVerseNumber = chapter.startVerseNumber,
-                    onChanged = { onEditChapterStart(chapter.id, it) },
-                )
-                TextButton(onClick = { onDeleteChapter(chapter.id) }) { Text(strings.deleteChapter) }
+            key(chapter.id) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit)) {
+                    TeacherTextField(
+                        value = chapter.title,
+                        onValueChange = { onEditChapterTitle(chapter.id, it) },
+                        label = strings.chapterTitleLabel,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ChapterStartField(
+                        startVerseNumber = chapter.startVerseNumber,
+                        onChanged = { onEditChapterStart(chapter.id, it) },
+                    )
+                    TextButton(onClick = { onDeleteChapter(chapter.id) }) { Text(strings.deleteChapter) }
+                }
             }
         }
         TextButton(onClick = { onAddChapter("") }) { Text(strings.addChapter) }
@@ -531,7 +537,13 @@ private fun ChaptersSection(
 @Composable
 private fun ChapterStartField(startVerseNumber: Int?, onChanged: (Int?) -> Unit) {
     val strings = LocalTeacherStrings.current
-    var text by remember(startVerseNumber) { mutableStateOf(startVerseNumber?.toString() ?: "") }
+    // Not keyed on the value: the caller's `key(chapter.id)` already ties this state to one
+    // chapter, and re-keying here would reset the text on the change the teacher's own keystroke
+    // caused — typing `0` parses to "no start", which would wipe the digit as it was typed.
+    var text by remember { mutableStateOf(startVerseNumber?.toString() ?: "") }
+    LaunchedEffect(startVerseNumber) {
+        if (startVerseNumber != text.toIntOrNull()) text = startVerseNumber?.toString() ?: ""
+    }
     TeacherTextField(
         value = text,
         onValueChange = { value ->

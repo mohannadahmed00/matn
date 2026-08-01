@@ -271,22 +271,39 @@ class SplitViewModelTest {
     }
 
     /**
-     * The teacher's first complaint: nothing may appear in the *next* verse while the current one is
-     * still being typed. Digits arrive one at a time, so chaining per keystroke wrote a start of 5,
-     * then 50, then 500 into a verse they had not reached yet.
+     * The chain must not wait for the End field to lose focus: a boundary nudged with the stepper
+     * arrows left the next verse behind until the teacher happened to click away. Writing the range
+     * and committing it are separate calls precisely so a Start edit can do the first without the
+     * second, but every End change does both.
      */
     @Test
-    fun `typing an End does not touch the next verse until it is committed`() = runTest {
+    fun `each End change carries into the next Start without waiting for focus to leave`() = runTest {
+        setUpMain()
+        val vm = newViewModel(draftWithVerses(3))
+        val file = createTempMp3(150)
+        vm.onSourcePicked(file.absolutePath, file.length())
+        awaitReady(vm)
+        vm.onRangeChanged("v1", 0, 1000)
+        vm.onEndCommitted("v1")
+
+        // One stepper press: writes the range, then commits it — no focus change involved.
+        vm.onRangeChanged("v1", 0, 1050)
+        vm.onEndCommitted("v1")
+
+        assertEquals(1050L, (vm.state.value as SplitUiState.Ready).pendingStarts["v2"])
+    }
+
+    /** Editing a **Start** must leave the neighbours alone — only an End decides where the next
+     * verse begins. */
+    @Test
+    fun `changing a Start does not touch the next verse`() = runTest {
         setUpMain()
         val vm = newViewModel(draftWithVerses(3))
         val file = createTempMp3(150)
         vm.onSourcePicked(file.absolutePath, file.length())
         awaitReady(vm)
 
-        // Digit by digit, as the field reports it.
-        vm.onRangeChanged("v1", 0, 1)
-        vm.onRangeChanged("v1", 0, 10)
-        vm.onRangeChanged("v1", 0, 100)
+        vm.onRangeChanged("v1", 0, 1000)
 
         val after = vm.state.value as SplitUiState.Ready
         assertTrue(after.ranges.none { it.verseId == "v2" })

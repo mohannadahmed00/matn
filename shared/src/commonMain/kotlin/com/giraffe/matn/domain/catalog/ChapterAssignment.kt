@@ -14,26 +14,24 @@ package com.giraffe.matn.domain.catalog
 object ChapterAssignment {
 
     /**
-     * Returns [draft] with chapter ordering and verse assignment brought into agreement with the
-     * chapter starts.
+     * Returns [draft] with every verse's [DraftVerse.chapterId] recomputed from the chapter starts.
+     *
+     * **[DraftChapter.order] is left alone.** Reindexing it from the starts is tempting — the two
+     * would then always agree — but this runs on every keystroke, and re-sorting the list while a
+     * start is half-typed makes the row being edited jump around the screen (`15` sorts as `1`
+     * first). Order is the teacher's arrangement of the chapters; the start says which verses each
+     * one holds. Two separate facts, and rewriting one while they type the other is not this
+     * function's business.
      *
      * **A draft where no chapter has a start is returned untouched.** Chapter starts arrived after
      * matns already existed whose verses carry a `chapterId` set some other way; recomputing from
      * an empty set of starts would silently unassign every one of them.
      */
     fun apply(draft: MatnDraft): MatnDraft {
-        if (draft.chapters.none { it.startVerseNumber != null }) return draft
+        val starts = draft.chapters.filter { it.startVerseNumber != null }.sortedBy { it.startVerseNumber }
+        if (starts.isEmpty()) return draft
 
-        // Chapters that name a start come first, in start order; the rest keep their relative order
-        // behind them. `order` is reindexed from that, so it can never disagree with the layout the
-        // starts describe (and never collides, which V2b treats as a blocking problem).
-        val (placed, unplaced) = draft.chapters.partition { it.startVerseNumber != null }
-        val ordered = placed.sortedBy { it.startVerseNumber } + unplaced.sortedBy { it.order }
-        val renumbered = ordered.mapIndexed { index, chapter -> chapter.copy(order = index) }
-
-        val starts = renumbered.filter { it.startVerseNumber != null }
         return draft.copy(
-            chapters = renumbered,
             verses = draft.verses.map { verse ->
                 val owner = starts.lastOrNull { it.startVerseNumber!! <= verse.displayNumber }
                 if (verse.chapterId == owner?.id) verse else verse.copy(chapterId = owner?.id)
