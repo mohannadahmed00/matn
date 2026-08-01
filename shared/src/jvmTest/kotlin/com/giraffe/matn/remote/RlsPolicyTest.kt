@@ -160,6 +160,57 @@ class RlsPolicyTest {
         return id
     }
 
+    // --- storage helpers (Phase 12 — audio objects, `contracts/storage-contract.md` §3–4) ---
+
+    private suspend fun anonymousStorageGet(objectPath: String): HttpResponse =
+        httpClient.get("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
+            headers { append("apikey", config.anonKey) }
+        }
+
+    /** The same request an anonymous caller could actually make — `x-upsert` too, so a denial can
+     * never be the duplicate check standing in for the policy under test. */
+    private suspend fun anonymousStorageUpload(objectPath: String): HttpResponse =
+        httpClient.post("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
+            headers {
+                append("apikey", config.anonKey)
+                append("x-upsert", "true")
+            }
+            contentType(ContentType.parse("audio/mpeg"))
+            setBody(byteArrayOf(1, 2, 3))
+        }
+
+    private suspend fun sessionStorageDelete(session: TeacherSession, objectPath: String): HttpResponse {
+        val token = (primedRefresher(authClient, session).currentAccessToken() as Resource.Success).data
+        return httpClient.delete("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
+            headers {
+                append("apikey", config.anonKey)
+                append(HttpHeaders.Authorization, "Bearer $token")
+            }
+        }
+    }
+
+    private suspend fun anonymousStorageDelete(objectPath: String): HttpResponse =
+        httpClient.delete("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
+            headers { append("apikey", config.anonKey) }
+        }
+
+    /** Mirrors [com.giraffe.matn.data.remote.storage.StorageRestClient.upload], `x-upsert` included:
+     * without it Storage refuses a second write to the same key with a 400 `Duplicate` before any
+     * policy is consulted, so the test would be measuring the duplicate check rather than the
+     * policy it names. */
+    private suspend fun sessionStorageUpload(session: TeacherSession, objectPath: String): HttpResponse {
+        val token = (primedRefresher(authClient, session).currentAccessToken() as Resource.Success).data
+        return httpClient.post("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
+            headers {
+                append("apikey", config.anonKey)
+                append(HttpHeaders.Authorization, "Bearer $token")
+                append("x-upsert", "true")
+            }
+            contentType(ContentType.parse("audio/mpeg"))
+            setBody(byteArrayOf(1, 2, 3))
+        }
+    }
+
     // ---- R: reads ----
 
     @Test
@@ -329,6 +380,97 @@ class RlsPolicyTest {
         val authenticated = clientFor(nonTeacherSession)
             .insert("teachers", buildJsonObject { put("uid", nonTeacherSession.uid) })
         assertEquals(Resource.Failure(RemoteError.Forbidden), authenticated)
+    }
+
+    // ---- A: audio objects (Phase 12, `contracts/storage-contract.md` §4) ----
+    // `matns/{matnId}/verses/{verseId}-{tag}.mp3` is one path element deeper than a cover
+    // (`matns/{matnId}/cover.png`); A6/A7 below are the direct check that
+    // `(storage.foldername(name))[2]` still resolves to `{matnId}` at that depth, not just an
+    // assumption carried over from the cover-image policy.
+
+    @Test
+    fun `A1 anonymous read of an audio object of a published matn is allowed`() = runTest {
+        val matnId = createMatn(published = true)
+        val objectPath = "matns/$matnId/verses/v1-tag.mp3"
+        val uploaded = sessionStorageUpload(teacherSession, objectPath)
+        assertTrue(uploaded.status.isSuccess(), "teacher upload failed: ${uploaded.status.value} ${uploaded.bodyAsText()}")
+
+        val response = anonymousStorageGet(objectPath)
+
+        assertTrue(response.status.isSuccess(), "anonymous read of a published matn's audio failed: ${response.status.value}")
+    }
+
+    @Test
+    fun `A2 anonymous read of an audio object of a draft matn is denied`() = runTest {
+        val matnId = createMatn(published = false)
+        val objectPath = "matns/$matnId/verses/v1-tag.mp3"
+        val uploaded = sessionStorageUpload(teacherSession, objectPath)
+        assertTrue(uploaded.status.isSuccess(), "teacher upload failed: ${uploaded.status.value} ${uploaded.bodyAsText()}")
+
+        val response = anonymousStorageGet(objectPath)
+
+        assertTrue(response.status.value in setOf(400, 403, 404), "a draft's audio leaked anonymously: ${response.status.value}")
+    }
+
+    @Test
+    fun `A3 anonymous upload to any audio path is denied`() = runTest {
+        val matnId = createMatn(published = false)
+
+        val response = anonymousStorageUpload("matns/$matnId/verses/v1-tag.mp3")
+
+        assertTrue(response.status.value in setOf(400, 401, 403), "anonymous audio upload was not denied: ${response.status.value}")
+    }
+
+    @Test
+    fun `A4 anonymous delete of any audio path is denied`() = runTest {
+        val matnId = createMatn(published = false)
+        val objectPath = "matns/$matnId/verses/v1-tag.mp3"
+        sessionStorageUpload(teacherSession, objectPath)
+
+        val response = anonymousStorageDelete(objectPath)
+
+        assertTrue(response.status.value in setOf(400, 401, 403), "anonymous audio delete was not denied: ${response.status.value}")
+    }
+
+    @Test
+    fun `A5 an authenticated non-teacher upload to any audio path is denied`() = runTest {
+        val matnId = createMatn(published = false)
+
+        val response = sessionStorageUpload(nonTeacherSession, "matns/$matnId/verses/v1-tag.mp3")
+
+        assertTrue(response.status.value in setOf(400, 401, 403), "a non-teacher audio upload was not denied: ${response.status.value}")
+    }
+
+    @Test
+    fun `A6 teacher upload, read, and delete of an audio path at the deeper verses prefix are allowed`() = runTest {
+        val matnId = createMatn(published = false)
+        val objectPath = "matns/$matnId/verses/v1-tag.mp3"
+
+        val uploaded = sessionStorageUpload(teacherSession, objectPath)
+        assertTrue(uploaded.status.isSuccess(), "teacher upload failed: ${uploaded.status.value} ${uploaded.bodyAsText()}")
+
+        // (storage.foldername(name))[2] must still resolve to matnId one level deeper than a cover.
+        // An upsert over an existing object is checked against the `update` policy rather than
+        // `insert`, so this is the case a replaced recording actually takes — not a repeat of the
+        // line above.
+        val replaced = sessionStorageUpload(teacherSession, objectPath)
+        assertTrue(replaced.status.isSuccess(), "teacher re-upload at the deeper prefix failed: ${replaced.status.value} ${replaced.bodyAsText()}")
+
+        val deleted = sessionStorageDelete(teacherSession, objectPath)
+        assertTrue(deleted.status.isSuccess(), "teacher delete failed: ${deleted.status.value} ${deleted.bodyAsText()}")
+    }
+
+    @Test
+    fun `A7 anonymous upload with a spoofed owner cannot land`() = runTest {
+        val matnId = createMatn(published = false)
+
+        // Storage's REST API has no client-settable owner field at all — `owner_id` is always
+        // derived server-side from the caller's JWT `sub` claim. An anonymous caller has none, so
+        // this is the same refusal as A3; asserted separately because it is the case someone might
+        // assume a crafted body could bypass.
+        val response = anonymousStorageUpload("matns/$matnId/verses/v1-tag.mp3")
+
+        assertTrue(response.status.value in setOf(400, 401, 403), "a spoofed anonymous audio upload was not denied: ${response.status.value}")
     }
 
     // ---- SC-011: atomicity of a large in-flight save ----

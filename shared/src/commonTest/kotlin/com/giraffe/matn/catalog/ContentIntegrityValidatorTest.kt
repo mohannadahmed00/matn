@@ -73,15 +73,15 @@ class ContentIntegrityValidatorTest {
     }
 
     @Test
-    fun `V4 MissingAudio is evaluated and routed to deferred`() {
+    fun `V4 MissingAudio is blocking as of Phase 12`() {
         val report = ContentIntegrityValidator.validate(draft(verses = listOf(verse(id = "v1", displayNumber = 1))))
-        assertTrue(report.deferred.any { it is ContentIntegrityError.MissingAudio })
-        assertTrue(report.blocking.none { it is ContentIntegrityError.MissingAudio })
+        assertTrue(report.blocking.any { it is ContentIntegrityError.MissingAudio })
+        assertTrue(report.deferred.none { it is ContentIntegrityError.MissingAudio })
     }
 
     @Test
-    fun `V5 DuplicateAudioRef is evaluated and routed to deferred`() {
-        val audio = DraftAudio(id = "a", fileRef = "ref", durationMs = 0L)
+    fun `V5 DuplicateAudioRef is blocking as of Phase 12`() {
+        val audio = DraftAudio(id = "a", fileRef = "ref", durationMs = 0L, sizeBytes = 0L, sampleRate = 0, channels = 0)
         val report = ContentIntegrityValidator.validate(
             draft(
                 verses = listOf(
@@ -90,7 +90,14 @@ class ContentIntegrityValidatorTest {
                 ),
             ),
         )
-        assertTrue(report.deferred.any { it is ContentIntegrityError.DuplicateAudioRef })
+        assertTrue(report.blocking.any { it is ContentIntegrityError.DuplicateAudioRef })
+        assertTrue(report.deferred.none { it is ContentIntegrityError.DuplicateAudioRef })
+    }
+
+    @Test
+    fun `deferred is empty for every matn`() {
+        val report = ContentIntegrityValidator.validate(draft(verses = listOf(verse(id = "v1", displayNumber = 1))))
+        assertEquals(emptyList(), report.deferred)
     }
 
     @Test
@@ -129,13 +136,13 @@ class ContentIntegrityValidatorTest {
     }
 
     @Test
-    fun `a valid text-only matn can publish with deferred MissingAudio per verse`() {
+    fun `a text-only matn with no audio is refused — a published matn may never be silent`() {
         val report = ContentIntegrityValidator.validate(
             draft(verses = listOf(verse(id = "v1", displayNumber = 1), verse(id = "v2", displayNumber = 2))),
         )
-        assertEquals(emptyList(), report.blocking)
-        assertEquals(2, report.deferred.count { it is ContentIntegrityError.MissingAudio })
-        assertTrue(report.canPublish)
+        assertEquals(2, report.blocking.count { it is ContentIntegrityError.MissingAudio })
+        assertTrue(report.deferred.isEmpty())
+        assertTrue(!report.canPublish)
     }
 
     @Test
@@ -151,14 +158,14 @@ class ContentIntegrityValidatorTest {
 
     @Test
     fun `AudioCompleteness with some verses carrying audio is PARTIAL`() {
-        val audio = DraftAudio(id = "a1", fileRef = "ref", durationMs = 0L)
+        val audio = DraftAudio(id = "a1", fileRef = "ref", durationMs = 0L, sizeBytes = 0L, sampleRate = 0, channels = 0)
         val verses = listOf(verse(id = "v1", displayNumber = 1, audio = audio), verse(id = "v2", displayNumber = 2))
         assertEquals(AudioCompleteness.PARTIAL, AudioCompleteness.of(verses))
     }
 
     @Test
     fun `AudioCompleteness with every verse carrying audio is COMPLETE`() {
-        val audio = DraftAudio(id = "a1", fileRef = "ref", durationMs = 0L)
+        val audio = DraftAudio(id = "a1", fileRef = "ref", durationMs = 0L, sizeBytes = 0L, sampleRate = 0, channels = 0)
         val verses = listOf(
             verse(id = "v1", displayNumber = 1, audio = audio.copy(id = "a1")),
             verse(id = "v2", displayNumber = 2, audio = audio.copy(id = "a2")),

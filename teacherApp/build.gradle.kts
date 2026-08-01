@@ -20,10 +20,14 @@ dependencies {
     implementation(libs.koin.annotations)
     implementation(libs.jna.platform)
     implementation(libs.ktor.client.core)
+    implementation(libs.jlayer)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+    testImplementation(compose.uiTest)
+    testImplementation(compose.desktop.currentOs)
 }
 
 tasks.test {

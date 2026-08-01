@@ -25,14 +25,15 @@ data class MatnDraft(
 ) {
     val verseCount: Int get() = verses.size
 
-    /** Sum of stored content bytes. Text-only this phase; grows with audio in Phase 12. */
+    /** Sum of stored content bytes: text plus every verse's audio (FR-007). */
     val declaredSizeBytes: Long
         get() {
             val metadataBytes = id.length + title.length + author.length + description.length +
                 (coverImageRef?.length ?: 0) + defaultReciterId.length
             val chapterBytes = chapters.sumOf { it.id.length + it.title.length }
             val verseBytes = verses.sumOf { it.id.length + (it.chapterId?.length ?: 0) + it.arabicText.length }
-            return (metadataBytes + chapterBytes + verseBytes).toLong()
+            val audioBytes = verses.sumOf { it.audio?.sizeBytes ?: 0L }
+            return (metadataBytes + chapterBytes + verseBytes).toLong() + audioBytes
         }
 
     val audioCompleteness: AudioCompleteness get() = AudioCompleteness.of(verses)
@@ -42,6 +43,16 @@ data class DraftChapter(
     val id: String,
     val title: String,
     val order: Int,
+    /**
+     * The [DraftVerse.displayNumber] this chapter opens with, or `null` while the teacher has not
+     * said. Every verse from here up to the next chapter's start belongs to this one — which is how
+     * [ChapterAssignment] turns a handful of numbers into every verse's [DraftVerse.chapterId].
+     *
+     * Stored rather than derived from the assignment it produces: a chapter whose first verse has
+     * not been written yet has nowhere to derive from, and losing the number the moment it is typed
+     * is worse than keeping a field.
+     */
+    val startVerseNumber: Int? = null,
 )
 
 data class DraftVerse(
@@ -53,9 +64,13 @@ data class DraftVerse(
     val durationMs: Long,
 )
 
-/** Reserved for Phase 12. Always `null` on a `DraftVerse` in Phase 11 (FR-045). */
+/** One verse's recording (`data-model.md` §1). `id` is stable across a replacement (A5); the
+ * others are measured from the stored bytes, never entered by the teacher (A2). */
 data class DraftAudio(
     val id: String,
     val fileRef: String,
     val durationMs: Long,
+    val sizeBytes: Long,
+    val sampleRate: Int,
+    val channels: Int,
 )

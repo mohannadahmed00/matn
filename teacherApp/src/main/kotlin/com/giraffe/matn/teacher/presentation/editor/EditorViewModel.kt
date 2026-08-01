@@ -2,6 +2,10 @@ package com.giraffe.matn.teacher.presentation.editor
 
 import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.Resource
+import com.giraffe.matn.domain.audio.PreviewPlayer
+import com.giraffe.matn.domain.audio.PreviewState
+import com.giraffe.matn.domain.audio.PreviewVerse
+import com.giraffe.matn.domain.catalog.ChapterAssignment
 import com.giraffe.matn.domain.catalog.DraftAutosaveScheduler
 import com.giraffe.matn.domain.catalog.ImportPreview
 import com.giraffe.matn.domain.catalog.MatnDraft
@@ -13,12 +17,17 @@ import com.giraffe.matn.domain.catalog.VerseTextImport
 import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.domain.error.RemoteError
 import com.giraffe.matn.domain.model.StructureKind
+import com.giraffe.matn.domain.usecase.AttachVerseAudioUseCase
+import com.giraffe.matn.domain.usecase.LoadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.LoadMatnForEditUseCase
 import com.giraffe.matn.domain.usecase.PublishMatnUseCase
+import com.giraffe.matn.domain.usecase.RemoveVerseAudioUseCase
 import com.giraffe.matn.domain.usecase.SaveDraftUseCase
 import com.giraffe.matn.domain.usecase.UploadCoverImageUseCase
 import com.giraffe.matn.domain.usecase.ValidateMatnUseCase
 import com.giraffe.matn.presentation.base.BaseViewModel
+import com.giraffe.matn.teacher.presentation.common.VerseAudioUiState
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /** `contracts/teacher-ui-contract.md` §3.4 save-state machine. */
@@ -40,14 +49,46 @@ data class EditorUiState(
     val missingTitle: Boolean = false,
     val missingAuthor: Boolean = false,
     val coverError: CoverError? = null,
+    /**
+     * The cover's encoded bytes, for showing the image itself instead of its object path. `null`
+     * means there is nothing to show *yet* — no cover, or one still being fetched — which is why
+     * the card falls back to the size hint rather than an empty frame.
+     *
+     * Bytes rather than a decoded image: decoding is a UI concern and the platform's decoder is not
+     * available here. Compared by reference like `SplitUiState.Ready.peaks`, which is correct — a
+     * new fetch produces a new array, and re-decoding the same array is what `remember` prevents.
+     */
+    val coverPreview: ByteArray? = null,
     val validation: ValidationReport? = null,
     val focusedProblem: String? = null,
     val showPublishConfirm: Boolean = false,
     val importPreview: ImportPreview? = null,
     val importError: Boolean = false,
     val showClearAllConfirm: Boolean = false,
+    /** Transient audio states (Uploading/Failed) that don't correspond to a persisted
+     * [com.giraffe.matn.domain.catalog.DraftAudio] — Empty/Loaded are derived from the verse
+     * itself, so there is exactly one source of truth for "does this verse have audio". */
+    val audioOverrides: Map<String, VerseAudioUiState> = emptyMap(),
+    val playingVerseId: String? = null,
+    val showSplitScreen: Boolean = false,
+    val previewState: PreviewState = PreviewState.Idle,
+    /**
+     * Set once, when an explicit Save as draft or Publish has landed on the server. The screen
+     * hands it upwards and the portal opens a blank matn in this one's place.
+     *
+     * Deliberately **not** set by autosave: autosave fires while the teacher is mid-sentence, and
+     * clearing the screen out from under them would be indistinguishable from losing the work.
+     * Only a button press means "I am done with this one".
+     */
+    val finished: Boolean = false,
 ) {
     val isPublished: Boolean get() = draft.publicationState == PublicationState.PUBLISHED
+
+    fun audioStateFor(verse: com.giraffe.matn.domain.catalog.DraftVerse): VerseAudioUiState {
+        audioOverrides[verse.id]?.let { return it }
+        val audio = verse.audio ?: return VerseAudioUiState.Empty
+        return VerseAudioUiState.Loaded(durationMs = audio.durationMs, isPlaying = playingVerseId == verse.id)
+    }
 }
 
 /**
@@ -61,9 +102,14 @@ class EditorViewModel(
     initialDraft: MatnDraft,
     private val saveDraft: SaveDraftUseCase,
     private val uploadCoverImage: UploadCoverImageUseCase,
+    private val loadCoverImage: LoadCoverImageUseCase,
     private val validateMatn: ValidateMatnUseCase,
     private val publishMatn: PublishMatnUseCase,
     private val loadMatnForEdit: LoadMatnForEditUseCase,
+    private val attachVerseAudio: AttachVerseAudioUseCase,
+    private val removeVerseAudio: RemoveVerseAudioUseCase,
+    private val previewPlayer: PreviewPlayer,
+    private val previewMatnAudio: com.giraffe.matn.domain.usecase.PreviewMatnAudioUseCase,
     private val newId: () -> String,
     private val nowMillis: () -> Long,
 ) : BaseViewModel<EditorUiState>(EditorUiState(draft = initialDraft)) {
@@ -74,10 +120,40 @@ class EditorViewModel(
         save = ::autosave,
     )
 
+    /** The in-flight single-verse audition, so a second press cancels rather than stacking. */
+    private var versePlaybackJob: Job? = null
+
+    init {
+        // Mirrors the player's state for the transport bar only. It must **not** clear
+        // `playingVerseId` on `Idle`: starting a playback stops the previous one first, so an
+        // `Idle` arrives *during* startup, and clearing on it left the row's control showing
+        // "play" while audio was running — after which the next press started a second overlapping
+        // playback instead of stopping the first. Ownership of `playingVerseId` belongs to the
+        // coroutine that awaits playback, below.
+        previewPlayer.state.collectInto { playerState -> setState { it.copy(previewState = playerState) } }
+        initialDraft.coverImageRef?.let(::loadCoverPreview)
+    }
+
     private fun mutateDraft(reduce: (MatnDraft) -> MatnDraft) {
-        setState { it.copy(draft = reduce(it.draft), missingTitle = false, missingAuthor = false) }
+        // FR-026: any content edit stops preview cleanly — a stale queue built before the edit
+        // would otherwise keep playing bytes for a verse that no longer matches what's on screen.
+        previewPlayer.stop()
+        // Chapter membership is recomputed here rather than at each call site, because it can go
+        // stale from either side: editing a chapter's start, and adding, removing or reordering
+        // verses. One place means the two can never drift.
+        setState { it.copy(draft = ChapterAssignment.apply(reduce(it.draft)), missingTitle = false, missingAuthor = false) }
         autosaveScheduler.notifyChanged(stateValue.draft)
     }
+
+    // ---- Matn-wide preview (US3) ----
+
+    fun onPreviewMatn(startVerseId: String? = null) {
+        viewModelScope.launch { previewMatnAudio(com.giraffe.matn.domain.usecase.PreviewMatnAudioUseCase.Params(stateValue.draft, startVerseId)) }
+    }
+
+    fun onPreviewPause() = previewPlayer.pause()
+    fun onPreviewResume() = previewPlayer.resume()
+    fun onPreviewStop() = previewPlayer.stop()
 
     fun onTitleChange(value: String) = mutateDraft { it.copy(title = value) }
     fun onAuthorChange(value: String) = mutateDraft { it.copy(author = value) }
@@ -91,6 +167,17 @@ class EditorViewModel(
 
     fun onEditChapterTitle(chapterId: String, title: String) = mutateDraft { draft ->
         draft.copy(chapters = draft.chapters.map { chapter -> if (chapter.id == chapterId) chapter.copy(title = title) else chapter })
+    }
+
+    /** Where this chapter opens. `null` means the teacher has cleared the field — the chapter owns
+     * nothing until they say where it starts, rather than defaulting to somewhere they did not
+     * choose. [ChapterAssignment] does the rest via [mutateDraft]. */
+    fun onEditChapterStart(chapterId: String, startVerseNumber: Int?) = mutateDraft { draft ->
+        draft.copy(
+            chapters = draft.chapters.map { chapter ->
+                if (chapter.id == chapterId) chapter.copy(startVerseNumber = startVerseNumber) else chapter
+            },
+        )
     }
 
     /** Orphaned verses are reassigned to no chapter rather than deleted (FR-022). */
@@ -119,6 +206,72 @@ class EditorViewModel(
     }
 
     fun onMoveVerse(from: Int, to: Int) = mutateDraft { draft -> draft.copy(verses = VerseOrdering.move(draft.verses, from, to)) }
+
+    // ---- Per-verse audio (US1, `contracts/teacher-ui-contract.md` §1) ----
+
+    fun onAttachVerseAudio(verseId: String, bytes: ByteArray) {
+        setState { it.copy(audioOverrides = it.audioOverrides + (verseId to VerseAudioUiState.Uploading(0L, bytes.size.toLong()))) }
+        runUseCase(
+            useCase = attachVerseAudio,
+            params = AttachVerseAudioUseCase.Params(stateValue.draft, verseId, bytes),
+            onSuccess = { updated ->
+                previewPlayer.stop() // FR-026: a new attachment invalidates any in-progress preview queue.
+                setState { it.copy(draft = updated, audioOverrides = it.audioOverrides - verseId) }
+            },
+            onError = { error -> setState { it.copy(audioOverrides = it.audioOverrides + (verseId to VerseAudioUiState.Failed(error))) } },
+        )
+    }
+
+    /** The chooser rejected the pick before any read (wrong extension or over the 10 MB ceiling) —
+     * shown the same way a probe-time rejection would be (FR-004a). */
+    fun onVerseAudioPickRejected(verseId: String, error: com.giraffe.matn.domain.error.AudioAttachError) {
+        setState { it.copy(audioOverrides = it.audioOverrides + (verseId to VerseAudioUiState.Failed(error))) }
+    }
+
+    fun onOpenSplit() = setState { it.copy(showSplitScreen = true) }
+    fun onCloseSplit() = setState { it.copy(showSplitScreen = false) }
+
+    /** The split screen commits its own repository write (`ApplySplitUseCase`); this just brings
+     * the resulting draft back into the editor's own state. */
+    fun onSplitApplied(updated: MatnDraft) = setState { it.copy(draft = updated, showSplitScreen = false) }
+
+    fun onRemoveVerseAudio(verseId: String) {
+        runUseCase(
+            useCase = removeVerseAudio,
+            params = RemoveVerseAudioUseCase.Params(stateValue.draft, verseId),
+            onSuccess = { updated -> setState { it.copy(draft = updated, audioOverrides = it.audioOverrides - verseId) } },
+            onError = { error -> setState { it.copy(audioOverrides = it.audioOverrides + (verseId to VerseAudioUiState.Failed(error))) } },
+        )
+    }
+
+    /** Single-verse audition — independent of the matn-wide preview transport (US3), but the same
+     * [PreviewPlayer] underneath: a one-verse call is `play(listOf(verse), 0)` (Principle III). */
+    fun onPlayVerseAudio(verseId: String) {
+        if (stateValue.playingVerseId == verseId) {
+            stopVersePlayback()
+            return
+        }
+        val verse = stateValue.draft.verses.find { it.id == verseId } ?: return
+        stopVersePlayback()
+        setState { it.copy(playingVerseId = verseId) }
+        versePlaybackJob = viewModelScope.launch {
+            try {
+                // Suspends for the whole verse, so the `finally` runs exactly when playback really
+                // ended — the control returns to "play" on its own and never lies about the state.
+                previewPlayer.play(listOf(PreviewVerse(verseId, verse.displayNumber, verse.audio?.fileRef)), startIndex = 0)
+            } finally {
+                // Guarded: a job cancelled by its successor must not clear the newer playback.
+                setState { if (it.playingVerseId == verseId) it.copy(playingVerseId = null) else it }
+            }
+        }
+    }
+
+    private fun stopVersePlayback() {
+        versePlaybackJob?.cancel()
+        versePlaybackJob = null
+        previewPlayer.stop()
+        setState { it.copy(playingVerseId = null) }
+    }
 
     /** Fast undo for a mistaken bulk import — wipes the whole verse list in one confirmed action
      * instead of one-by-one deletes. */
@@ -158,13 +311,17 @@ class EditorViewModel(
         }
     }
 
+    /** Shows the picked image straight away, before the upload is attempted: these are the exact
+     * bytes being sent, so waiting for a round trip to confirm what the teacher just chose would
+     * only add latency to an answer already in hand. A failed upload clears it again, so the card
+     * never shows a cover that is not stored. */
     fun onCoverPicked(bytes: ByteArray, ext: String) {
-        setState { it.copy(coverError = null) }
+        setState { it.copy(coverError = null, coverPreview = bytes) }
         runUseCase(
             useCase = uploadCoverImage,
             params = UploadCoverImageUseCase.Params(stateValue.draft.id, bytes, ext),
             onSuccess = { ref -> mutateDraft { it.copy(coverImageRef = ref) } },
-            onError = { setState { it.copy(coverError = CoverError.UPLOAD_FAILED) } },
+            onError = { setState { it.copy(coverError = CoverError.UPLOAD_FAILED, coverPreview = null) } },
         )
     }
 
@@ -172,7 +329,23 @@ class EditorViewModel(
         setState { it.copy(coverError = CoverError.INVALID_FILE) }
     }
 
-    fun onRemoveCover() = mutateDraft { it.copy(coverImageRef = null) }
+    fun onRemoveCover() {
+        setState { it.copy(coverPreview = null) }
+        mutateDraft { it.copy(coverImageRef = null) }
+    }
+
+    /** Fetches an already-stored cover so reopening a matn shows the image, not just its path. A
+     * failure is silent: the card degrades to the hint it showed before, and a thumbnail that could
+     * not be fetched is not a problem the teacher can act on. */
+    private fun loadCoverPreview(objectPath: String) {
+        viewModelScope.launch {
+            val result = loadCoverImage(objectPath)
+            if (result is Resource.Success) {
+                // Only if the cover has not changed underneath the fetch.
+                setState { if (it.draft.coverImageRef == objectPath) it.copy(coverPreview = result.data) else it }
+            }
+        }
+    }
 
     /** FR-018: the field-level required-check for a draft save — distinct from full validation,
      * which is the publish-time gate (`contracts/validation-contract.md` §5). `structureKind` is a
@@ -201,7 +374,7 @@ class EditorViewModel(
         runUseCase(
             useCase = saveDraft,
             params = draft,
-            onSuccess = { saved -> setState { it.copy(draft = saved, saveState = SaveState.Saved(nowMillis())) } },
+            onSuccess = { saved -> setState { it.copy(draft = saved, saveState = SaveState.Saved(nowMillis()), finished = true) } },
             onError = { error -> setState { it.copy(saveState = SaveState.Failed(error as? RemoteError ?: RemoteError.Decode)) } },
         )
     }
@@ -225,7 +398,7 @@ class EditorViewModel(
             useCase = publishMatn,
             params = stateValue.draft,
             onSuccess = { published ->
-                setState { it.copy(draft = published, saveState = SaveState.Saved(nowMillis()), validation = null) }
+                setState { it.copy(draft = published, saveState = SaveState.Saved(nowMillis()), validation = null, finished = true) }
             },
             onError = { error ->
                 when (error) {

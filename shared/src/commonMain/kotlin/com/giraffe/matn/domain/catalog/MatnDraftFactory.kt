@@ -37,8 +37,8 @@ object MatnDraftFactory {
         )
     }
 
-    fun newChapter(newId: () -> String, title: String = "", order: Int = 0): DraftChapter =
-        DraftChapter(id = newId(), title = title, order = order)
+    fun newChapter(newId: () -> String, title: String = "", order: Int = 0, startVerseNumber: Int? = null): DraftChapter =
+        DraftChapter(id = newId(), title = title, order = order, startVerseNumber = startVerseNumber)
 
     fun newVerse(newId: () -> String, chapterId: String? = null, displayNumber: Int = 1, arabicText: String = ""): DraftVerse =
         DraftVerse(

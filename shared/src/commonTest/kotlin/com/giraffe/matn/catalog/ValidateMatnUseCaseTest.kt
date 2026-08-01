@@ -38,10 +38,10 @@ class ValidateMatnUseCaseTest {
     }
 
     @Test
-    fun `an audio-less matn can publish with deferred populated`() = runTest {
+    fun `an audio-less matn cannot publish — Phase 12 makes MissingAudio blocking`() = runTest {
         val report = (ValidateMatnUseCase()(draft(listOf(verse("v1", 1), verse("v2", 2)))) as Resource.Success).data
-        assertTrue(report.canPublish)
-        assertTrue(report.deferred.isNotEmpty())
+        assertFalse(report.canPublish)
+        assertTrue(report.deferred.isEmpty())
     }
 
     @Test

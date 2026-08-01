@@ -76,14 +76,14 @@ object ContentIntegrityValidator {
                 blocking.add(ContentIntegrityError.DuplicateChapterOrder(draft.id, order))
             }
 
-        // V4 MissingAudio — deferred in Phase 11 (FR-027); evaluated, not skipped.
+        // V4 MissingAudio — blocking as of Phase 12 (FR-028); deferred through Phase 11.
         draft.verses.forEach { verse ->
             if (verse.audio == null) {
-                deferred.add(ContentIntegrityError.MissingAudio(verse.id))
+                blocking.add(ContentIntegrityError.MissingAudio(verse.id))
             }
         }
 
-        // V5 DuplicateAudioRef — deferred in Phase 11 (FR-027).
+        // V5 DuplicateAudioRef — blocking as of Phase 12 (FR-028); deferred through Phase 11.
         val refCounts = mutableMapOf<String, Int>()
         draft.verses.forEach { verse ->
             val ref = verse.audio?.fileRef ?: return@forEach
@@ -92,7 +92,7 @@ object ContentIntegrityValidator {
         refCounts.entries
             .filter { it.value > 1 }
             .forEach { (fileRef, _) ->
-                deferred.add(ContentIntegrityError.DuplicateAudioRef(fileRef))
+                blocking.add(ContentIntegrityError.DuplicateAudioRef(fileRef))
             }
 
         // V6 OrphanChapterRef

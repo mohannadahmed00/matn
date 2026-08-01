@@ -5,9 +5,12 @@ import com.giraffe.matn.data.remote.RemoteErrorMapper
 import com.giraffe.matn.data.remote.SupabaseConfig
 import com.giraffe.matn.data.remote.auth.TokenRefresher
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
+import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -16,6 +19,7 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -62,14 +66,21 @@ class StorageRestClient(
         }
     }
 
-    /** Sums each object's size under [prefix], paginated via offset — Supabase's list endpoint has
-     * no page-token, just `limit`/`offset` (portal storage-usage row). */
-    suspend fun totalUsageBytes(prefix: String): Resource<Long> {
+    /** Sums each object's size under [prefix] (portal storage-usage row). */
+    suspend fun totalUsageBytes(prefix: String): Resource<Long> =
+        when (val result = listWithSizes(prefix)) {
+            is Resource.Success -> Resource.Success(result.data.values.sum())
+            is Resource.Failure -> result
+        }
+
+    /** object name → byte size under [prefix], paginated via offset — Supabase's list endpoint has
+     * no page-token, just `limit`/`offset` (the resume predicate, `contracts/storage-contract.md` §1). */
+    suspend fun listWithSizes(prefix: String): Resource<Map<String, Long>> {
         val tokenResult = tokenRefresher.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {
-            var total = 0L
+            val sizes = mutableMapOf<String, Long>()
             var offset = 0
             while (true) {
                 val response = httpClient.post("${config.storageBaseUrl}/object/list/${config.bucket}") {
@@ -90,13 +101,66 @@ class StorageRestClient(
                     return Resource.Failure(RemoteErrorMapper.mapHttpError(response.status.value, response.bodyAsText()))
                 }
                 val items = Json.parseToJsonElement(response.bodyAsText()).jsonArray
-                total += items.sumOf { item ->
-                    item.jsonObject["metadata"]?.jsonObject?.get("size")?.jsonPrimitive?.longOrNull ?: 0L
+                items.forEach { item ->
+                    val obj = item.jsonObject
+                    val name = obj["name"]?.jsonPrimitive?.contentOrNull ?: return@forEach
+                    val size = obj["metadata"]?.jsonObject?.get("size")?.jsonPrimitive?.longOrNull ?: 0L
+                    sizes["$prefix$name"] = size
                 }
                 if (items.size < PAGE_SIZE) break
                 offset += PAGE_SIZE
             }
-            Resource.Success(total)
+            Resource.Success(sizes)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            Resource.Failure(RemoteErrorMapper.mapThrowable(t))
+        }
+    }
+
+    /** `GET /object/{bucket}/{path}` — used by the preview cache and split-source profile checks. */
+    suspend fun download(objectPath: String): Resource<ByteArray> {
+        val tokenResult = tokenRefresher.currentAccessToken()
+        if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
+        val token = (tokenResult as Resource.Success).data
+        return try {
+            val response = httpClient.get("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                    append("apikey", config.anonKey)
+                }
+            }
+            if (response.status.isSuccess()) {
+                Resource.Success(response.bodyAsBytes())
+            } else {
+                Resource.Failure(RemoteErrorMapper.mapHttpError(response.status.value, response.bodyAsText()))
+            }
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            Resource.Failure(RemoteErrorMapper.mapThrowable(t))
+        }
+    }
+
+    /** `DELETE /object/{bucket}/{path}` — step 4 of the commit ordering
+     * (`contracts/audio-artifact-contract.md` §4). Callers must treat a failure as a logged
+     * non-event (FR-033b), never surface it as an operation failure. */
+    suspend fun delete(objectPath: String): Resource<Unit> {
+        val tokenResult = tokenRefresher.currentAccessToken()
+        if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
+        val token = (tokenResult as Resource.Success).data
+        return try {
+            val response = httpClient.delete("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                    append("apikey", config.anonKey)
+                }
+            }
+            if (response.status.isSuccess()) {
+                Resource.Success(Unit)
+            } else {
+                Resource.Failure(RemoteErrorMapper.mapHttpError(response.status.value, response.bodyAsText()))
+            }
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {

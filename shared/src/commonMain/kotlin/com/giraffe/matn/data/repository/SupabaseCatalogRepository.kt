@@ -11,13 +11,19 @@ import com.giraffe.matn.data.remote.postgrest.toMatnDraft
 import com.giraffe.matn.data.remote.postgrest.toMatnRow
 import com.giraffe.matn.data.remote.postgrest.toRowJson
 import com.giraffe.matn.data.remote.storage.StorageRestClient
+import com.giraffe.matn.domain.audio.PendingUpload
+import com.giraffe.matn.domain.audio.UploadProgress
+import com.giraffe.matn.domain.audio.VerseAudioUploader
+import com.giraffe.matn.domain.audio.buildPlan
 import com.giraffe.matn.domain.catalog.CatalogEntry
 import com.giraffe.matn.domain.catalog.CatalogLoadException
 import com.giraffe.matn.domain.catalog.CatalogRepository
+import com.giraffe.matn.domain.catalog.DraftAudio
 import com.giraffe.matn.domain.catalog.MatnDraft
 import com.giraffe.matn.domain.catalog.PublicationState
 import com.giraffe.matn.domain.error.RemoteError
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.JsonObject
 
@@ -25,6 +31,7 @@ import kotlinx.serialization.json.JsonObject
 class SupabaseCatalogRepository(
     private val postgrest: PostgrestClient,
     private val storageClient: StorageRestClient,
+    private val uploader: VerseAudioUploader,
 ) : CatalogRepository {
 
     override fun observeAuthored(): Flow<List<CatalogEntry>> = flow {
@@ -69,6 +76,58 @@ class SupabaseCatalogRepository(
             else -> "application/octet-stream"
         }
         return storageClient.upload("matns/$matnId/cover.$ext", bytes, contentType)
+    }
+
+    override suspend fun downloadCover(objectPath: String): Resource<ByteArray> =
+        storageClient.download(objectPath)
+
+    /** Attach/replace/split all converge here: list → upload → write row (the commit) → delete
+     * stale objects (`contracts/audio-artifact-contract.md` §4). A delete failure is swallowed —
+     * the operation has already succeeded by the time step 4 runs (FR-033b). */
+    override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: DraftAudio, bytes: ByteArray): Resource<MatnDraft> {
+        val after = draft.copy(
+            verses = draft.verses.map { if (it.id == verseId) it.copy(audio = audio, durationMs = audio.durationMs) else it },
+        )
+        return commitAudioChange(draft, after, listOf(PendingUpload(verseId, audio.fileRef, bytes, audio)))
+    }
+
+    override suspend fun removeVerseAudio(draft: MatnDraft, verseId: String): Resource<MatnDraft> {
+        val after = draft.copy(
+            verses = draft.verses.map { if (it.id == verseId) it.copy(audio = null, durationMs = 0L) else it },
+        )
+        return commitAudioChange(draft, after, emptyList())
+    }
+
+    override suspend fun applySplit(draft: MatnDraft, updates: Map<String, DraftAudio>, payloads: List<PendingUpload>): Resource<MatnDraft> {
+        val after = draft.copy(
+            verses = draft.verses.map { verse ->
+                updates[verse.id]?.let { newAudio -> verse.copy(audio = newAudio, durationMs = newAudio.durationMs) } ?: verse
+            },
+        )
+        return commitAudioChange(draft, after, payloads)
+    }
+
+    private suspend fun commitAudioChange(before: MatnDraft, after: MatnDraft, payloads: List<PendingUpload>): Resource<MatnDraft> {
+        val existing = when (val listed = storageClient.listWithSizes("matns/${before.id}/verses/")) {
+            is Resource.Success -> listed.data
+            is Resource.Failure -> return listed
+        }
+        val plan = buildPlan(before, after, payloads, existing)
+
+        if (plan.uploads.isNotEmpty()) {
+            var uploadFailure: AppError? = null
+            uploader.upload(plan).collect { progress ->
+                if (progress is UploadProgress.Failed) uploadFailure = progress.error
+            }
+            uploadFailure?.let { return Resource.Failure(it) }
+        }
+
+        val committed = writeRow(after)
+        if (committed is Resource.Failure) return committed
+
+        plan.deletes.forEach { objectPath -> storageClient.delete(objectPath) }
+
+        return committed
     }
 
     private suspend fun writeRow(draft: MatnDraft): Resource<MatnDraft> {

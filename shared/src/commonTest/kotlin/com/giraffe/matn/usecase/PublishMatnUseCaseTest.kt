@@ -28,6 +28,10 @@ private class PublishFakeCatalogRepository : CatalogRepository {
     }
     override suspend fun unpublish(matnId: String): Resource<MatnDraft> = Resource.Failure(AppError.NotFound)
     override suspend fun uploadCover(matnId: String, bytes: ByteArray, ext: String): Resource<String> = Resource.Success("ref")
+    override suspend fun downloadCover(objectPath: String): Resource<ByteArray> = Resource.Success(ByteArray(0))
+    override suspend fun attachVerseAudio(draft: MatnDraft, verseId: String, audio: com.giraffe.matn.domain.catalog.DraftAudio, bytes: ByteArray): Resource<MatnDraft> = Resource.Success(draft)
+    override suspend fun removeVerseAudio(draft: MatnDraft, verseId: String): Resource<MatnDraft> = Resource.Success(draft)
+    override suspend fun applySplit(draft: MatnDraft, updates: Map<String, com.giraffe.matn.domain.catalog.DraftAudio>, payloads: List<com.giraffe.matn.domain.audio.PendingUpload>): Resource<MatnDraft> = Resource.Success(draft)
 }
 
 private fun draft(verses: List<DraftVerse> = emptyList()) = MatnDraft(
@@ -46,7 +50,11 @@ private fun draft(verses: List<DraftVerse> = emptyList()) = MatnDraft(
     remoteRevision = null,
 )
 
-private fun verse(id: String, number: Int) = DraftVerse(id, null, number, "text", null, 0L)
+private fun verse(id: String, number: Int, audio: com.giraffe.matn.domain.catalog.DraftAudio? = null) =
+    DraftVerse(id, null, number, "text", audio, audio?.durationMs ?: 0L)
+
+private fun audio(fileRef: String) =
+    com.giraffe.matn.domain.catalog.DraftAudio(id = "a-$fileRef", fileRef = fileRef, durationMs = 1000, sizeBytes = 10, sampleRate = 44100, channels = 1)
 
 class PublishMatnUseCaseTest {
 
@@ -60,20 +68,22 @@ class PublishMatnUseCaseTest {
     }
 
     @Test
-    fun `a text-only draft with only deferred problems publishes`() = runTest {
+    fun `a text-only draft with missing audio is refused — Phase 12 makes it blocking`() = runTest {
         val repo = PublishFakeCatalogRepository()
         val result = PublishMatnUseCase(repo)(draft(listOf(verse("v1", 1), verse("v2", 2))))
 
-        assertIs<Resource.Success<MatnDraft>>(result)
-        assertEquals(1, repo.publishCallCount)
+        assertIs<Resource.Failure>(result)
+        assertEquals(0, repo.publishCallCount)
     }
 
     @Test
-    fun `the published result carries audioCompleteness NONE`() = runTest {
+    fun `publishing a complete matn succeeds with audioCompleteness COMPLETE`() = runTest {
         val repo = PublishFakeCatalogRepository()
-        val result = PublishMatnUseCase(repo)(draft(listOf(verse("v1", 1))))
+        val result = PublishMatnUseCase(repo)(draft(listOf(verse("v1", 1, audio("ref1")), verse("v2", 2, audio("ref2")))))
 
-        assertEquals(AudioCompleteness.NONE, (result as Resource.Success).data.audioCompleteness)
+        assertIs<Resource.Success<MatnDraft>>(result)
+        assertEquals(AudioCompleteness.COMPLETE, result.data.audioCompleteness)
+        assertEquals(1, repo.publishCallCount)
     }
 
     @Test
