@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -519,6 +520,9 @@ fun EditorScreen(
             nowMillis = { Clock.System.now().toEpochMilliseconds() },
         )
     },
+    /** Called once the matn has been saved as a draft or published — the portal replaces this
+     * editor with a blank one so the next matn can be entered straight away. */
+    onFinished: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val koin = TeacherKoinHolder.koin
@@ -550,6 +554,12 @@ fun EditorScreen(
         )
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // The ViewModel is discarded with the editor it belongs to, so the flag never needs clearing —
+    // the next matn gets a new one whose `finished` is false again.
+    val currentOnFinished by rememberUpdatedState(onFinished)
+    LaunchedEffect(state.finished) { if (state.finished) currentOnFinished() }
+
     EditorContent(
         state = state,
         intents = EditorIntents(

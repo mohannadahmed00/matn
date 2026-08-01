@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -26,6 +28,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 private class FakeCatalogRepository(
@@ -97,6 +100,8 @@ private fun newDraft() = MatnDraftFactory.newDraft(
     title = "Title",
     author = "Author",
 )
+
+private const val AUTOSAVE_SETTLE_MS = 6_000L
 
 class EditorViewModelTest {
 
@@ -180,6 +185,75 @@ class EditorViewModelTest {
 
         assertEquals(null, vm.state.value.coverPreview)
         assertEquals(null, vm.state.value.coverError)
+    }
+
+    /** Pressing Save as draft or Publish means "done with this matn"; the portal watches this to
+     * hand back a blank editor for the next one. */
+    @Test
+    fun `an explicit save reports the matn as finished`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+        val vm = newViewModel(repo)
+
+        vm.onSaveDraft()
+
+        assertTrue(vm.state.value.finished)
+    }
+
+    @Test
+    fun `publishing reports the matn as finished`() = runTest {
+        val audio = com.giraffe.matn.domain.catalog.DraftAudio("a1", "matns/m1/verses/v1-tag.mp3", 1000, 10, 44100, 1)
+        val draft = newDraft().copy(
+            verses = listOf(com.giraffe.matn.domain.catalog.DraftVerse("v1", null, 1, "text", audio, 1000L)),
+        )
+        val vm = newViewModel(FakeCatalogRepository(saveResult = { Resource.Success(it) }), draft = draft)
+
+        vm.onConfirmPublish()
+
+        assertTrue(vm.state.value.finished)
+    }
+
+    /** A publish the validator refuses leaves the teacher on the matn with the problem panel — the
+     * screen may only clear once the work is actually stored. */
+    @Test
+    fun `a refused publish does not report the matn as finished`() = runTest {
+        val vm = newViewModel(
+            FakeCatalogRepository(saveResult = { Resource.Success(it) }),
+            draft = newDraft().copy(verses = emptyList()),
+        )
+
+        vm.onConfirmPublish()
+
+        assertFalse(vm.state.value.finished)
+    }
+
+    /**
+     * Autosave fires while the teacher is mid-sentence. If it reported the matn finished, the
+     * screen would clear itself out from under them — indistinguishable from losing the work, which
+     * is the single most damaging thing this editor can do.
+     */
+    @Test
+    fun `autosave never reports the matn as finished`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { Resource.Success(it) })
+        val vm = newViewModel(repo)
+
+        vm.onTitleChange("Still typing")
+        advanceTimeBy(AUTOSAVE_SETTLE_MS)
+        runCurrent()
+
+        assertTrue(repo.saveCallCount > 0, "the autosave under test never ran")
+        assertFalse(vm.state.value.finished)
+    }
+
+    /** A save the server refused leaves the teacher on their work, with the error. Clearing the
+     * screen for the next matn when this one was never stored would lose it outright. */
+    @Test
+    fun `a refused save does not report the matn as finished`() = runTest {
+        val repo = FakeCatalogRepository(saveResult = { Resource.Failure(RemoteError.Network) })
+        val vm = newViewModel(repo)
+
+        vm.onSaveDraft()
+
+        assertFalse(vm.state.value.finished)
     }
 
     @Test

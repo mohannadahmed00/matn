@@ -680,3 +680,28 @@ entry are both gone.
 Third instance of the same root cause this phase, after the stale editor and the split screen's key
 collision: **a process-wide `ViewModelStore` and no navigation library means screen state has to be
 scoped deliberately, every time.** `rememberScopedViewModelStoreOwner` is where that decision lives.
+
+### The editor clears itself once a matn is stored
+
+Saving as a draft or publishing now hands back a blank editor, so the next matn can be started
+without a detour through the library.
+
+`EditorUiState.finished` is set by exactly two things: a successful **explicit** Save as draft, and
+a successful Publish. The screen reports it upwards and `TeacherMain` takes the same path
+`onCreateNew` does — `editingDraft = null; editorEpoch++` — so the replacement is a genuinely fresh
+ViewModel in a fresh store, not a hand-reset of the old one. Nothing is lost by clearing: the matn
+is on the server and in the library by the time the flag is set.
+
+Two exclusions matter more than the feature:
+
+- **Autosave never sets it.** Autosave fires while the teacher is mid-sentence, and a screen that
+  cleared itself then would be indistinguishable from losing the work.
+- **A refused save or publish never sets it.** The screen may only clear once the work is actually
+  stored; clearing on a failure would discard a matn that was never written.
+
+Both are covered by tests, because both are the failure mode this feature could introduce, and it
+is the same one the phase has been guarding against throughout: work vanishing from the screen.
+
+Worth revisiting if it grates: Save as draft is also how a teacher checkpoints mid-edit, and being
+ejected to a blank form then is a plausible annoyance. Restricting the reset to Publish alone is a
+one-line change if that turns out to be the way it is used.

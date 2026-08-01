@@ -71,6 +71,15 @@ data class EditorUiState(
     val playingVerseId: String? = null,
     val showSplitScreen: Boolean = false,
     val previewState: PreviewState = PreviewState.Idle,
+    /**
+     * Set once, when an explicit Save as draft or Publish has landed on the server. The screen
+     * hands it upwards and the portal opens a blank matn in this one's place.
+     *
+     * Deliberately **not** set by autosave: autosave fires while the teacher is mid-sentence, and
+     * clearing the screen out from under them would be indistinguishable from losing the work.
+     * Only a button press means "I am done with this one".
+     */
+    val finished: Boolean = false,
 ) {
     val isPublished: Boolean get() = draft.publicationState == PublicationState.PUBLISHED
 
@@ -350,7 +359,7 @@ class EditorViewModel(
         runUseCase(
             useCase = saveDraft,
             params = draft,
-            onSuccess = { saved -> setState { it.copy(draft = saved, saveState = SaveState.Saved(nowMillis())) } },
+            onSuccess = { saved -> setState { it.copy(draft = saved, saveState = SaveState.Saved(nowMillis()), finished = true) } },
             onError = { error -> setState { it.copy(saveState = SaveState.Failed(error as? RemoteError ?: RemoteError.Decode)) } },
         )
     }
@@ -374,7 +383,7 @@ class EditorViewModel(
             useCase = publishMatn,
             params = stateValue.draft,
             onSuccess = { published ->
-                setState { it.copy(draft = published, saveState = SaveState.Saved(nowMillis()), validation = null) }
+                setState { it.copy(draft = published, saveState = SaveState.Saved(nowMillis()), validation = null, finished = true) }
             },
             onError = { error ->
                 when (error) {

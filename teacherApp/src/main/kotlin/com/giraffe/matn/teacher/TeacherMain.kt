@@ -148,7 +148,17 @@ private fun TeacherApp() {
                                 // process-wide store is what let a stale editor outlive the matn it
                                 // belonged to.
                                 CompositionLocalProvider(LocalViewModelStoreOwner provides editorStoreOwner) {
-                                    EditorScreen(initialDraft = draftForEditor)
+                                    EditorScreen(
+                                        initialDraft = draftForEditor,
+                                        // Saved or published means done with this matn: hand back a
+                                        // blank editor so the next one can be started immediately.
+                                        // The work is on the server and listed in the library, so
+                                        // nothing is lost by clearing the screen.
+                                        onFinished = {
+                                            editingDraft = null
+                                            editorEpoch++
+                                        },
+                                    )
                                 }
                             }
                             PortalDestination.LIBRARY_MANAGEMENT -> Column(Modifier.fillMaxSize()) {
