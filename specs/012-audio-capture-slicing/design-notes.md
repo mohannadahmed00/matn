@@ -786,3 +786,23 @@ to update yet.
 Worth noting that this is the *only* place these tests can run — there is no local stack on the
 development machine, so the RLS suite is CI-gated by construction and a bucket setting it depends on
 is invisible until the job runs.
+
+### …and then A6 failed on the re-upload
+
+With the bucket fixed, A1 and A2 passed and A6 got one line further: `teacher re-upload at the
+deeper prefix failed: 400`.
+
+`sessionStorageUpload` sent a plain `POST` with no `x-upsert` header, so the second write to the
+same key hit Storage's duplicate check and was refused **before any policy was consulted**. The line
+even called itself "x-upsert-equivalent" — it was not, and the helper was sending a request the app
+never sends: `StorageRestClient.upload` has always set `x-upsert: true`, and
+`matn_content_teacher_update` exists precisely for it (its own comment says so).
+
+So the test was measuring the duplicate check while claiming to measure the update policy. Both
+helpers now carry the header, which makes A6 exercise what a *replaced* recording actually does —
+an upsert over an existing object, checked against `update` rather than `insert` — instead of
+repeating the line above it.
+
+These cases had never executed before this branch: they were written stack-gated in Phase 12 and
+the first CI run stopped at the mime type. Two rounds of red were two real defects in a suite that
+had only ever been compiled, which is the argument for the job existing.

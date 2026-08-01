@@ -167,9 +167,14 @@ class RlsPolicyTest {
             headers { append("apikey", config.anonKey) }
         }
 
+    /** The same request an anonymous caller could actually make — `x-upsert` too, so a denial can
+     * never be the duplicate check standing in for the policy under test. */
     private suspend fun anonymousStorageUpload(objectPath: String): HttpResponse =
         httpClient.post("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
-            headers { append("apikey", config.anonKey) }
+            headers {
+                append("apikey", config.anonKey)
+                append("x-upsert", "true")
+            }
             contentType(ContentType.parse("audio/mpeg"))
             setBody(byteArrayOf(1, 2, 3))
         }
@@ -189,12 +194,17 @@ class RlsPolicyTest {
             headers { append("apikey", config.anonKey) }
         }
 
+    /** Mirrors [com.giraffe.matn.data.remote.storage.StorageRestClient.upload], `x-upsert` included:
+     * without it Storage refuses a second write to the same key with a 400 `Duplicate` before any
+     * policy is consulted, so the test would be measuring the duplicate check rather than the
+     * policy it names. */
     private suspend fun sessionStorageUpload(session: TeacherSession, objectPath: String): HttpResponse {
         val token = (primedRefresher(authClient, session).currentAccessToken() as Resource.Success).data
         return httpClient.post("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
             headers {
                 append("apikey", config.anonKey)
                 append(HttpHeaders.Authorization, "Bearer $token")
+                append("x-upsert", "true")
             }
             contentType(ContentType.parse("audio/mpeg"))
             setBody(byteArrayOf(1, 2, 3))
@@ -440,8 +450,11 @@ class RlsPolicyTest {
         assertTrue(uploaded.status.isSuccess(), "teacher upload failed: ${uploaded.status.value} ${uploaded.bodyAsText()}")
 
         // (storage.foldername(name))[2] must still resolve to matnId one level deeper than a cover.
-        val read = sessionStorageUpload(teacherSession, objectPath) // re-upload (x-upsert-equivalent) exercises the same read-back path
-        assertTrue(read.status.isSuccess(), "teacher re-upload at the deeper prefix failed: ${read.status.value}")
+        // An upsert over an existing object is checked against the `update` policy rather than
+        // `insert`, so this is the case a replaced recording actually takes — not a repeat of the
+        // line above.
+        val replaced = sessionStorageUpload(teacherSession, objectPath)
+        assertTrue(replaced.status.isSuccess(), "teacher re-upload at the deeper prefix failed: ${replaced.status.value} ${replaced.bodyAsText()}")
 
         val deleted = sessionStorageDelete(teacherSession, objectPath)
         assertTrue(deleted.status.isSuccess(), "teacher delete failed: ${deleted.status.value} ${deleted.bodyAsText()}")
