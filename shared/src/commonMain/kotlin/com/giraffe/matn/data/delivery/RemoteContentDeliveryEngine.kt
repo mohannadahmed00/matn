@@ -18,6 +18,7 @@ import com.giraffe.matn.domain.model.DeliveryFailure
 import com.giraffe.matn.domain.model.DeliveryPhase
 import com.giraffe.matn.domain.model.DeliveryProgress
 import com.giraffe.matn.domain.model.RemovalOutcome
+import com.giraffe.matn.domain.repository.AudioAssetRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -218,6 +219,15 @@ class RemoteContentDeliveryEngine(
      * Step 8: one transaction, after every byte is already on disk. [playable] holds the verses
      * whose audio actually landed — a verse absent from it is readable and marked as having no
      * recitation, which is the whole of FR-023.
+     *
+     * Audio rows are written under [AudioAssetRepository.DEFAULT_RECITER], **not** the published
+     * `default_reciter_id`. On the student device `reciter_id` exists to tell competing recitations
+     * of the same verse apart, and a published matn has exactly one: `matns.default_reciter_id` is a
+     * scalar and each verse carries a single `audio` object. That id is also unreachable from the
+     * student side by any other route — the overview projection does not fetch it and no local table
+     * stores it — so writing it here made every read miss. `BuildPlaybackQueueUseCase` and
+     * `getAudioForVerse` both look up the constant, which is the invariant the rest of the student
+     * app has always assumed.
      */
     private fun commit(row: MatnRow, playable: Set<String>) {
         db.transaction {
@@ -246,7 +256,7 @@ class RemoteContentDeliveryEngine(
                     db.contentQueries.upsertAudioAsset(
                         audio.id,
                         verse.id,
-                        row.defaultReciterId,
+                        AudioAssetRepository.DEFAULT_RECITER,
                         audio.fileRef.substringAfterLast('/'),
                         audio.durationMs,
                     )
