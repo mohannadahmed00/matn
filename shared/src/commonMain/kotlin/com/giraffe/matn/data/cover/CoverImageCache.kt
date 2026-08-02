@@ -50,6 +50,17 @@ class CoverImageCache(
         }
     }
 
+    /**
+     * Bytes already on disk for [matnId], or `null` — **never** a network call.
+     *
+     * This is what surfaces reachable from the reading path (the details header) use. [load] cannot
+     * be used there without breaching rule 2 above: the details screen is shown for a downloaded
+     * matn too, so a fetch on that path would put a request inside the offline guarantee. Reaching
+     * details always means passing through the library grid first, which is where [load] already
+     * populated the cache, so in practice the cover is present.
+     */
+    suspend fun cached(matnId: String): ByteArray? = readCached(ContentFileStore.coverPath(matnId))
+
     private suspend fun readCached(cachePath: String): ByteArray? = try {
         files.readFile(cachePath)?.takeIf { it.isNotEmpty() }
     } catch (c: CancellationException) {

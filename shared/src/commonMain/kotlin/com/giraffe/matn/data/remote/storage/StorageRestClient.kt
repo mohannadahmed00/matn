@@ -5,6 +5,7 @@ import com.giraffe.matn.data.remote.RemoteErrorMapper
 import com.giraffe.matn.data.remote.SupabaseConfig
 import com.giraffe.matn.data.remote.auth.AccessTokenProvider
 import io.ktor.client.HttpClient
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
@@ -37,6 +38,26 @@ class StorageRestClient(
     private val config: SupabaseConfig,
     private val tokenProvider: AccessTokenProvider,
 ) {
+    /**
+     * `Authorization` is **not** optional here, unlike on PostgREST.
+     *
+     * PostgREST falls back to `apikey` when there is no bearer token and resolves the caller to
+     * `anon` from it; storage-api does not — it reads the role from `Authorization` alone, and a
+     * request without it resolves to no role at all. That caller cannot see the bucket row, so
+     * storage-api fails at the bucket lookup, *before* `matn_content_published_read` is ever
+     * consulted, and reports `404 NoSuchBucket`. Nothing in the message hints at authorisation,
+     * which is what made this look like a misconfigured bucket name.
+     *
+     * A student holds no token (FR-027), so the anon key stands in as the bearer. That grants the
+     * `anon` role and nothing more — object visibility is still decided entirely by RLS.
+     */
+    private fun HttpRequestBuilder.storageHeaders(token: String?) {
+        headers {
+            append(HttpHeaders.Authorization, "Bearer ${token ?: config.anonKey}")
+            append("apikey", config.anonKey)
+        }
+    }
+
     /** [objectPath] is deterministic per matn (e.g. `matns/{matnId}/cover.png`) so a re-upload
      * overwrites (`x-upsert: true`) rather than accumulating orphans. Returns the same
      * [objectPath] on success. */
@@ -46,11 +67,8 @@ class StorageRestClient(
         val token = (tokenResult as Resource.Success).data
         return try {
             val response = httpClient.post("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
-                headers {
-                    if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
-                    append("apikey", config.anonKey)
-                    append("x-upsert", "true")
-                }
+                storageHeaders(token)
+                headers { append("x-upsert", "true") }
                 contentType(ContentType.parse(contentType))
                 setBody(bytes)
             }
@@ -84,10 +102,7 @@ class StorageRestClient(
             var offset = 0
             while (true) {
                 val response = httpClient.post("${config.storageBaseUrl}/object/list/${config.bucket}") {
-                    headers {
-                        if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
-                        append("apikey", config.anonKey)
-                    }
+                    storageHeaders(token)
                     contentType(ContentType.Application.Json)
                     setBody(
                         buildJsonObject {
@@ -125,10 +140,7 @@ class StorageRestClient(
         val token = (tokenResult as Resource.Success).data
         return try {
             val response = httpClient.get("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
-                headers {
-                    if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
-                    append("apikey", config.anonKey)
-                }
+                storageHeaders(token)
             }
             if (response.status.isSuccess()) {
                 Resource.Success(response.bodyAsBytes())
@@ -151,10 +163,7 @@ class StorageRestClient(
         val token = (tokenResult as Resource.Success).data
         return try {
             val response = httpClient.delete("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
-                headers {
-                    if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
-                    append("apikey", config.anonKey)
-                }
+                storageHeaders(token)
             }
             if (response.status.isSuccess()) {
                 Resource.Success(Unit)
