@@ -367,6 +367,7 @@ private fun VerseList(
                     onInstall = onInstall,
                     onCancelInstall = onCancelInstall,
                     onRemoveRequested = onRemoveRequested,
+                    coverBytes = state.coverBytes,
                 )
             }
         }
@@ -417,6 +418,7 @@ private fun Frontispiece(
     onInstall: () -> Unit = {},
     onCancelInstall: () -> Unit = {},
     onRemoveRequested: () -> Unit = {},
+    coverBytes: ByteArray? = null,
 ) {
     Column(
         modifier = Modifier
@@ -471,6 +473,7 @@ private fun Frontispiece(
             modifier = Modifier
                 .width(120.dp)
                 .aspectRatio(0.75f),
+            imageBytes = coverBytes,
         )
         Text(
             text = header.title,

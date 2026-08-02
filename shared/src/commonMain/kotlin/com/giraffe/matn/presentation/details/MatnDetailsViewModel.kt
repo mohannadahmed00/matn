@@ -74,6 +74,9 @@ class MatnDetailsViewModel(
     private val cancelInstall: UseCase<String, Unit>? = null,
     /** Phase 8 (US2 FR-017/FR-018/FR-021): removal, gated behind explicit confirmation. */
     private val removeMatnContent: UseCase<String, RemovalOutcome>? = null,
+    /** Phase 13 (FR-012): `matnId -> cached cover bytes`. Reads the disk cache the library grid
+     *  populated; never fetches, so the reading path stays free of network calls (SC-004). */
+    private val loadCachedCover: (suspend (String) -> ByteArray?)? = null,
 ) : BaseViewModel<MatnDetailsUiState>(MatnDetailsUiState()) {
 
     // The two async inputs (details load + verse stream) are cached here and folded into UI
@@ -92,6 +95,16 @@ class MatnDetailsViewModel(
         observeProgress()
         observeMemorization()
         observeAvailability()
+        loadCover()
+    }
+
+    /** FR-012: the header cover, from the disk cache only. A miss simply leaves the placeholder. */
+    private fun loadCover() {
+        val load = loadCachedCover ?: return
+        viewModelScope.launch {
+            val bytes = load(matnId) ?: return@launch
+            setState { it.copy(coverBytes = bytes) }
+        }
     }
 
     /** US1 FR-002: toggle "memorized" on [verseId] — the target boolean is the inverse of its

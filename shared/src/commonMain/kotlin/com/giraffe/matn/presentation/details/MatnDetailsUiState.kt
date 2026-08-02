@@ -64,7 +64,53 @@ data class MatnDetailsUiState(
     /** Phase 8 (FR-017/FR-021): the most recent removal's outcome, so honest post-removal copy
      *  can be shown (`Reclaimed` vs `ReleasedPendingSystemReclaim`). `null` before any removal. */
     val lastRemovalOutcome: RemovalOutcome? = null,
-)
+    /** Phase 13 (FR-012): the cached cover's bytes, read from disk only — the library grid is what
+     *  fetches. `null` keeps [com.giraffe.matn.presentation.common.CoverImage]'s placeholder. */
+    val coverBytes: ByteArray? = null,
+) {
+    // `coverBytes` is a ByteArray, so the generated equals/hashCode would compare it by identity and
+    // make two otherwise-equal states differ. It is assigned once from the cache and never rebuilt,
+    // so comparing the reference is correct here — spelled out rather than left to surprise a reader.
+    override fun equals(other: Any?): Boolean = this === other || (other is MatnDetailsUiState && compare(other))
+
+    private fun compare(other: MatnDetailsUiState): Boolean =
+        isLoading == other.isLoading && header == other.header && verses == other.verses &&
+            chapters == other.chapters && showTableOfContents == other.showTableOfContents &&
+            fontSize == other.fontSize && error == other.error && activeVerseId == other.activeVerseId &&
+            isPlaying == other.isPlaying && loopRangeVerseIds == other.loopRangeVerseIds &&
+            loopRange == other.loopRange && focusVerseId == other.focusVerseId &&
+            annotations == other.annotations && noteEditor == other.noteEditor &&
+            memorizedVerseIds == other.memorizedVerseIds && progress == other.progress &&
+            availability == other.availability && declaredSizeBytes == other.declaredSizeBytes &&
+            installError == other.installError &&
+            pendingRemovalConfirmation == other.pendingRemovalConfirmation &&
+            lastRemovalOutcome == other.lastRemovalOutcome && coverBytes === other.coverBytes
+
+    override fun hashCode(): Int {
+        var result = isLoading.hashCode()
+        result = 31 * result + (header?.hashCode() ?: 0)
+        result = 31 * result + verses.hashCode()
+        result = 31 * result + chapters.hashCode()
+        result = 31 * result + showTableOfContents.hashCode()
+        result = 31 * result + fontSize.hashCode()
+        result = 31 * result + (error?.hashCode() ?: 0)
+        result = 31 * result + (activeVerseId?.hashCode() ?: 0)
+        result = 31 * result + isPlaying.hashCode()
+        result = 31 * result + loopRangeVerseIds.hashCode()
+        result = 31 * result + (loopRange?.hashCode() ?: 0)
+        result = 31 * result + (focusVerseId?.hashCode() ?: 0)
+        result = 31 * result + annotations.hashCode()
+        result = 31 * result + (noteEditor?.hashCode() ?: 0)
+        result = 31 * result + memorizedVerseIds.hashCode()
+        result = 31 * result + (progress?.hashCode() ?: 0)
+        result = 31 * result + (availability?.hashCode() ?: 0)
+        result = 31 * result + declaredSizeBytes.hashCode()
+        result = 31 * result + (installError?.hashCode() ?: 0)
+        result = 31 * result + pendingRemovalConfirmation.hashCode()
+        result = 31 * result + (lastRemovalOutcome?.hashCode() ?: 0)
+        return result
+    }
+}
 
 /**
  * US3 note-editor sheet state. [initialText] is `null` until [com.giraffe.matn.domain.usecase.GetNoteUseCase]
