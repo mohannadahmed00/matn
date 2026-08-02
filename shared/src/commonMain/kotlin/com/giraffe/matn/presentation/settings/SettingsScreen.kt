@@ -402,20 +402,23 @@ private fun NotificationPermissionRowPermanentlyDeniedPreview() {
     MatnTheme { NotificationPermissionRow(status = PermissionStatus.PERMANENTLY_DENIED, onOpenSettings = {}, onRetry = {}) }
 }
 
-/** Honest post-removal copy, switching on [RemovalOutcome] semantics (research D2). */
+/**
+ * Post-removal copy. Phase 13 collapsed [RemovalOutcome] to a single value: deleting app-private
+ * files reclaims space immediately on every platform, so the "released, pending system reclaim"
+ * hedge that iOS On-Demand Resources forced is gone — the figure shown is now always the truth.
+ */
 @Composable
 private fun removalOutcomeMessage(outcome: RemovalOutcome): String = when (outcome) {
-    is RemovalOutcome.Reclaimed -> stringResource(Res.string.settings_removal_reclaimed, formatBytes(outcome.bytes))
-    is RemovalOutcome.ReleasedPendingSystemReclaim ->
-        stringResource(Res.string.settings_removal_pending, formatBytes(outcome.bytes))
+    is RemovalOutcome.Reclaimed ->
+        stringResource(Res.string.settings_removal_reclaimed, formatBytes(outcome.bytes))
 }
 
 // --------------------------------------------------------------------------- Previews
 
 private val previewEntries = listOf(
-    MatnStorageEntry(matnId = "m1", title = "متن الآجرومية مبوب", bytes = 5_000_000, isStarter = false),
-    MatnStorageEntry(matnId = "m2", title = "الأجرومية المهذبة", bytes = 1_200_000, isStarter = false),
-    MatnStorageEntry(matnId = "m3", title = "الأجرومية", bytes = 296_000, isStarter = true),
+    MatnStorageEntry(matnId = "m1", title = "متن الآجرومية مبوب", bytes = 5_000_000),
+    MatnStorageEntry(matnId = "m2", title = "الأجرومية المهذبة", bytes = 1_200_000),
+    MatnStorageEntry(matnId = "m3", title = "الأجرومية", bytes = 296_000),
 )
 
 @Preview
@@ -432,7 +435,6 @@ private fun SettingsContentZeroPreview() {
             state = SettingsUiState(
                 isLoading = false,
                 totalUsedBytes = 296_000,
-                onDemandUsedBytes = 0L,
                 freeSpaceBytes = 12_000_000_000L,
                 entries = listOf(previewEntries.last()),
             ),
@@ -448,7 +450,6 @@ private fun SettingsContentPopulatedPreview() {
             state = SettingsUiState(
                 isLoading = false,
                 totalUsedBytes = previewEntries.sumOf { it.bytes },
-                onDemandUsedBytes = previewEntries.filter { !it.isStarter }.sumOf { it.bytes },
                 freeSpaceBytes = 12_000_000_000L,
                 entries = previewEntries,
             ),
@@ -465,7 +466,6 @@ private fun SettingsContentWidePreview() {
             state = SettingsUiState(
                 isLoading = false,
                 totalUsedBytes = previewEntries.sumOf { it.bytes },
-                onDemandUsedBytes = previewEntries.filter { !it.isStarter }.sumOf { it.bytes },
                 freeSpaceBytes = 12_000_000_000L,
                 entries = previewEntries,
             ),
@@ -482,7 +482,6 @@ private fun SettingsContentMaxScalePreview() {
             state = SettingsUiState(
                 isLoading = false,
                 totalUsedBytes = previewEntries.sumOf { it.bytes },
-                onDemandUsedBytes = previewEntries.filter { !it.isStarter }.sumOf { it.bytes },
                 freeSpaceBytes = 12_000_000_000L,
                 entries = previewEntries,
             ),
@@ -499,7 +498,6 @@ private fun SettingsContentPopulatedDarkPreview() {
             state = SettingsUiState(
                 isLoading = false,
                 totalUsedBytes = previewEntries.sumOf { it.bytes },
-                onDemandUsedBytes = previewEntries.filter { !it.isStarter }.sumOf { it.bytes },
                 freeSpaceBytes = 12_000_000_000L,
                 entries = previewEntries,
             ),
@@ -515,7 +513,6 @@ private fun SettingsContentConfirmationOpenPreview() {
             state = SettingsUiState(
                 isLoading = false,
                 totalUsedBytes = previewEntries.sumOf { it.bytes },
-                onDemandUsedBytes = previewEntries.filter { !it.isStarter }.sumOf { it.bytes },
                 freeSpaceBytes = 12_000_000_000L,
                 entries = previewEntries,
                 pendingRemoval = RemovalTarget.SingleMatn("m1", "متن الآجرومية مبوب", 5_000_000),
@@ -532,10 +529,9 @@ private fun SettingsContentReleasedPendingReclaimPreview() {
             state = SettingsUiState(
                 isLoading = false,
                 totalUsedBytes = previewEntries.sumOf { it.bytes },
-                onDemandUsedBytes = previewEntries.filter { !it.isStarter }.sumOf { it.bytes },
                 freeSpaceBytes = 12_000_000_000L,
                 entries = previewEntries,
-                lastOutcome = RemovalOutcome.ReleasedPendingSystemReclaim(1_200_000),
+                lastOutcome = RemovalOutcome.Reclaimed(1_200_000),
             ),
         )
     }

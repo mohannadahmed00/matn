@@ -1,11 +1,10 @@
 package com.giraffe.matn.domain.model
 
 /**
- * Live progress of an in-flight content transfer (data-model §2.2). [totalBytes] is the live
- * platform size when known, else the declared catalog size (research D4). [fraction] is the derived
- * progress in `[0f, 1f]` and is `0f` when [totalBytes] is non-positive, so a zero-audio matn never
- * divides by zero. [phase] lets a parked Play transfer (`WAITING_FOR_WIFI`,
- * `REQUIRES_USER_CONFIRMATION`) render as an explained wait rather than a frozen bar (SC-007).
+ * Live progress of an in-flight content transfer (data-model §2.2). [totalBytes] is the catalog
+ * overview's `download_size_bytes` — always present offline, so progress never waits on a size
+ * lookup (spec Assumptions). [fraction] is the derived progress in `[0f, 1f]` and is `0f` when
+ * [totalBytes] is non-positive, so a zero-audio matn never divides by zero.
  */
 data class DeliveryProgress(
     val bytesTransferred: Long,
@@ -17,12 +16,12 @@ data class DeliveryProgress(
 }
 
 /**
- * Phases of a transfer (research D11). `PENDING`/`TRANSFERRING` are the normal flow; the two wait
- * phases are platform-side parking, not failures — the UI MUST render them distinctly.
+ * Phases of a transfer. Phase 13 removed `WAITING_FOR_NETWORK_POLICY` and `REQUIRES_CONFIRMATION`:
+ * both described Play Asset Delivery parking states, and plain HTTP has no equivalent — a transfer
+ * is either about to start or moving bytes (data-model §2.4). A transfer that is *accepted but not
+ * started* is not a phase at all; it is `ContentAvailability.Queued`.
  */
 enum class DeliveryPhase {
     PENDING,
     TRANSFERRING,
-    WAITING_FOR_NETWORK_POLICY,
-    REQUIRES_CONFIRMATION,
 }

@@ -46,9 +46,12 @@ fun ContentAvailabilityBadge(
     // restarting the fade. Reduce motion snaps immediately (0ms).
     val reduceMotion = LocalReduceMotion.current
     val kind = when (availability) {
-        is ContentAvailability.Installed -> 0
-        is ContentAvailability.Installing -> 1
-        is ContentAvailability.NotInstalled -> 2
+        is ContentAvailability.Downloaded -> 0
+        is ContentAvailability.Downloading -> 1
+        is ContentAvailability.NotDownloaded -> 2
+        // Queued shares the not-downloaded visual: nothing has transferred, so promising progress
+        // would be dishonest. The cancellable affordance lives in ContentActionButton (FR-015).
+        ContentAvailability.Queued -> 2
     }
     androidx.compose.animation.Crossfade(
         targetState = kind,
@@ -61,7 +64,7 @@ fun ContentAvailabilityBadge(
                 contentDescription = stringResource(Res.string.content_installed_desc),
             )
             1 -> InstallProgressIndicator(
-                progress = (availability as ContentAvailability.Installing).progress,
+                progress = (availability as ContentAvailability.Downloading).progress,
                 modifier = Modifier.width(MatnSpacing.unit * 12),
             )
             else -> {
@@ -98,7 +101,7 @@ fun ContentAvailabilityBadge(
 @Composable
 private fun ContentAvailabilityBadgeNotInstalledPreview() {
     MatnTheme {
-        ContentAvailabilityBadge(availability = ContentAvailability.NotInstalled(), declaredSizeBytes = 2_400_000)
+        ContentAvailabilityBadge(availability = ContentAvailability.NotDownloaded(), declaredSizeBytes = 2_400_000)
     }
 }
 
@@ -107,7 +110,7 @@ private fun ContentAvailabilityBadgeNotInstalledPreview() {
 private fun ContentAvailabilityBadgeInstallingPreview() {
     MatnTheme {
         ContentAvailabilityBadge(
-            availability = ContentAvailability.Installing(
+            availability = ContentAvailability.Downloading(
                 DeliveryProgress(bytesTransferred = 1_200_000, totalBytes = 2_400_000, phase = DeliveryPhase.TRANSFERRING),
             ),
             declaredSizeBytes = 2_400_000,
@@ -119,7 +122,7 @@ private fun ContentAvailabilityBadgeInstallingPreview() {
 @Composable
 private fun ContentAvailabilityBadgeInstalledPreview() {
     MatnTheme {
-        ContentAvailabilityBadge(availability = ContentAvailability.Installed(occupiedBytes = 2_400_000), declaredSizeBytes = 2_400_000)
+        ContentAvailabilityBadge(availability = ContentAvailability.Downloaded(occupiedBytes = 2_400_000), declaredSizeBytes = 2_400_000)
     }
 }
 
@@ -127,6 +130,6 @@ private fun ContentAvailabilityBadgeInstalledPreview() {
 @Composable
 private fun ContentAvailabilityBadgeZeroAudioPreview() {
     MatnTheme {
-        ContentAvailabilityBadge(availability = ContentAvailability.NotInstalled(), declaredSizeBytes = 0L)
+        ContentAvailabilityBadge(availability = ContentAvailability.NotDownloaded(), declaredSizeBytes = 0L)
     }
 }

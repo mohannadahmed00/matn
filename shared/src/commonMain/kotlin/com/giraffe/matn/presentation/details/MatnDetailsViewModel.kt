@@ -370,7 +370,6 @@ class MatnDetailsViewModel(
                 showTableOfContents = details?.showTableOfContents ?: false,
                 focusVerseId = focusVerseId?.takeIf { id -> verseRows.any { it.id == id } },
                 declaredSizeBytes = details?.declaredSizeBytes ?: current.declaredSizeBytes,
-                isStarter = details?.isStarter ?: current.isStarter,
             )
         }
     }

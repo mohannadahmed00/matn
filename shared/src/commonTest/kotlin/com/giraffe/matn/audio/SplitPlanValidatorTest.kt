@@ -62,7 +62,7 @@ class SplitPlanValidatorTest {
     }
 
     @Test
-    fun `R7 UncoveredStretch — 1s or more of uncovered source is a warning, not blocking`() {
+    fun `R7 UncoveredStretch — 1s or more of uncovered source is a warning - not blocking`() {
         val report = SplitPlanValidator.validate(
             plan(scope = listOf("v1", "v2"), ranges = listOf(VerseRange("v1", 0, 1000), VerseRange("v2", 5000, 6000)), durationMs = 10_000),
         )

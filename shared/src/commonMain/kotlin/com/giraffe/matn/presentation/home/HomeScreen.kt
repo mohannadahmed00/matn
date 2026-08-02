@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +28,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.giraffe.matn.domain.catalog.CatalogSyncState
+import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
 import com.giraffe.matn.domain.model.StructureKind
@@ -38,6 +42,11 @@ import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.app_title
+import matn.shared.generated.resources.catalog_connect_to_browse
+import matn.shared.generated.resources.catalog_empty
+import matn.shared.generated.resources.catalog_nothing_downloaded
+import matn.shared.generated.resources.catalog_refresh
+import matn.shared.generated.resources.catalog_sync_failed
 import matn.shared.generated.resources.home_daily_goal_label
 import matn.shared.generated.resources.library_empty
 import matn.shared.generated.resources.search_open
@@ -63,6 +72,7 @@ fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit, onOpenSea
         onResume = viewModel::onResumeClicked,
         onDismiss = viewModel::onDismissClicked,
         onOpenSearch = onOpenSearch,
+        onRefresh = viewModel::onRefreshClicked,
     )
 }
 
@@ -86,6 +96,7 @@ fun HomeContent(
     onResume: () -> Unit = {},
     onDismiss: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    onRefresh: () -> Unit = {},
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         HomeTopBar(onOpenSearch = onOpenSearch)
@@ -95,13 +106,30 @@ fun HomeContent(
                     modifier = Modifier.align(Alignment.Center),
                 )
 
-                state.isEmpty -> Text(
-                    text = stringResource(Res.string.library_empty),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(MatnSpacing.gutter),
+                // Phase 13 (FR-044): three distinct empty states where there used to be one.
+                // A student who has never reached the catalog, a teacher who has published
+                // nothing, and a library with nothing downloaded are different situations calling
+                // for different actions — collapsing them into "library is empty" is exactly the
+                // confusion the requirement forbids.
+
+                // Never synced — the honest first-launch state now that nothing ships in the
+                // binary. Offers a retry; never a bare spinner or a blank grid (SC-007).
+                state.showConnectPrompt -> CatalogMessage(
+                    message = stringResource(Res.string.catalog_connect_to_browse),
+                    actionLabel = stringResource(Res.string.catalog_refresh),
+                    onAction = onRefresh,
+                    isBusy = state.isSyncing,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+
+                // Reached the catalog; the teacher has published nothing. Not a failure, so no
+                // retry is offered — retrying cannot conjure content.
+                state.showEmptyCatalog -> CatalogMessage(
+                    message = stringResource(Res.string.catalog_empty),
+                    actionLabel = null,
+                    onAction = onRefresh,
+                    isBusy = state.isSyncing,
+                    modifier = Modifier.align(Alignment.Center),
                 )
 
                 else -> {
@@ -117,6 +145,31 @@ fun HomeContent(
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         DailyGoalSection(state.dailyGoal, modifier = Modifier.padding(bottom = MatnSpacing.unit))
+                    }
+                    // FR-007: a failed refresh is a non-blocking notice ABOVE a still-usable
+                    // library, never an emptied one.
+                    if (state.showSyncFailedNotice) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            CatalogNotice(
+                                message = stringResource(Res.string.catalog_sync_failed),
+                                actionLabel = stringResource(Res.string.catalog_refresh),
+                                onAction = onRefresh,
+                                isBusy = state.isSyncing,
+                                modifier = Modifier.padding(bottom = MatnSpacing.unit),
+                            )
+                        }
+                    }
+                    // FR-044's third case: the catalog has متون but none are on the device. Said
+                    // once, above the grid, rather than repeated on every card.
+                    if (state.showNothingDownloaded) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Text(
+                                text = stringResource(Res.string.catalog_nothing_downloaded),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = MatnSpacing.unit),
+                            )
+                        }
                     }
                     state.continueLearning?.let { entry ->
                         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -143,6 +196,7 @@ fun HomeContent(
                             progressFraction = state.progressByMatn[summary.matn.id],
                             availability = state.availability[summary.matn.id],
                             declaredSizeBytes = summary.declaredSizeBytes,
+                            coverBytes = state.covers[summary.matn.id],
                         )
                     }
                 }
@@ -154,6 +208,74 @@ fun HomeContent(
 
 /** The app-identity top bar — wordmark plus the US1 search entry point; see [HomeContent]'s
  *  KDoc for why the menu icon is still omitted. */
+/**
+ * A centered catalog state — the full-screen form, used when there is no grid to show.
+ *
+ * Stateless and parameterized (Principle II). `actionLabel = null` renders no button, which is how
+ * "the teacher has published nothing" differs from "we could not reach the catalog": one is a
+ * situation to wait out, the other is a situation to retry, and offering a retry for the first
+ * would be a dead affordance.
+ *
+ * **Stitch note (Constitution VIII)**: the design source has no screen for these three states —
+ * they did not exist before Phase 13, when a network-less first launch became possible. This reuses
+ * the existing centered empty-state pattern (previously `library_empty`) with token-routed
+ * type/spacing rather than inventing a new layout.
+ */
+@Composable
+private fun CatalogMessage(
+    message: String,
+    actionLabel: String?,
+    onAction: () -> Unit,
+    isBusy: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(MatnSpacing.gutter),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
+        if (actionLabel != null) {
+            Spacer(modifier = Modifier.height(MatnSpacing.unit))
+            TextButton(onClick = onAction, enabled = !isBusy) {
+                Text(text = actionLabel, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
+
+/**
+ * The inline form of the same idea: a full-width notice that sits above a library which is still
+ * perfectly usable (FR-007). Distinct from [CatalogMessage] because it must not centre or take the
+ * screen — an unreachable source is not a reason to hide content the student already has.
+ */
+@Composable
+private fun CatalogNotice(
+    message: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    isBusy: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onAction, enabled = !isBusy) {
+            Text(text = actionLabel, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
 @Composable
 private fun HomeTopBar(onOpenSearch: () -> Unit = {}) {
     Surface(color = MaterialTheme.colorScheme.surface) {
@@ -306,11 +428,76 @@ private fun HomeContentPopulatedDarkPreview() {
     }
 }
 
+// Phase 13 (T053): one preview per FR-044 case. The old single `isEmpty` preview could not show
+// the difference between them, which is precisely the defect the requirement is about.
+
+/** Never synced — a first launch with no network. Offers a retry (SC-007). */
 @Preview
 @Composable
-private fun HomeContentEmptyPreview() {
+private fun HomeContentConnectPromptPreview() {
     MatnTheme {
-        HomeContent(state = HomeUiState(isLoading = false, isEmpty = true), onOpenMatn = {})
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                syncState = CatalogSyncState(lastSuccessAtMillis = null, lastAttemptFailed = true),
+            ),
+            onOpenMatn = {},
+        )
+    }
+}
+
+/** Reached the catalog; the teacher has published nothing. No retry — retrying cannot help. */
+@Preview
+@Composable
+private fun HomeContentEmptyCatalogPreview() {
+    MatnTheme {
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                syncState = CatalogSyncState(lastSuccessAtMillis = 1_000L, lastAttemptFailed = false),
+            ),
+            onOpenMatn = {},
+        )
+    }
+}
+
+/** A full catalog with nothing downloaded yet — the normal state after a first successful sync. */
+@Preview
+@Composable
+private fun HomeContentNothingDownloadedPreview() {
+    MatnTheme {
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                items = listOf(
+                    previewSummary("m1", "الأجرومية", 4, 0),
+                    previewSummary("m2", "متن الآجرومية مبوب", 5, 0),
+                ),
+                availability = mapOf(
+                    "m1" to ContentAvailability.NotDownloaded(),
+                    "m2" to ContentAvailability.NotDownloaded(),
+                ),
+                syncState = CatalogSyncState(lastSuccessAtMillis = 1_000L, lastAttemptFailed = false),
+            ),
+            onOpenMatn = {},
+        )
+    }
+}
+
+/** A usable library with a failed refresh over it — never an emptied one (FR-007). */
+@Preview
+@Composable
+private fun HomeContentSyncFailedPreview() {
+    MatnTheme {
+        HomeContent(
+            state = HomeUiState(
+                isLoading = false,
+                items = listOf(previewSummary("m1", "الأجرومية", 4, 31_300)),
+                availability = mapOf("m1" to ContentAvailability.Downloaded(2_400_000)),
+                syncState = CatalogSyncState(lastSuccessAtMillis = 1_000L, lastAttemptFailed = true),
+            ),
+            onOpenMatn = {},
+        )
     }
 }
 

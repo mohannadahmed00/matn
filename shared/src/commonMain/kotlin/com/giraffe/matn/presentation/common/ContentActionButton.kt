@@ -18,24 +18,35 @@ import matn.shared.generated.resources.content_action_remove
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The install/cancel/remove action for one matn (T044, storage-ui-contract.md §3) — shared by the
- * matn details header and the Settings breakdown row (Principle VIII, extract at second use).
- * Stateless: driven entirely by [availability] and [isStarter]; renders nothing for the starter
- * (FR-027 — its audio ships in the app binary and is never installed or removed).
+ * The download/cancel/remove action for one matn (delivery-contract.md §3) — shared by the matn
+ * details header and the Settings breakdown row (Principle VIII, extract at second use).
+ *
+ * Stateless: driven entirely by [availability]. Phase 13 removed the `isStarter` parameter and the
+ * early return it guarded — **every** matn now renders an action, because FR-031 forbids any item
+ * being exempt from removal.
  */
 @Composable
 fun ContentActionButton(
     availability: ContentAvailability,
-    isStarter: Boolean,
     onInstall: () -> Unit,
     onCancel: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (isStarter) return
     val scheme = MaterialTheme.colorScheme
     when (availability) {
-        is ContentAvailability.NotInstalled -> {
+        // FR-015 / Clarification 4: queued renders as a cancellable wait with NO progress bar.
+        // A bar sitting at 0% would promise movement that has not started — the whole point of
+        // the state is that the transfer slot is still occupied by another matn.
+        ContentAvailability.Queued -> {
+            IconButton(onClick = onCancel, modifier = modifier) {
+                CancelInstallGlyph(
+                    color = scheme.onSurfaceVariant,
+                    contentDescription = stringResource(Res.string.content_action_cancel),
+                )
+            }
+        }
+        is ContentAvailability.NotDownloaded -> {
             Button(
                 onClick = onInstall,
                 shape = MatnShapes.full,
@@ -45,12 +56,12 @@ fun ContentActionButton(
                 Text(stringResource(Res.string.content_action_install), style = MaterialTheme.typography.labelLarge)
             }
         }
-        is ContentAvailability.Installing -> {
+        is ContentAvailability.Downloading -> {
             IconButton(onClick = onCancel, modifier = modifier) {
                 CancelInstallGlyph(color = scheme.onSurfaceVariant, contentDescription = stringResource(Res.string.content_action_cancel))
             }
         }
-        is ContentAvailability.Installed -> {
+        is ContentAvailability.Downloaded -> {
             IconButton(onClick = onRemove, modifier = modifier) {
                 RemoveContentGlyph(color = scheme.error, contentDescription = stringResource(Res.string.content_action_remove))
             }
@@ -65,8 +76,7 @@ fun ContentActionButton(
 private fun ContentActionButtonNotInstalledPreview() {
     MatnTheme {
         ContentActionButton(
-            availability = ContentAvailability.NotInstalled(),
-            isStarter = false,
+            availability = ContentAvailability.NotDownloaded(),
             onInstall = {}, onCancel = {}, onRemove = {},
         )
     }
@@ -77,14 +87,13 @@ private fun ContentActionButtonNotInstalledPreview() {
 private fun ContentActionButtonInstallingPreview() {
     MatnTheme {
         ContentActionButton(
-            availability = ContentAvailability.Installing(
+            availability = ContentAvailability.Downloading(
                 com.giraffe.matn.domain.model.DeliveryProgress(
                     bytesTransferred = 1_000_000,
                     totalBytes = 2_000_000,
                     phase = com.giraffe.matn.domain.model.DeliveryPhase.TRANSFERRING,
                 ),
             ),
-            isStarter = false,
             onInstall = {}, onCancel = {}, onRemove = {},
         )
     }
@@ -95,20 +104,20 @@ private fun ContentActionButtonInstallingPreview() {
 private fun ContentActionButtonInstalledPreview() {
     MatnTheme {
         ContentActionButton(
-            availability = ContentAvailability.Installed(occupiedBytes = 2_000_000),
-            isStarter = false,
+            availability = ContentAvailability.Downloaded(occupiedBytes = 2_000_000),
             onInstall = {}, onCancel = {}, onRemove = {},
         )
     }
 }
 
+/** Phase 13: replaces the old starter preview. Queued must be visually distinct from Downloading —
+ *  cancellable, but with no progress bar (FR-015). */
 @Preview
 @Composable
-private fun ContentActionButtonStarterPreview() {
+private fun ContentActionButtonQueuedPreview() {
     MatnTheme {
         ContentActionButton(
-            availability = ContentAvailability.Installed(occupiedBytes = 296_000),
-            isStarter = true,
+            availability = ContentAvailability.Queued,
             onInstall = {}, onCancel = {}, onRemove = {},
         )
     }

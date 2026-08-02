@@ -232,6 +232,17 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         observeLibraryProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveLibraryProgressUseCase>(),
                         observeDailyProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveDailyProgressUseCase>(),
                         observeLibraryAvailability = koin.get<com.giraffe.matn.domain.usecase.ObserveLibraryAvailabilityUseCase>(),
+                        // Phase 13: the grid becomes the catalog — every published matn, downloaded
+                        // or not (FR-005) — and the library opening triggers a staleness-windowed
+                        // sync (FR-006).
+                        observeCatalog = koin.get<com.giraffe.matn.domain.usecase.ObserveCatalogUseCase>(),
+                        observeCatalogSyncState = koin.get<com.giraffe.matn.domain.usecase.ObserveCatalogSyncStateUseCase>(),
+                        syncCatalog = koin.get<com.giraffe.matn.domain.usecase.SyncCatalogUseCase>(),
+                        // FR-012: covers are fetched only from here, the browse path. Passed as a
+                        // plain suspend function rather than the cache itself, so the ViewModel
+                        // depends on a capability, not on a data-layer type.
+                        loadCover = koin.get<com.giraffe.matn.data.cover.CoverImageCache>()
+                            .let { cache -> { (matnId, ref) -> cache.load(matnId, ref) } },
                     )
                 }
                 HomeScreen(
@@ -272,7 +283,7 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         toggleVerseMemorized = koin.get<com.giraffe.matn.domain.usecase.ToggleVerseMemorizedUseCase>(),
                         markChapterMemorized = koin.get<com.giraffe.matn.domain.usecase.MarkChapterMemorizedUseCase>(),
                         observeContentAvailability = koin.get<com.giraffe.matn.domain.usecase.ObserveContentAvailabilityUseCase>(),
-                        installMatnContent = koin.get<com.giraffe.matn.domain.usecase.InstallMatnContentUseCase>(),
+                        installMatnContent = koin.get<com.giraffe.matn.domain.usecase.DownloadMatnUseCase>(),
                         cancelInstall = koin.get<com.giraffe.matn.domain.usecase.CancelInstallUseCase>(),
                         removeMatnContent = koin.get<com.giraffe.matn.domain.usecase.RemoveMatnContentUseCase>(),
                     )

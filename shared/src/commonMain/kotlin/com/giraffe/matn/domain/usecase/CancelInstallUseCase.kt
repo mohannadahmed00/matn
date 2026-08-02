@@ -2,15 +2,15 @@ package com.giraffe.matn.domain.usecase
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.UseCase
-import com.giraffe.matn.domain.repository.ContentPackRepository
+import com.giraffe.matn.domain.repository.DownloadedContentRepository
 
 /**
  * T035 (FR-005/FR-006) — best-effort abort of an in-flight install. Pure delegation to
- * [ContentPackRepository.cancel] (content-delivery-contract.md §4).
+ * [DownloadedContentRepository.cancel] (content-delivery-contract.md §4).
  */
 @org.koin.core.annotation.Factory
 class CancelInstallUseCase(
-    private val repository: ContentPackRepository,
+    private val repository: DownloadedContentRepository,
 ) : UseCase<String, Unit> {
     override suspend fun invoke(params: String): Resource<Unit> {
         repository.cancel(params)

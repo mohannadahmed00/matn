@@ -47,7 +47,7 @@ class VerseTextImportTest {
     }
 
     @Test
-    fun `a line with commas and quotation marks is preserved verbatim, never split`() {
+    fun `a line with commas and quotation marks is preserved verbatim - never split`() {
         val line = "hello, \"world\", again"
 
         val result = VerseTextImport.parse(line.encodeToByteArray()) as Resource.Success

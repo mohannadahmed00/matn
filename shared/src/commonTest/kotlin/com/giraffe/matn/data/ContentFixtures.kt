@@ -1,6 +1,6 @@
 package com.giraffe.matn
 
-import com.giraffe.matn.data.seed.SeedMatn
+import com.giraffe.matn.testseed.SeedMatn
 
 val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 

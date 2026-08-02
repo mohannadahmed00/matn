@@ -13,4 +13,14 @@ interface DeviceStorage {
 
     /** Total on-disk size of the directory at [path]; 0 when the path is absent. */
     suspend fun sizeOfDirectory(path: String): Long
+
+    /**
+     * Absolute path of the app-private directory that downloaded content lives under
+     * (`delivery-contract.md` §1). Everything below it — `downloads/{matnId}/`,
+     * `downloads/.tmp-{matnId}/`, `covers/{matnId}` — is composed in `commonMain` by
+     * [com.giraffe.matn.data.delivery.ContentFileStore]; the platform only says *where* the root is
+     * (research D4), so this stays the one genuinely platform-specific fact and no business logic
+     * enters an `actual`.
+     */
+    suspend fun contentRootPath(): String
 }

@@ -1,4 +1,25 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
+/**
+ * Phase 13 (research D13): the backend the student reads from, injected rather than compiled in —
+ * environment first, then `supabase/supabase.local.properties`, mirroring how `:teacherApp` and
+ * `:desktopApp` resolve the same three values.
+ *
+ * None is a secret. The anon key identifies the *project*, not the caller, and the student sends no
+ * credential at all (FR-027); authorisation is the `published` flag enforced by row-level security,
+ * so this grants exactly what the app already grants anonymously — the published catalog.
+ */
+val supabaseProps = Properties().apply {
+    generateSequence(rootDir) { it.parentFile }
+        .map { File(it, "supabase/supabase.local.properties") }
+        .firstOrNull { it.isFile }
+        ?.inputStream()
+        ?.use { load(it) }
+}
+
+fun supabaseValue(env: String, prop: String, fallback: String = ""): String =
+    System.getenv(env) ?: supabaseProps.getProperty(prop, fallback)
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -31,6 +52,10 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "SUPABASE_URL", "\"${supabaseValue("SUPABASE_URL", "supabaseUrl")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseValue("SUPABASE_ANON_KEY", "supabaseAnonKey")}\"")
+        buildConfigField("String", "SUPABASE_BUCKET", "\"${supabaseValue("SUPABASE_BUCKET", "supabaseBucket", "matn-content")}\"")
     }
     packaging {
         resources {
@@ -52,6 +77,6 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
-    assetPacks += listOf(":packs:matn_structured_sample")
 }

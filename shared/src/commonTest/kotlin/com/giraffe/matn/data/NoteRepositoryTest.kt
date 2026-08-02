@@ -2,10 +2,10 @@ package com.giraffe.matn.data
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.NoteRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.testseed.TestContentSeeder
+import com.giraffe.matn.testseed.SeedAudio
+import com.giraffe.matn.testseed.SeedMatn
+import com.giraffe.matn.testseed.SeedVerse
 import com.giraffe.matn.db.ContentDatabase
 import com.giraffe.matn.domain.error.NoteError
 import com.giraffe.matn.newTestDatabase
@@ -21,7 +21,7 @@ class NoteRepositoryTest {
 
     private suspend fun seededDb(): ContentDatabase {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         val verses = listOf(
             SeedVerse(id = "v1", displayNumber = 1, arabicText = "بيت واحد", durationMs = 1000, audio = SeedAudio("a1", "v1.mp3", 1000)),
             SeedVerse(id = "v2", displayNumber = 2, arabicText = "بيت اثنان", durationMs = 1000, audio = SeedAudio("a2", "v2.mp3", 1000)),

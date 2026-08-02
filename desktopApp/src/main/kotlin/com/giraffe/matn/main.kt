@@ -5,7 +5,6 @@ import androidx.compose.ui.window.application
 import com.giraffe.matn.appearance.DesktopAppearanceMirror
 import com.giraffe.matn.audio.DesktopAudioEngine
 import com.giraffe.matn.data.db.DatabaseDriverFactory
-import com.giraffe.matn.delivery.DesktopContentDeliveryEngine
 import com.giraffe.matn.delivery.DesktopDeviceStorage
 import com.giraffe.matn.di.initMatnKoin
 import com.giraffe.matn.domain.audio.NoOpWakeLock
@@ -17,11 +16,11 @@ fun main() {
         driverFactory = DatabaseDriverFactory(),
         audioEngine = DesktopAudioEngine(),
         wakeLock = NoOpWakeLock,
-        deliveryEngine = DesktopContentDeliveryEngine(),
         deviceStorage = DesktopDeviceStorage(),
         appearanceMirror = DesktopAppearanceMirror(),
         notificationPermission = DesktopNotificationPermission(),
         motionPreferences = DesktopMotionPreferences(),
+        supabaseConfig = studentSupabaseConfig(),
     )
 
     application {

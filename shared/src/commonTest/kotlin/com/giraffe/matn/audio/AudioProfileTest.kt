@@ -9,6 +9,7 @@ import com.giraffe.matn.domain.catalog.PublicationState
 import com.giraffe.matn.domain.model.StructureKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 private fun audio(id: String, sampleRate: Int = 44100, channels: Int = 1, sizeBytes: Long = 1000) =
@@ -59,7 +60,7 @@ class AudioProfileTest {
         val profile = draft.audioProfile()
         val secondVerseProfile = AudioProfile(draft.verses[1].audio!!.sampleRate, draft.verses[1].audio!!.channels)
         assertEquals(AudioProfile(44100, 1), profile)
-        assert(profile != secondVerseProfile)
+        assertTrue(profile != secondVerseProfile)
     }
 
     @Test

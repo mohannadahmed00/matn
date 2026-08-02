@@ -20,7 +20,7 @@ class Mp3FrameIndexTest {
     }
 
     @Test
-    fun `durationMs is frames times frame duration, rounded`() = runTest {
+    fun `durationMs is frames times frame duration - rounded`() = runTest {
         val bytes = Mp3Fixtures.mp3(frames = 10, sampleRate = 44100)
 
         val index = Mp3FrameIndex.build(ByteArrayByteSource(bytes))

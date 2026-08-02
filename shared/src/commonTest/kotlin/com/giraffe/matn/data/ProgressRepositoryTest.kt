@@ -2,11 +2,11 @@ package com.giraffe.matn.data
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.ProgressRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedChapter
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.testseed.TestContentSeeder
+import com.giraffe.matn.testseed.SeedAudio
+import com.giraffe.matn.testseed.SeedChapter
+import com.giraffe.matn.testseed.SeedMatn
+import com.giraffe.matn.testseed.SeedVerse
 import com.giraffe.matn.db.ContentDatabase
 import com.giraffe.matn.inMemoryDriver
 import com.giraffe.matn.newTestDatabase
@@ -29,7 +29,7 @@ class ProgressRepositoryTest {
 
     private suspend fun seededDb(): ContentDatabase {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         val verses = listOf(
             SeedVerse(id = "v1", displayNumber = 1, arabicText = "بيت واحد", durationMs = 1000, audio = SeedAudio("a1", "v1.mp3", 1000)),
             SeedVerse(id = "v2", displayNumber = 2, arabicText = "بيت اثنان", durationMs = 1000, audio = SeedAudio("a2", "v2.mp3", 1000)),
@@ -45,7 +45,7 @@ class ProgressRepositoryTest {
 
     private suspend fun structuredDb(): ContentDatabase {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         val payload = SeedMatn(
             id = "m-structured", title = "متن مبوب", author = "مؤلف", description = "",
             structureKind = "STRUCTURED", defaultReciterId = "r1",
@@ -62,7 +62,7 @@ class ProgressRepositoryTest {
 
     private suspend fun emptyMatnDb(): ContentDatabase {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         val payload = SeedMatn(
             id = "m-empty", title = "متن فارغ", author = "مؤلف", description = "",
             structureKind = "SIMPLE", defaultReciterId = "r1", verses = emptyList(),
@@ -302,7 +302,7 @@ class ProgressRepositoryTest {
     fun restart_persistence_through_fresh_query_object() = runTest {
         val driver = inMemoryDriver()
         val db = ContentDatabase(driver)
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         assertTrue(
             loader.load(
                 SeedMatn(

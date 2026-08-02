@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
+import com.giraffe.matn.domain.catalog.CatalogSyncState
 import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.ContinueLearningEntry
 import com.giraffe.matn.domain.model.DailyProgress
@@ -52,25 +53,47 @@ class HomeViewModel(
     private val observeDailyProgress: FlowUseCase<Unit, DailyProgress>? = null,
     /** Phase 8 (US1 FR-002): per-matn content-delivery availability for the library cards. */
     private val observeLibraryAvailability: FlowUseCase<Unit, Map<String, ContentAvailability>>? = null,
+    /** Phase 13 (FR-005): the catalog — every published matn, downloaded or not. Supersedes
+     *  [observeLibrary] for the grid when supplied. */
+    private val observeCatalog: FlowUseCase<Unit, List<MatnSummary>>? = null,
+    /** Phase 13 (FR-044): whether the catalog has ever synced and whether the last attempt failed. */
+    private val observeCatalogSyncState: FlowUseCase<Unit, CatalogSyncState>? = null,
+    /** Phase 13 (FR-006): reconciles against the source. `false` honours the staleness window. */
+    private val syncCatalog: UseCase<Boolean, Unit>? = null,
+    /** Phase 13 (FR-012): `(matnId, coverImageRef) -> bytes?`. Browse-path only; never throws. */
+    private val loadCover: (suspend (Pair<String, String>) -> ByteArray?)? = null,
 ) : BaseViewModel<HomeUiState>(HomeUiState()) {
 
     private val _navigation = Channel<String>(Channel.BUFFERED)
     val navigation = _navigation.receiveAsFlow()
 
     init {
-        observeLibrary
+        // Phase 13 (FR-005): the grid is the CATALOG — every published matn, downloaded or not —
+        // not just what is on the device. `observeCatalog` supersedes `observeLibrary` when it is
+        // supplied; the latter remains the fallback so existing tests and call sites keep working.
+        (observeCatalog ?: observeLibrary)
             .invoke(Unit)
             .onEach { items ->
                 setState {
                     it.copy(
                         isLoading = false,
                         items = items,
-                        isEmpty = items.isEmpty(),
                         error = null,
                     )
                 }
+                prefetchCovers(items)
             }
             .launchIn(viewModelScope)
+
+        // FR-006: sync when the library opens. Non-forced, so the 1-hour staleness window applies
+        // and navigating in and out of the library costs nothing.
+        refreshCatalog(force = false)
+
+        // FR-044: collected independently of the sync itself, so the three empty states resolve
+        // from stored truth even when a sync is still in flight or has failed.
+        observeCatalogSyncState?.invoke(Unit)
+            ?.onEach { sync -> setState { it.copy(syncState = sync) } }
+            ?.launchIn(viewModelScope)
 
         observeContinueLearning
             .invoke(Unit)
@@ -106,6 +129,49 @@ class HomeViewModel(
                 }
             }
             ?.launchIn(viewModelScope)
+    }
+
+    /**
+     * The student's explicit refresh (FR-006). Always syncs, ignoring the staleness window.
+     */
+    fun onRefreshClicked() = refreshCatalog(force = true)
+
+    /**
+     * Runs a sync without ever blocking the grid.
+     *
+     * A failure is deliberately swallowed here rather than routed to `error`: the repository leaves
+     * the last successfully synced catalog completely intact (FR-007), and `syncState` already
+     * carries the failure flag for the non-blocking notice. Surfacing it as a screen-level error
+     * would empty a library that is still perfectly usable — the exact behaviour FR-007 forbids.
+     */
+    /**
+     * Fetches any cover the grid does not already have (FR-012).
+     *
+     * This is the **only** place covers are fetched, and it sits on the browse path by
+     * construction — the reading and playback paths never reach it. A cover leaking into those
+     * would put a network call inside the offline guarantee (SC-004, Principle VI).
+     *
+     * Failures are invisible: `loadCover` returns null and the card keeps its placeholder.
+     */
+    private fun prefetchCovers(items: List<MatnSummary>) {
+        val load = loadCover ?: return
+        val needed = items.filter { it.matn.coverImageRef != null && it.matn.id !in state.value.covers }
+        if (needed.isEmpty()) return
+        viewModelScope.launch {
+            needed.forEach { summary ->
+                val bytes = load(summary.matn.id to summary.matn.coverImageRef.orEmpty()) ?: return@forEach
+                setState { it.copy(covers = it.covers + (summary.matn.id to bytes)) }
+            }
+        }
+    }
+
+    private fun refreshCatalog(force: Boolean) {
+        val sync = syncCatalog ?: return
+        viewModelScope.launch {
+            setState { it.copy(isSyncing = true) }
+            sync(force)
+            setState { it.copy(isSyncing = false) }
+        }
     }
 
     /** Resume tap. Resolves the saved target, warms the settings store with the resolved drill

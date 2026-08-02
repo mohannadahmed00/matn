@@ -131,7 +131,7 @@ class PlaybackControllerTest {
         val (ctrl, engine) = newController(
             ensureMatnPlayable = object : UseCase<String, Unit> {
                 override suspend fun invoke(params: String): Resource<Unit> =
-                    Resource.Failure(DeliveryError.ContentNotInstalled(params))
+                    Resource.Failure(DeliveryError.ContentNotDownloaded(params))
             },
         )
         ctrl.playFromStart("matn-1")
@@ -178,7 +178,7 @@ class PlaybackControllerTest {
     }
 
     @Test
-    fun `the gate never re-fires on a verse transition, only on session start`() = runTest {
+    fun `the gate never re-fires on a verse transition - only on session start`() = runTest {
         val permission = FakeNotificationPermission(initialStatus = PermissionStatus.GRANTED)
         val askedRepo = FakeNotificationPermissionAskedRepository()
         val gate = EnsureNotificationPermissionUseCase(permission, askedRepo)

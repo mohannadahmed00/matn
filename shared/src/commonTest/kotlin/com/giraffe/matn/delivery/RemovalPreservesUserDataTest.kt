@@ -1,15 +1,16 @@
 package com.giraffe.matn.delivery
 
 import com.giraffe.matn.core.Resource
-import com.giraffe.matn.data.delivery.ContentPackRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.data.delivery.ContentFileStore
+import com.giraffe.matn.data.delivery.DownloadedContentRepositoryImpl
 import com.giraffe.matn.domain.model.ContentAvailability
-import com.giraffe.matn.domain.repository.ContentPackRepository
 import com.giraffe.matn.newTestDatabase
+import com.giraffe.matn.testseed.SeedAudio
+import com.giraffe.matn.testseed.SeedMatn
+import com.giraffe.matn.testseed.SeedVerse
+import com.giraffe.matn.testseed.TestContentSeeder
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,16 +18,19 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 
 /**
- * T056 (FR-019/FR-020/FR-023, SC-005) — removing a matn's content deletes bytes only. This test
- * seeds a bookmark, a note, a memorized verse, and a saved session, removes the matn's content,
- * and asserts every one of those rows is unchanged and the verse text is still readable and
- * searchable (structurally guaranteed — data-model.md §4: no edge runs from `content_pack` to any
- * personal-data table). Reinstalling then resumes at the same verse and position.
+ * **The SC-010 guard.** Removing a matn must preserve 100% of the student's bookmarks, notes,
+ * memorized marks, practice history and resume position.
+ *
+ * Phase 8's version of this test justified the guarantee as "structurally guaranteed — no edge runs
+ * from `content_pack` to any personal-data table". Phase 13 destroyed that structure: a download now
+ * owns the `matn`/`verse` rows and a removal **deletes** them, so the old `ON DELETE CASCADE` on
+ * `bookmark`/`note`/`memorization`/`daily_practice`/`matn_session` would have taken the student's
+ * entire history with it (research D5). `5.sqm` drops those foreign keys; this test is what proves
+ * it end to end, through the real removal path rather than a raw `DELETE`.
  */
 class RemovalPreservesUserDataTest {
 
     private val matnId = "matn-with-data"
-    private val packId = "matn_with_data_pack"
     private val verseId = "$matnId-v1"
 
     private fun seedMatn() = SeedMatn(
@@ -39,24 +43,30 @@ class RemovalPreservesUserDataTest {
         defaultReciterId = "reciter-default-v1",
         verses = listOf(
             SeedVerse(
-                id = verseId, displayNumber = 1, arabicText = "نص البيت الأول", durationMs = 1000,
-                audio = SeedAudio(id = "$matnId-a1", fileRef = "audio.mp3", durationMs = 1000),
+                id = verseId,
+                displayNumber = 1,
+                arabicText = "نص البيت الأول",
+                durationMs = 1_000,
+                audio = SeedAudio(id = "$matnId-a1", fileRef = "audio.mp3", durationMs = 1_000),
             ),
         ),
-        packId = packId, declaredSizeBytes = 2_000L, isStarter = false,
     )
 
     @Test
-    fun `removal preserves bookmarks notes memorization and the saved session`() = runTest {
+    fun `removal preserves bookmarks notes memorization practice and the saved session`() = runTest {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
-        loader.load(seedMatn())
+        TestContentSeeder(db).load(seedMatn())
+        db.insertOverview(matnId, sizeBytes = 2_000L)
 
-        // Seed personal data directly against the schema (Phase 6/7 tables), independent of the
-        // content_pack/delivery machinery under test.
         db.contentQueries.insertBookmark(id = "bm-1", verse_id = verseId, created_at = 1_000L)
         db.contentQueries.upsertNote(id = "note-1", verse_id = verseId, text = "ملاحظتي", updated_at = 1_000L)
         db.contentQueries.insertMemorization(id = "mem-1", verse_id = verseId, memorized_at = 1_000L)
+        db.contentQueries.insertDailyPractice(
+            id = "dp-1",
+            day_epoch = 20_000L,
+            verse_id = verseId,
+            practiced_at = 1_000L,
+        )
         db.contentQueries.upsertSession(
             matn_id = matnId,
             last_verse_id = verseId,
@@ -69,36 +79,72 @@ class RemovalPreservesUserDataTest {
         )
 
         val engine = FakeContentDeliveryEngine()
-        engine.completeInstall(packId, occupiedBytes = 2_000L)
-        val repo: ContentPackRepository = ContentPackRepositoryImpl(db, engine, FakeDeviceStorage())
+        val storage = FakeDeviceStorage()
+        val repo = DownloadedContentRepositoryImpl(
+            db = db,
+            engine = engine,
+            storage = storage,
+            files = ContentFileStore(storage),
+            scope = this,
+        )
+        engine.completeDownload(matnId, occupiedBytes = 2_000L)
 
-        val outcome = repo.remove(matnId)
-        assertIs<Resource.Success<*>>(outcome)
+        assertIs<Resource.Success<*>>(repo.remove(matnId))
+        runCurrent()
 
-        // Personal data survives structurally unchanged.
+        // The matn's CONTENT is gone — this is what makes the assertions below meaningful. If the
+        // verse row survived, the cascade would never have fired and the test would prove nothing.
+        assertEquals(null, db.contentQueries.selectVerseById(verseId).executeAsOneOrNull())
+        assertEquals(null, db.contentQueries.selectMatnById(matnId).executeAsOneOrNull())
+
+        // …and every piece of personal data survived it.
         assertNotNull(db.contentQueries.selectBookmarkByVerse(verseId).executeAsOneOrNull())
         assertNotNull(db.contentQueries.selectNoteByVerse(verseId).executeAsOneOrNull())
         assertNotNull(db.contentQueries.selectMemorizationByVerse(verseId).executeAsOneOrNull())
-        val sessionAfterRemove = db.contentQueries.selectSession(matnId).executeAsOneOrNull()
-        assertNotNull(sessionAfterRemove)
-        assertEquals(verseId, sessionAfterRemove.last_verse_id)
-        assertEquals(4_500L, sessionAfterRemove.position_ms)
+        assertEquals(1L, db.contentQueries.selectDailyPracticeCount(20_000L).executeAsOne())
+        val session = assertNotNull(db.contentQueries.selectSession(matnId).executeAsOneOrNull())
+        assertEquals(verseId, session.last_verse_id)
+        assertEquals(4_500L, session.position_ms)
 
-        // Verse text is still readable (no cascade touched `verse`/`audio_asset`).
-        val verse = db.contentQueries.selectVerseById(verseId).executeAsOneOrNull()
-        assertNotNull(verse)
-        assertEquals("نص البيت الأول", verse.arabic_text)
+        // The catalog entry stays browsable and re-downloadable (FR-029).
+        assertNotNull(db.contentQueries.selectCatalogOverviewById(matnId).executeAsOneOrNull())
+    }
 
-        // Reinstall — the saved session resumes at the same verse and position (FR-023/SC-005).
-        val reinstallOutcome = repo.install(matnId)
-        assertIs<Resource.Success<*>>(reinstallOutcome)
-        engine.completeInstall(packId, occupiedBytes = 2_000L)
-        val availability = repo.observeAvailability(matnId).first()
-        assertIs<ContentAvailability.Installed>(availability)
+    @Test
+    fun `re-downloading resumes at the same verse and position`() = runTest {
+        val db = newTestDatabase()
+        TestContentSeeder(db).load(seedMatn())
+        db.insertOverview(matnId, sizeBytes = 2_000L)
+        db.contentQueries.upsertSession(
+            matn_id = matnId,
+            last_verse_id = verseId,
+            last_verse_display_number = 1L,
+            position_ms = 4_500L,
+            verse_repeat = "1",
+            matn_repeat = "1",
+            loop_start_verse_id = null,
+            loop_end_verse_id = null,
+        )
 
-        val sessionAfterReinstall = db.contentQueries.selectSession(matnId).executeAsOneOrNull()
-        assertNotNull(sessionAfterReinstall)
-        assertEquals(verseId, sessionAfterReinstall.last_verse_id)
-        assertEquals(4_500L, sessionAfterReinstall.position_ms)
+        val engine = FakeContentDeliveryEngine()
+        val storage = FakeDeviceStorage()
+        val repo = DownloadedContentRepositoryImpl(
+            db = db,
+            engine = engine,
+            storage = storage,
+            files = ContentFileStore(storage),
+            scope = this,
+        )
+        engine.completeDownload(matnId, occupiedBytes = 2_000L)
+
+        repo.remove(matnId)
+        runCurrent()
+        repo.download(matnId)
+        runCurrent()
+
+        assertIs<ContentAvailability.Downloaded>(repo.observeAvailability(matnId).first())
+        val session = assertNotNull(db.contentQueries.selectSession(matnId).executeAsOneOrNull())
+        assertEquals(verseId, session.last_verse_id)
+        assertEquals(4_500L, session.position_ms)
     }
 }

@@ -1,10 +1,10 @@
 package com.giraffe.matn.data
 
 import com.giraffe.matn.core.Resource
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.testseed.TestContentSeeder
+import com.giraffe.matn.testseed.SeedAudio
+import com.giraffe.matn.testseed.SeedMatn
+import com.giraffe.matn.testseed.SeedVerse
 import com.giraffe.matn.data.repository.VerseRepositoryImpl
 import com.giraffe.matn.newTestDatabase
 import kotlinx.coroutines.flow.first
@@ -19,7 +19,7 @@ class PerformanceTest {
     @Test
     fun observe500VersesUnder1Second() = runTest {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         val verseRepo = VerseRepositoryImpl(db)
 
         val verseCount = 500

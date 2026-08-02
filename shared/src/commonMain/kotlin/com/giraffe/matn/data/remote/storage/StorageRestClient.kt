@@ -3,7 +3,7 @@ package com.giraffe.matn.data.remote.storage
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.remote.RemoteErrorMapper
 import com.giraffe.matn.data.remote.SupabaseConfig
-import com.giraffe.matn.data.remote.auth.TokenRefresher
+import com.giraffe.matn.data.remote.auth.AccessTokenProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -35,19 +35,19 @@ import kotlinx.serialization.json.put
 class StorageRestClient(
     private val httpClient: HttpClient,
     private val config: SupabaseConfig,
-    private val tokenRefresher: TokenRefresher,
+    private val tokenProvider: AccessTokenProvider,
 ) {
     /** [objectPath] is deterministic per matn (e.g. `matns/{matnId}/cover.png`) so a re-upload
      * overwrites (`x-upsert: true`) rather than accumulating orphans. Returns the same
      * [objectPath] on success. */
     suspend fun upload(objectPath: String, bytes: ByteArray, contentType: String): Resource<String> {
-        val tokenResult = tokenRefresher.currentAccessToken()
+        val tokenResult = tokenProvider.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {
             val response = httpClient.post("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
                 headers {
-                    append(HttpHeaders.Authorization, "Bearer $token")
+                    if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
                     append("apikey", config.anonKey)
                     append("x-upsert", "true")
                 }
@@ -76,7 +76,7 @@ class StorageRestClient(
     /** object name → byte size under [prefix], paginated via offset — Supabase's list endpoint has
      * no page-token, just `limit`/`offset` (the resume predicate, `contracts/storage-contract.md` §1). */
     suspend fun listWithSizes(prefix: String): Resource<Map<String, Long>> {
-        val tokenResult = tokenRefresher.currentAccessToken()
+        val tokenResult = tokenProvider.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {
@@ -85,7 +85,7 @@ class StorageRestClient(
             while (true) {
                 val response = httpClient.post("${config.storageBaseUrl}/object/list/${config.bucket}") {
                     headers {
-                        append(HttpHeaders.Authorization, "Bearer $token")
+                        if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
                         append("apikey", config.anonKey)
                     }
                     contentType(ContentType.Application.Json)
@@ -120,13 +120,13 @@ class StorageRestClient(
 
     /** `GET /object/{bucket}/{path}` — used by the preview cache and split-source profile checks. */
     suspend fun download(objectPath: String): Resource<ByteArray> {
-        val tokenResult = tokenRefresher.currentAccessToken()
+        val tokenResult = tokenProvider.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {
             val response = httpClient.get("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
                 headers {
-                    append(HttpHeaders.Authorization, "Bearer $token")
+                    if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
                     append("apikey", config.anonKey)
                 }
             }
@@ -146,13 +146,13 @@ class StorageRestClient(
      * (`contracts/audio-artifact-contract.md` §4). Callers must treat a failure as a logged
      * non-event (FR-033b), never surface it as an operation failure. */
     suspend fun delete(objectPath: String): Resource<Unit> {
-        val tokenResult = tokenRefresher.currentAccessToken()
+        val tokenResult = tokenProvider.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {
             val response = httpClient.delete("${config.storageBaseUrl}/object/${config.bucket}/$objectPath") {
                 headers {
-                    append(HttpHeaders.Authorization, "Bearer $token")
+                    if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
                     append("apikey", config.anonKey)
                 }
             }

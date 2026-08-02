@@ -1,9 +1,9 @@
 package com.giraffe.matn.db
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 /**
  * T011 (specs/008-storage-downloads) — proves the `content_pack` migration preserves existing content
@@ -15,8 +15,8 @@ import kotlin.test.assertNull
 class MigrationV4Test {
 
     @Test
-    fun schema_version_is_five() {
-        assertEquals(5L, ContentDatabase.Schema.version)
+    fun schema_version_is_six() {
+        assertEquals(6L, ContentDatabase.Schema.version)
     }
 
     private fun buildV4Driver(): JdbcSqliteDriver {
@@ -63,32 +63,44 @@ class MigrationV4Test {
         assertEquals("v1", db.contentQueries.selectSession("m1").executeAsOneOrNull()?.last_verse_id)
         assertEquals("mz1", db.contentQueries.selectMemorizationByVerse("v1").executeAsOneOrNull()?.id)
 
-        // (b) content_pack exists, is empty before seeding, and is queryable.
-        assertNull(db.contentQueries.selectContentPackByMatn("m1").executeAsOneOrNull())
+        // (b) content_pack exists at v5, is empty, and accepts a row.
+        //
+        // Phase 13 note: these assertions used the generated `selectContentPackByMatn` /
+        // `insertContentPack` queries. `5.sqm` drops the table, so those queries no longer exist in
+        // generated code and this test would not compile. The v4→v5 step itself is unchanged and
+        // still worth proving for anyone upgrading from v4, so the assertions moved to raw SQL —
+        // which is also the only honest way to inspect a table that the head schema has retired.
+        assertEquals(0L, driver.countOf("SELECT COUNT(*) FROM content_pack"))
 
-        // (c) inserts work and the UNIQUE(pack_id) constraint holds.
-        db.contentQueries.insertContentPack("m1", "matn_pack_one", 123L, 0)
-        assertEquals(
-            "matn_pack_one",
-            db.contentQueries.selectContentPackByMatn("m1").executeAsOneOrNull()?.pack_id,
-        )
-        assertEquals(1L, db.contentQueries.selectAllContentPacks().executeAsList().size.toLong())
+        driver.execute(null, "INSERT INTO content_pack(matn_id, pack_id, declared_size_bytes, is_starter) VALUES ('m1', 'matn_pack_one', 123, 0)", 0)
+        assertEquals(1L, driver.countOf("SELECT COUNT(*) FROM content_pack"))
+        assertEquals(0L, driver.countOf("SELECT is_starter FROM content_pack WHERE matn_id = 'm1'"))
 
-        // is_starter default is 0 — verify the column round-trips the seeded value.
-        assertEquals(0L, db.contentQueries.selectContentPackByMatn("m1").executeAsOne().is_starter)
-
-        // (d) a starter row round-trips with is_starter = 1.
+        // (c) a starter row round-trips with is_starter = 1.
         driver.execute(null, "INSERT INTO matn(id, title, author, description, cover_image_ref, structure_kind) VALUES ('m_starter', 'starter', 'author', '', NULL, 'SIMPLE')", 0)
-        db.contentQueries.insertContentPack("m_starter", "matn_starter", 999L, 1)
-        assertEquals(1L, db.contentQueries.selectContentPackByMatn("m_starter").executeAsOne().is_starter)
+        driver.execute(null, "INSERT INTO content_pack(matn_id, pack_id, declared_size_bytes, is_starter) VALUES ('m_starter', 'matn_starter', 999, 1)", 0)
+        assertEquals(1L, driver.countOf("SELECT is_starter FROM content_pack WHERE matn_id = 'm_starter'"))
     }
 
     @Test
     fun migration_on_empty_v4_database_leaves_content_pack_empty() {
         val driver = buildV4Driver()
         ContentDatabase.Schema.migrate(driver, 4, 5)
-        val db = ContentDatabase(driver)
-        assertNull(db.contentQueries.selectContentPackByMatn("nope").executeAsOneOrNull())
-        assertEquals(0, db.contentQueries.selectAllContentPacks().executeAsList().size)
+        assertEquals(0L, driver.countOf("SELECT COUNT(*) FROM content_pack"))
     }
 }
+
+/**
+ * Reads a single scalar `INTEGER` through the raw driver. Needed because Phase 13 retires
+ * `content_pack`, so the generated query API can no longer reach a v5-era table.
+ */
+internal fun JdbcSqliteDriver.countOf(sql: String): Long =
+    executeQuery(
+        identifier = null,
+        sql = sql,
+        parameters = 0,
+        mapper = { cursor ->
+            cursor.next()
+            QueryResult.Value(cursor.getLong(0) ?: 0L)
+        },
+    ).value

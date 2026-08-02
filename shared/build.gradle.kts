@@ -52,7 +52,6 @@ kotlin {
             implementation(libs.media3.exoplayer)
             implementation(libs.media3.session)
             implementation(libs.media3.common)
-            implementation(libs.play.asset.delivery.ktx)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native.driver)
@@ -74,6 +73,7 @@ kotlin {
             implementation(libs.sqldelight.coroutines)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.koin.core)
             implementation(libs.koin.annotations)

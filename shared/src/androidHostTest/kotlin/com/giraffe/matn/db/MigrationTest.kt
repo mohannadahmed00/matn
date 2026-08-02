@@ -16,14 +16,14 @@ import kotlin.test.assertNull
 class MigrationTest {
 
     @Test
-    fun schema_version_is_five() {
+    fun schema_version_is_six() {
         // Was 2 through Phase 4/5; specs/006-search-bookmarks-notes added `db/2.sqm`
         // (bookmark/note tables), bumping this to 3 — see MigrationV2Test in this package.
         // specs/007-progress-daily-goals added `db/3.sqm` (memorization/daily_practice tables),
         // bumping this to 4 — see MigrationV3Test in this package.
         // specs/008-storage-downloads added `db/4.sqm` (content_pack table), bumping this to 5 —
         // see MigrationV4Test in this package.
-        assertEquals(5L, ContentDatabase.Schema.version)
+        assertEquals(6L, ContentDatabase.Schema.version)
     }
 
     @Test

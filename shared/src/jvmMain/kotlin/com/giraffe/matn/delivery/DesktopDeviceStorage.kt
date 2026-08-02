@@ -21,4 +21,7 @@ class DesktopDeviceStorage : DeviceStorage {
         if (!root.exists() || !root.isDirectory) return 0L
         return root.walkTopDown().filter { it.isFile }.sumOf { it.length() }
     }
+
+    override suspend fun contentRootPath(): String =
+        File(System.getProperty("user.home"), ".matn").absolutePath
 }

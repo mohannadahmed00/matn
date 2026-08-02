@@ -69,7 +69,7 @@ class ChapterAssignmentTest {
      * the screen mid-entry. Order is the teacher's arrangement; the start says what a chapter holds.
      */
     @Test
-    fun `chapters entered out of sequence still assign correctly, and keep their order`() {
+    fun `chapters entered out of sequence still assign correctly - and keep their order`() {
         val result = ChapterAssignment.apply(
             draft(
                 chapters = listOf(

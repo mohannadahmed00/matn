@@ -2,11 +2,11 @@ package com.giraffe.matn.data
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.SearchRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedChapter
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.testseed.TestContentSeeder
+import com.giraffe.matn.testseed.SeedAudio
+import com.giraffe.matn.testseed.SeedChapter
+import com.giraffe.matn.testseed.SeedMatn
+import com.giraffe.matn.testseed.SeedVerse
 import com.giraffe.matn.domain.model.SearchResult
 import com.giraffe.matn.newTestDatabase
 import kotlinx.coroutines.flow.first
@@ -56,7 +56,7 @@ class SearchRepositoryTest {
 
     private suspend fun seededDb(): com.giraffe.matn.db.ContentDatabase {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         assertTrue(loader.load(simpleMatn) is Resource.Success)
         assertTrue(loader.load(structuredMatn) is Resource.Success)
         return db

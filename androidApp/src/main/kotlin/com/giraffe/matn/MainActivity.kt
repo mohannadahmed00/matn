@@ -14,8 +14,8 @@ import com.giraffe.matn.audio.AndroidWakeLock
 import com.giraffe.matn.audio.Media3AudioEngine
 import com.giraffe.matn.data.db.DatabaseDriverFactory
 import com.giraffe.matn.delivery.AndroidDeviceStorage
-import com.giraffe.matn.delivery.PlayAssetDeliveryEngine
 import com.giraffe.matn.di.flushSessionState
+import com.giraffe.matn.data.remote.SupabaseConfig
 import com.giraffe.matn.di.initMatnKoin
 import com.giraffe.matn.permission.AndroidNotificationPermission
 import com.giraffe.matn.permission.NotificationPermissionRequester
@@ -49,11 +49,15 @@ class MainActivity :
             driverFactory = DatabaseDriverFactory(this),
             audioEngine = Media3AudioEngine(applicationContext),
             wakeLock = wakeLock,
-            deliveryEngine = PlayAssetDeliveryEngine(applicationContext),
             deviceStorage = AndroidDeviceStorage(applicationContext),
             appearanceMirror = AndroidAppearanceMirror(applicationContext),
             notificationPermission = AndroidNotificationPermission(applicationContext, this),
             motionPreferences = AndroidMotionPreferences(applicationContext),
+            supabaseConfig = SupabaseConfig(
+                projectUrl = BuildConfig.SUPABASE_URL,
+                anonKey = BuildConfig.SUPABASE_ANON_KEY,
+                bucket = BuildConfig.SUPABASE_BUCKET,
+            ),
         )
 
         setContent {

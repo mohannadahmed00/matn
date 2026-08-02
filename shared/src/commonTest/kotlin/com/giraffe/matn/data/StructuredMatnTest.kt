@@ -3,7 +3,7 @@ package com.giraffe.matn.data
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.repository.VerseRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.testseed.TestContentSeeder
 import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.newTestDatabase
 import com.giraffe.matn.STRUCTURED_MATN_JSON
@@ -21,7 +21,7 @@ class StructuredMatnTest {
     private data class Repos(
         val matn: MatnRepositoryImpl,
         val verse: VerseRepositoryImpl,
-        val loader: ContentSeedLoaderImpl,
+        val loader: TestContentSeeder,
     )
 
     private fun newRepos(): Repos {
@@ -29,7 +29,7 @@ class StructuredMatnTest {
         return Repos(
             matn = MatnRepositoryImpl(db),
             verse = VerseRepositoryImpl(db),
-            loader = ContentSeedLoaderImpl(db),
+            loader = TestContentSeeder(db),
         )
     }
 

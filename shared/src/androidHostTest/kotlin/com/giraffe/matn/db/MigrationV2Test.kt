@@ -21,10 +21,10 @@ import kotlin.test.assertNull
 class MigrationV2Test {
 
     @Test
-    fun schema_version_is_five() {
+    fun schema_version_is_six() {
         // Global schema version constant, now 5 after specs/008-storage-downloads' `db/4.sqm`
         // (content_pack table) — see MigrationV4Test in this package.
-        assertEquals(5L, ContentDatabase.Schema.version)
+        assertEquals(6L, ContentDatabase.Schema.version)
     }
 
     private fun buildV2Driver(): JdbcSqliteDriver {

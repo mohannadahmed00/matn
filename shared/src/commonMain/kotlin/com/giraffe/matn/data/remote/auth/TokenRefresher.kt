@@ -23,7 +23,7 @@ class TokenRefresher(
     private val client: SupabaseAuthClient,
     private val secretStore: SecretStore,
     private val nowMillis: () -> Long,
-) {
+) : AccessTokenProvider {
     private val mutex = Mutex()
     private val _session = MutableStateFlow<TeacherSession?>(null)
     val session: StateFlow<TeacherSession?> = _session.asStateFlow()
@@ -32,7 +32,7 @@ class TokenRefresher(
         _session.value = newSession
     }
 
-    suspend fun currentAccessToken(): Resource<String> = mutex.withLock {
+    override suspend fun currentAccessToken(): Resource<String?> = mutex.withLock {
         val current = _session.value ?: return@withLock Resource.Failure(RemoteError.Unauthorized)
         if (current.accessTokenExpiresAt - nowMillis() > REFRESH_WINDOW_MS) {
             return@withLock Resource.Success(current.accessToken)
