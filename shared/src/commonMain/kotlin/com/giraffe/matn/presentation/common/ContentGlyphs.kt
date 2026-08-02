@@ -105,6 +105,39 @@ fun RemoveContentGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 2
     }
 }
 
+/**
+ * An open circular arrow — "fetch the catalog again". Phase 13 exposed this only inside the two
+ * empty states and the sync-failure notice, which left a student whose library already has متون
+ * with no way to ask for a newly published one before the staleness window expires.
+ */
+@Composable
+fun RefreshGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
+    Canvas(modifier.size(size).desc(contentDescription)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = Stroke(width = w * 0.09f, cap = StrokeCap.Round)
+        // Open at the top-right so the arrowhead has somewhere to sit.
+        drawArc(
+            color = color,
+            startAngle = -60f,
+            sweepAngle = 300f,
+            useCenter = false,
+            topLeft = Offset(w * 0.16f, h * 0.16f),
+            size = Size(w * 0.68f, h * 0.68f),
+            style = stroke,
+        )
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.60f, h * 0.10f)
+                lineTo(w * 0.86f, h * 0.26f)
+                lineTo(w * 0.60f, h * 0.40f)
+            },
+            color,
+            style = stroke,
+        )
+    }
+}
+
 // --------------------------------------------------------------------------- Previews
 
 @Preview

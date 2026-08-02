@@ -99,7 +99,7 @@ fun HomeContent(
     onRefresh: () -> Unit = {},
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        HomeTopBar(onOpenSearch = onOpenSearch)
+        HomeTopBar(onOpenSearch = onOpenSearch, onRefresh = onRefresh, isSyncing = state.isSyncing)
         Box(modifier = Modifier.fillMaxSize()) {
             when {
                 state.isLoading -> CircularProgressIndicator(
@@ -277,7 +277,7 @@ private fun CatalogNotice(
 }
 
 @Composable
-private fun HomeTopBar(onOpenSearch: () -> Unit = {}) {
+private fun HomeTopBar(onOpenSearch: () -> Unit = {}, onRefresh: () -> Unit = {}, isSyncing: Boolean = false) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Box(
             modifier = Modifier
@@ -298,6 +298,23 @@ private fun HomeTopBar(onOpenSearch: () -> Unit = {}) {
                 com.giraffe.matn.presentation.common.SearchGlyph(
                     color = MaterialTheme.colorScheme.onSurface,
                     contentDescription = stringResource(Res.string.search_open),
+                )
+            }
+            // FR-006's explicit refresh, reachable from a populated library too — the empty-state
+            // and sync-failure entry points below are unreachable once the grid has content, which
+            // left the 1-hour staleness window as the only path to a newly published matn.
+            androidx.compose.material3.IconButton(
+                onClick = onRefresh,
+                enabled = !isSyncing,
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
+                com.giraffe.matn.presentation.common.RefreshGlyph(
+                    color = if (isSyncing) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    contentDescription = stringResource(Res.string.catalog_refresh),
                 )
             }
         }
