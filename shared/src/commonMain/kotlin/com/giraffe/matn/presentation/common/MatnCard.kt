@@ -45,6 +45,9 @@ fun MatnCard(
      *  availability hasn't resolved yet stays silent rather than showing a wrong state. */
     availability: ContentAvailability? = null,
     declaredSizeBytes: Long = 0L,
+    /** Phase 13 (FR-012): cached cover bytes, or null for the placeholder. Fetched by the
+     *  ViewModel on the browse path — this composable does no IO (Principle II). */
+    coverBytes: ByteArray? = null,
 ) {
     Column(
         modifier = modifier
@@ -57,6 +60,7 @@ fun MatnCard(
     ) {
         CoverImage(
             coverImageRef = summary.matn.coverImageRef,
+            imageBytes = coverBytes,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.75f),
@@ -77,8 +81,16 @@ fun MatnCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = MatnSpacing.unit / 2),
         )
-        val totals = pluralStringResource(Res.plurals.verses_count, summary.verseCount, summary.verseCount) +
-            " · " + formatDuration(summary.totalDurationMs)
+        // Phase 13: an undownloaded matn has no local duration — the catalog overview carries no
+        // verses (FR-003), so it is genuinely unknown rather than zero. Omit it instead of printing
+        // a fabricated "0:00"; the verse count and download size still tell the student what they
+        // are getting.
+        val verses = pluralStringResource(Res.plurals.verses_count, summary.verseCount, summary.verseCount)
+        val totals = if (summary.totalDurationMs > 0L) {
+            verses + " · " + formatDuration(summary.totalDurationMs)
+        } else {
+            verses
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit / 2),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -152,7 +164,7 @@ private fun MatnCardNotInstalledPreview() {
             MatnCard(
                 summary = previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
                 onClick = {},
-                availability = com.giraffe.matn.domain.model.ContentAvailability.NotInstalled(),
+                availability = com.giraffe.matn.domain.model.ContentAvailability.NotDownloaded(),
                 declaredSizeBytes = 2_400_000,
             )
         }

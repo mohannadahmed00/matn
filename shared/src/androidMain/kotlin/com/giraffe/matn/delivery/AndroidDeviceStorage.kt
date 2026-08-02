@@ -27,4 +27,6 @@ class AndroidDeviceStorage(private val context: Context) : DeviceStorage {
         if (!root.exists() || !root.isDirectory) return 0L
         return root.walkTopDown().filter { it.isFile }.sumOf { it.length() }
     }
+
+    override suspend fun contentRootPath(): String = context.filesDir.absolutePath
 }

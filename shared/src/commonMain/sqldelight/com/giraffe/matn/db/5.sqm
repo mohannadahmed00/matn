@@ -1,0 +1,141 @@
+-- Phase 13 (schema v5 -> v6): the content channel moves from the app binary to the teacher's
+-- published catalog. Named for the version it migrates FROM (SQLDelight convention), so this is
+-- `5.sqm`, bumping `ContentDatabase.Schema.version` to 6. Every CREATE TABLE text below MUST stay
+-- byte-identical to Content.sq's definition — MigrationV5Test is the guard (data-model.md §1.6).
+--
+-- Three things happen here, in this order:
+--
+--   1. The five personal-data tables are recreated WITHOUT their foreign key to verse/matn.
+--      This is the correctness core of the phase (research.md D5). Until now removing a matn only
+--      deleted audio files, so `ON DELETE CASCADE` from `verse` was harmless. From Phase 13 a
+--      download owns the verse rows and a removal deletes them, which would have cascaded away
+--      every bookmark, note, memorized mark, practice record and resume position the student had —
+--      violating FR-026, FR-029, SC-010 and Constitution Principle VI. The identities are
+--      teacher-owned stable UUIDs, so orphaned rows re-resolve automatically on re-download.
+--
+--   2. The content tables are EMPTIED. Per spec Assumptions ("No migration path from the previous
+--      delivery model" — the app has not shipped), after upgrade nothing reports as downloaded and
+--      the student downloads what they want. Personal data is carried across verbatim by step 1 and
+--      reattaches when its matn is downloaded again.
+--
+--   3. content_pack is dropped and the three Phase 13 tables are created.
+
+PRAGMA foreign_keys = OFF;
+
+-- ---------------------------------------------------------------------------
+-- 1. Personal-data tables: drop the foreign keys by recreating each table.
+--    SQLite cannot ALTER a constraint away, so this is the only route.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE bookmark_new (
+    id         TEXT NOT NULL PRIMARY KEY,
+    verse_id   TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+);
+INSERT INTO bookmark_new(id, verse_id, created_at)
+SELECT id, verse_id, created_at FROM bookmark;
+DROP TABLE bookmark;
+ALTER TABLE bookmark_new RENAME TO bookmark;
+CREATE INDEX bookmark_by_verse ON bookmark(verse_id);
+
+CREATE TABLE note_new (
+    id         TEXT NOT NULL PRIMARY KEY,
+    verse_id   TEXT NOT NULL UNIQUE,
+    text       TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+INSERT INTO note_new(id, verse_id, text, updated_at)
+SELECT id, verse_id, text, updated_at FROM note;
+DROP TABLE note;
+ALTER TABLE note_new RENAME TO note;
+CREATE INDEX note_by_verse ON note(verse_id);
+
+CREATE TABLE memorization_new (
+    id           TEXT NOT NULL PRIMARY KEY,
+    verse_id     TEXT NOT NULL UNIQUE,
+    memorized_at INTEGER NOT NULL
+);
+INSERT INTO memorization_new(id, verse_id, memorized_at)
+SELECT id, verse_id, memorized_at FROM memorization;
+DROP TABLE memorization;
+ALTER TABLE memorization_new RENAME TO memorization;
+CREATE INDEX memorization_by_verse ON memorization(verse_id);
+
+CREATE TABLE daily_practice_new (
+    id           TEXT NOT NULL PRIMARY KEY,
+    day_epoch    INTEGER NOT NULL,
+    verse_id     TEXT NOT NULL,
+    practiced_at INTEGER NOT NULL,
+    UNIQUE (day_epoch, verse_id)
+);
+INSERT INTO daily_practice_new(id, day_epoch, verse_id, practiced_at)
+SELECT id, day_epoch, verse_id, practiced_at FROM daily_practice;
+DROP TABLE daily_practice;
+ALTER TABLE daily_practice_new RENAME TO daily_practice;
+CREATE INDEX daily_practice_by_verse ON daily_practice(verse_id);
+
+CREATE TABLE matn_session_new (
+    matn_id                    TEXT NOT NULL PRIMARY KEY,
+    last_verse_id              TEXT NOT NULL,
+    last_verse_display_number  INTEGER NOT NULL,
+    position_ms                INTEGER NOT NULL,
+    verse_repeat               TEXT NOT NULL,
+    matn_repeat                TEXT NOT NULL,
+    loop_start_verse_id        TEXT,
+    loop_end_verse_id          TEXT
+);
+INSERT INTO matn_session_new(
+    matn_id, last_verse_id, last_verse_display_number, position_ms,
+    verse_repeat, matn_repeat, loop_start_verse_id, loop_end_verse_id
+)
+SELECT matn_id, last_verse_id, last_verse_display_number, position_ms,
+       verse_repeat, matn_repeat, loop_start_verse_id, loop_end_verse_id
+FROM matn_session;
+DROP TABLE matn_session;
+ALTER TABLE matn_session_new RENAME TO matn_session;
+
+-- ---------------------------------------------------------------------------
+-- 2. Empty the content tables. Child-first, so no FK is transiently violated.
+--    Personal-data rows survive: after step 1 nothing points at these rows.
+-- ---------------------------------------------------------------------------
+
+DELETE FROM audio_asset;
+DELETE FROM verse;
+DELETE FROM chapter;
+DELETE FROM matn;
+
+-- ---------------------------------------------------------------------------
+-- 3. Retire content_pack; create the Phase 13 tables.
+-- ---------------------------------------------------------------------------
+
+DROP TABLE content_pack;
+
+CREATE TABLE catalog_overview (
+    matn_id             TEXT NOT NULL PRIMARY KEY,
+    title               TEXT NOT NULL,
+    author              TEXT NOT NULL,
+    description         TEXT NOT NULL,
+    cover_image_ref     TEXT,
+    structure_kind      TEXT NOT NULL,
+    verse_count         INTEGER NOT NULL,
+    download_size_bytes INTEGER NOT NULL,
+    audio_completeness  TEXT NOT NULL,
+    revision            INTEGER NOT NULL,
+    withdrawn           INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX catalog_overview_by_title ON catalog_overview(title);
+
+CREATE TABLE catalog_sync_state (
+    id                     INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    last_success_at_millis INTEGER,
+    last_attempt_failed    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE downloaded_matn (
+    matn_id              TEXT NOT NULL PRIMARY KEY,
+    revision             INTEGER NOT NULL,
+    downloaded_at_millis INTEGER NOT NULL
+);
+
+PRAGMA foreign_keys = ON;

@@ -13,9 +13,8 @@ import com.giraffe.matn.domain.model.ThemeMode
 data class SettingsUiState(
     val isLoading: Boolean = true,
     val totalUsedBytes: Long = 0L,
-    val onDemandUsedBytes: Long = 0L,
     val freeSpaceBytes: Long = 0L,
-    /** Size-ordered installed-matn breakdown (FR-025); the starter is included, non-removable. */
+    /** Size-ordered downloaded-matn breakdown (FR-030). Every entry is removable (FR-031). */
     val entries: List<MatnStorageEntry> = emptyList(),
     /** Drives [com.giraffe.matn.presentation.common.ConfirmRemovalDialog]; `null` when closed. */
     val pendingRemoval: RemovalTarget? = null,
@@ -28,8 +27,9 @@ data class SettingsUiState(
      *  change made outside the app (e.g. revoked in device settings) is reflected. */
     val notificationStatus: PermissionStatus = PermissionStatus.NOT_DETERMINED,
 ) {
-    /** FR-028: nothing on-demand installed yet — the starter alone never lifts this off zero. */
-    val isOnDemandEmpty: Boolean get() = onDemandUsedBytes == 0L
+    /** FR-030: nothing downloaded yet. Phase 13: with no matn exempt from removal, this is simply
+     *  the total (the old `onDemandUsedBytes` split existed only to discount the starter). */
+    val isOnDemandEmpty: Boolean get() = totalUsedBytes == 0L
 }
 
 /** What [SettingsUiState.pendingRemoval] confirms — one matn, or every on-demand matn at once. */

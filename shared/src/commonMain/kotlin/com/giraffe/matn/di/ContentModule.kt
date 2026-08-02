@@ -2,6 +2,19 @@ package com.giraffe.matn.di
 
 import com.giraffe.matn.data.db.DatabaseDriverFactory
 import com.giraffe.matn.data.db.buildDatabase
+import com.giraffe.matn.data.delivery.ContentFileStore
+import com.giraffe.matn.data.delivery.DownloadedContentRepositoryImpl
+import com.giraffe.matn.data.delivery.RemoteContentDeliveryEngine
+import com.giraffe.matn.data.catalog.StudentCatalogRepositoryImpl
+import com.giraffe.matn.data.cover.CoverImageCache
+import com.giraffe.matn.data.remote.SupabaseConfig
+import com.giraffe.matn.data.remote.auth.AccessTokenProvider
+import com.giraffe.matn.data.remote.auth.AnonymousAccessTokenProvider
+import com.giraffe.matn.data.remote.createHttpClient
+import com.giraffe.matn.data.remote.postgrest.PostgrestClient
+import com.giraffe.matn.data.remote.storage.StorageRestClient
+import com.giraffe.matn.domain.catalog.StudentCatalogRepository
+import io.ktor.client.HttpClient
 import com.giraffe.matn.data.repository.BookmarkRepositoryImpl
 import com.giraffe.matn.data.repository.NoteRepositoryImpl
 import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
@@ -9,6 +22,9 @@ import com.giraffe.matn.data.repository.ProgressRepositoryImpl
 import com.giraffe.matn.db.ContentDatabase
 import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.WakeLock
+import com.giraffe.matn.domain.delivery.ContentDeliveryEngine
+import com.giraffe.matn.domain.delivery.DeviceStorage
+import com.giraffe.matn.domain.repository.DownloadedContentRepository
 import com.giraffe.matn.domain.repository.BookmarkRepository
 import com.giraffe.matn.domain.repository.NoteRepository
 import com.giraffe.matn.domain.repository.ProgressRepository
@@ -50,6 +66,99 @@ class ContentModule {
 
     @Single
     fun contentDatabase(driverFactory: DatabaseDriverFactory): ContentDatabase = buildDatabase(driverFactory)
+
+    // ---------------------------------------------------------------- Phase 13 content delivery
+
+    /**
+     * The student's backend access, all of it anonymous (FR-027). One shared [HttpClient]; no
+     * logging plugin, so nothing can leak a credential into a log — even though there is no
+     * credential to leak on this side.
+     */
+    @Single
+    fun httpClient(): HttpClient = createHttpClient()
+
+    /**
+     * There is no student token, and that is the design (student-read-contract §1.1). Binding the
+     * anonymous provider here is what lets `PostgrestClient`/`StorageRestClient` be reused
+     * unchanged by both the student clients and `:teacherApp`, which binds `TokenRefresher` to the
+     * same interface instead.
+     */
+    @Single
+    fun accessTokenProvider(): AccessTokenProvider = AnonymousAccessTokenProvider()
+
+    @Single
+    fun postgrestClient(
+        client: HttpClient,
+        config: SupabaseConfig,
+        tokenProvider: AccessTokenProvider,
+    ): PostgrestClient = PostgrestClient(client, config, tokenProvider)
+
+    @Single
+    fun storageRestClient(
+        client: HttpClient,
+        config: SupabaseConfig,
+        tokenProvider: AccessTokenProvider,
+    ): StorageRestClient = StorageRestClient(client, config, tokenProvider)
+
+    @Single
+    fun studentCatalogRepository(
+        db: ContentDatabase,
+        postgrest: PostgrestClient,
+    ): StudentCatalogRepository = StudentCatalogRepositoryImpl(
+        db = db,
+        postgrest = postgrest,
+        nowMillis = { Clock.System.now().toEpochMilliseconds() },
+    )
+
+    @Single
+    fun contentFileStore(storage: DeviceStorage): ContentFileStore = ContentFileStore(storage)
+
+    /** Browse-time only — never reachable from the reading or playback path (FR-012, SC-004). */
+    @Single
+    fun coverImageCache(
+        storageClient: StorageRestClient,
+        files: ContentFileStore,
+    ): CoverImageCache = CoverImageCache(storageClient, files)
+
+    /**
+     * The one content-acquisition mechanism for all three student clients (FR-041). Replaces the
+     * three platform engines, which is why it is built here rather than handed in by the platform
+     * shell as `PlatformModule` used to do.
+     */
+    @Single
+    fun contentDeliveryEngine(
+        db: ContentDatabase,
+        postgrest: PostgrestClient,
+        storageClient: StorageRestClient,
+        files: ContentFileStore,
+        deviceStorage: DeviceStorage,
+    ): ContentDeliveryEngine = RemoteContentDeliveryEngine(
+        db = db,
+        postgrest = postgrest,
+        storageClient = storageClient,
+        files = files,
+        deviceStorage = deviceStorage,
+        nowMillis = { Clock.System.now().toEpochMilliseconds() },
+    )
+
+    /**
+     * The download queue's owner. Its scope is **application-scoped**, not screen-scoped, so a
+     * transfer and the queue behind it keep advancing while the app is backgrounded (FR-018) — the
+     * same shape [sessionStateRecorder] and [practiceSignalRecorder] already use.
+     */
+    @Single
+    fun downloadedContentRepository(
+        db: ContentDatabase,
+        engine: ContentDeliveryEngine,
+        storage: DeviceStorage,
+        files: ContentFileStore,
+    ): DownloadedContentRepository = DownloadedContentRepositoryImpl(
+        db = db,
+        engine = engine,
+        storage = storage,
+        files = files,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    )
 
     @Single
     fun repetitionSettingsStore(db: ContentDatabase): RepetitionSettingsStore =

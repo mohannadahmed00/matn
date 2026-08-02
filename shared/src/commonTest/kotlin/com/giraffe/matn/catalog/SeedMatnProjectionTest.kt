@@ -1,11 +1,11 @@
 package com.giraffe.matn.catalog
 
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedChapter
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
-import com.giraffe.matn.data.seed.toDraft
-import com.giraffe.matn.data.seed.toSeedMatn
+import com.giraffe.matn.testseed.SeedAudio
+import com.giraffe.matn.testseed.SeedChapter
+import com.giraffe.matn.testseed.SeedMatn
+import com.giraffe.matn.testseed.SeedVerse
+import com.giraffe.matn.testseed.toDraft
+import com.giraffe.matn.testseed.toSeedMatn
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

@@ -1,4 +1,4 @@
-package com.giraffe.matn.data.seed
+package com.giraffe.matn.testseed
 
 import kotlinx.serialization.Serializable
 

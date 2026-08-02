@@ -2,7 +2,7 @@ package com.giraffe.matn.presentation
 
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.testseed.TestContentSeeder
 import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.ContinueLearningEntry
 import com.giraffe.matn.domain.model.DailyProgress
@@ -59,14 +59,18 @@ class HomeViewModelTest {
         assertEquals(4, first.verseCount)
         assertEquals(31_300L, first.totalDurationMs)
         assertFalse(vm.state.value.isLoading)
-        assertFalse(vm.state.value.isEmpty)
+        assertTrue(vm.state.value.items.isNotEmpty())
         assertNull(vm.state.value.error)
     }
 
     @Test
-    fun `empty library sets isEmpty true with no error`() = runTest {
+    fun `an empty library that has never synced shows the connect prompt - not an error`() = runTest {
+        // Phase 13 (FR-044): the single `isEmpty` flag this test used to assert has been split into
+        // three. With no sync state, "empty" means the catalog was never reached — so the screen
+        // must offer connect-to-browse rather than claiming the teacher published nothing.
         val vm = homeViewModelOf(flowOf(emptyList()))
-        assertEquals(true, vm.state.value.isEmpty)
+        assertEquals(true, vm.state.value.showConnectPrompt)
+        assertFalse(vm.state.value.showEmptyCatalog)
         assertFalse(vm.state.value.isLoading)
         assertNull(vm.state.value.error)
         assertTrue(vm.state.value.items.isEmpty())
@@ -75,7 +79,7 @@ class HomeViewModelTest {
     @Test
     fun `selectLibrarySummaries returns COUNT and SUM against in-memory driver`() = runTest {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         val repo = MatnRepositoryImpl(db)
         loader.load(parseSeed(SIMPLE_MATN_JSON))
 
@@ -91,7 +95,7 @@ class HomeViewModelTest {
     @Test
     fun `two matns yield two summaries with each matn's own totals`() = runTest {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
         val repo = MatnRepositoryImpl(db)
         loader.load(parseSeed(SIMPLE_MATN_JSON))
         loader.load(parseSeed(STRUCTURED_MATN_JSON))
@@ -197,28 +201,28 @@ class HomeViewModelTest {
     fun `T048 per-card availability reaches the state map`() = runTest {
         val vm = homeViewModelWithAvailability(
             libraryFlow = flowOf(listOf(summary("m1", "الأجرومية", count = 4, total = 31_300))),
-            availabilityFlow = flowOf(mapOf("m1" to ContentAvailability.Installed(2_400_000))),
+            availabilityFlow = flowOf(mapOf("m1" to ContentAvailability.Downloaded(2_400_000))),
         )
         val availability = vm.state.value.availability["m1"]
-        assertEquals(ContentAvailability.Installed(2_400_000), availability)
+        assertEquals(ContentAvailability.Downloaded(2_400_000), availability)
     }
 
     @Test
     fun `T048 a mid-flight availability change reaches the state object`() = runTest {
         val availabilityFlow = MutableStateFlow<Map<String, ContentAvailability>>(
-            mapOf("m1" to ContentAvailability.NotInstalled()),
+            mapOf("m1" to ContentAvailability.NotDownloaded()),
         )
         val vm = homeViewModelWithAvailability(
             libraryFlow = flowOf(listOf(summary("m1", "الأجرومية", count = 4, total = 31_300))),
             availabilityFlow = availabilityFlow,
         )
-        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability["m1"])
+        assertEquals(ContentAvailability.NotDownloaded(), vm.state.value.availability["m1"])
 
         // Simulate a backgrounding/resume re-collection reporting a newly-installed matn — this
         // is what proves the state comes from Flow re-collection, never a cached snapshot
         // (storage-ui-contract.md §5, FR-005).
-        availabilityFlow.value = mapOf("m1" to ContentAvailability.Installed(2_400_000))
-        assertEquals(ContentAvailability.Installed(2_400_000), vm.state.value.availability["m1"])
+        availabilityFlow.value = mapOf("m1" to ContentAvailability.Downloaded(2_400_000))
+        assertEquals(ContentAvailability.Downloaded(2_400_000), vm.state.value.availability["m1"])
     }
 
     @Test
@@ -233,7 +237,7 @@ class HomeViewModelTest {
             },
             observeLibraryAvailability = object : FlowUseCase<Unit, Map<String, ContentAvailability>> {
                 override fun invoke(params: Unit): Flow<Map<String, ContentAvailability>> =
-                    flowOf(mapOf("m1" to ContentAvailability.NotInstalled()))
+                    flowOf(mapOf("m1" to ContentAvailability.NotDownloaded()))
             },
         )
         assertFalse(vm.state.value.isContinueLearningContentInstalled)

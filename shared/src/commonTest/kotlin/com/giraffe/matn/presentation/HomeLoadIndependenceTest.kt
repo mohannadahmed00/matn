@@ -21,6 +21,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * T043a — the structural guarantee behind SC-005 (Continue Learning adds ≤200 ms to Home load):
@@ -57,7 +58,7 @@ class HomeLoadIndependenceTest {
         // never combined, never gating isLoading)…
         assertFalse(vm.state.value.isLoading)
         assertEquals(2, vm.state.value.items.size)
-        assertFalse(vm.state.value.isEmpty)
+        assertTrue(vm.state.value.items.isNotEmpty())
         // …and the unresolved entry simply stays null, which renders nothing (FR-015).
         assertNull(vm.state.value.continueLearning)
     }

@@ -21,7 +21,12 @@ koinCompilerPlugin = "1.0.2"
 navigationCompose = "2.9.2"
 media3 = "1.4.1"
 kotlinxDatetime = "0.7.1"
-playAssetDelivery = "2.2.2"
+# Phase 13 (research D4): already on the classpath transitively — Ktor 3.2.3 resolves
+# kotlinx-io-core with `{strictly 0.7.0}`. Declared explicitly so commonMain file I/O does not
+# depend on a transitive coordinate, and pinned to what Ktor already resolves so the two cannot
+# diverge. Verify with:
+#   ./gradlew :shared:dependencies --configuration commonMainResolvableDependenciesMetadata
+kotlinxIo = "0.7.0"
 androidx-splashscreen = "1.0.1"
 kotlinx-coroutines = "1.11.0"
 ktor = "3.2.3"
@@ -55,6 +60,7 @@ sqldelight-sqlite325-dialect = { module = "app.cash.sqldelight:sqlite-3-25-diale
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIo" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
@@ -63,7 +69,6 @@ navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-co
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
-play-asset-delivery-ktx = { module = "com.google.android.play:asset-delivery-ktx", version.ref = "playAssetDelivery" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidx-splashscreen" }
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }

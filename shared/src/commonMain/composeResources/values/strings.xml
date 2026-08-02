@@ -90,8 +90,22 @@
     <string name="install_prompt_dismiss">ليس الآن</string>
     <string name="content_error_no_connectivity">لا يوجد اتصال بالإنترنت</string>
     <string name="content_error_insufficient_storage">لا تتوفر مساحة تخزين كافية</string>
-    <string name="content_error_cancelled">تم إلغاء التثبيت</string>
-    <string name="content_error_unknown">تعذّر إكمال التثبيت</string>
+    <string name="content_error_cancelled">تم إلغاء التنزيل</string>
+    <string name="content_error_unknown">تعذّر إكمال التنزيل</string>
+    <!-- Phase 13 (FR-043): every failure the student can reach names a cause and a next action. -->
+    <string name="content_error_server">تعذّر الوصول إلى الخادم</string>
+    <string name="content_error_source_unavailable">لم يعد هذا المتن متاحًا للتنزيل</string>
+    <string name="content_error_retry">إعادة المحاولة</string>
+    <string name="content_error_free_space">أفرِغ بعض المساحة ثم أعد المحاولة</string>
+    <string name="content_error_connect">تحقّق من الاتصال ثم أعد المحاولة</string>
+    <string name="catalog_sync_failed">تعذّر تحديث القائمة</string>
+    <string name="catalog_connect_to_browse">اتصل بالإنترنت لتصفّح المتون المنشورة</string>
+    <string name="catalog_empty">لا توجد متون منشورة بعد</string>
+    <string name="catalog_nothing_downloaded">لم تنزّل أي متن بعد</string>
+    <string name="catalog_verse_search_scope">يشمل البحث في نص الأبيات المتون المنزَّلة فقط</string>
+    <string name="catalog_update_available">يتوفر تحديث</string>
+    <string name="catalog_refresh">تحديث</string>
+    <string name="content_state_queued">في قائمة الانتظار</string>
     <string name="confirm_removal_title">إزالة %1$s؟</string>
     <string name="confirm_removal_message_reclaimed">سيتم تحرير %1$s من مساحة التخزين فورًا.</string>
     <string name="confirm_removal_message_pending">سيتم تحرير %1$s، ويستعيدها النظام عند الحاجة إليها.</string>

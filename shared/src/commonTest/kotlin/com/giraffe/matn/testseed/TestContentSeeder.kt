@@ -1,4 +1,4 @@
-package com.giraffe.matn.data.seed
+package com.giraffe.matn.testseed
 
 import com.giraffe.matn.core.AppError
 import com.giraffe.matn.core.Resource
@@ -11,8 +11,21 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@org.koin.core.annotation.Single(binds = [ContentSeedLoader::class])
-class ContentSeedLoaderImpl(private val db: ContentDatabase) : ContentSeedLoader {
+
+/**
+ * **Test-only** content fixture, recovered from the production `data/seed/` package that Phase 13
+ * deleted (FR-038: nothing ships in the binary any more).
+ *
+ * The production seeding path is genuinely gone — the library now fills only from what the teacher
+ * published. But the 20-odd repository, search, progress and playback tests written across Phases
+ * 1–8 all needed *some* way to put matn/chapter/verse/audio rows into a test database, and the seed
+ * loader was doubling as that builder. Reinstating it here keeps those tests meaningful without
+ * putting a single byte of content back into a shipped artifact.
+ *
+ * The only behavioural change from the original: it no longer writes a `content_pack` row, because
+ * that table is gone (research D6).
+ */
+class TestContentSeeder(private val db: ContentDatabase) : ContentSeedLoader {
 
     override suspend fun load(payload: SeedMatn): Resource<Matn> {
         val problems = validate(payload)
@@ -36,15 +49,6 @@ class ContentSeedLoaderImpl(private val db: ContentDatabase) : ContentSeedLoader
                         structure_kind = payload.structureKind,
                     )
 
-                    // Phase 8 (FR-001): the matn's content_pack row is written in the same
-                    // transaction so the catalog is atomically consistent with the matn itself.
-                    // is_starter is stored as 1L/0L per the SQLDelight INTEGER column contract.
-                    q.insertContentPack(
-                        matn_id = payload.id,
-                        pack_id = payload.packId,
-                        declared_size_bytes = payload.declaredSizeBytes,
-                        is_starter = if (payload.isStarter) 1L else 0L,
-                    )
 
                     payload.chapters.forEach { chapter ->
                         q.upsertChapter(

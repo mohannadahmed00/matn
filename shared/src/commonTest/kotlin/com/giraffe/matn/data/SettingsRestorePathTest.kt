@@ -1,7 +1,7 @@
 package com.giraffe.matn.data
 
 import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.testseed.TestContentSeeder
 import com.giraffe.matn.domain.model.LoopRange
 import com.giraffe.matn.domain.model.PlaybackMode
 import com.giraffe.matn.domain.model.RepeatCount
@@ -34,8 +34,8 @@ class SettingsRestorePathTest {
     @Test
     fun `a fresh store over the same database restores counters and loop range`() = runTest {
         val db = newTestDatabase()
-        ContentSeedLoaderImpl(db).load(parseSeed(SIMPLE_MATN_JSON))
-        ContentSeedLoaderImpl(db).load(parseSeed(STRUCTURED_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(SIMPLE_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(STRUCTURED_MATN_JSON))
 
         val saved = RepetitionSettings(
             verseRepeat = RepeatCount.of(7),
@@ -62,8 +62,8 @@ class SettingsRestorePathTest {
     @Test
     fun `each matn restores its own settings with no bleed`() = runTest {
         val db = newTestDatabase()
-        ContentSeedLoaderImpl(db).load(parseSeed(SIMPLE_MATN_JSON))
-        ContentSeedLoaderImpl(db).load(parseSeed(STRUCTURED_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(SIMPLE_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(STRUCTURED_MATN_JSON))
 
         val firstRun = PersistentRepetitionSettingsStore(db, this)
         firstRun.put(matnA, RepetitionSettings(verseRepeat = RepeatCount.of(7)))
@@ -80,7 +80,7 @@ class SettingsRestorePathTest {
     @Test
     fun `a session restored with verseRepeat 7 reports MEMORIZATION mode`() = runTest {
         val db = newTestDatabase()
-        ContentSeedLoaderImpl(db).load(parseSeed(SIMPLE_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(SIMPLE_MATN_JSON))
         val firstRun = PersistentRepetitionSettingsStore(db, this)
         firstRun.put(matnA, RepetitionSettings(verseRepeat = RepeatCount.of(7)))
         advanceUntilIdle()
@@ -95,7 +95,7 @@ class SettingsRestorePathTest {
     @Test
     fun `a session restored with a loop range reports A_B_LOOP mode`() = runTest {
         val db = newTestDatabase()
-        ContentSeedLoaderImpl(db).load(parseSeed(SIMPLE_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(SIMPLE_MATN_JSON))
         val firstRun = PersistentRepetitionSettingsStore(db, this)
         firstRun.put(matnA, RepetitionSettings(loopRange = LoopRange(v1, v3)))
         advanceUntilIdle()

@@ -5,7 +5,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.AudioAssetRepositoryImpl
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.repository.VerseRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.testseed.TestContentSeeder
 import com.giraffe.matn.newTestDatabase
 import com.giraffe.matn.domain.error.ContentIntegrityError
 import com.giraffe.matn.parseSeed
@@ -25,7 +25,7 @@ class SimpleMatnRoundTripTest {
         val matn: MatnRepositoryImpl,
         val verse: VerseRepositoryImpl,
         val audio: AudioAssetRepositoryImpl,
-        val loader: ContentSeedLoaderImpl,
+        val loader: TestContentSeeder,
     )
 
     private fun newRepos(): Repos {
@@ -34,7 +34,7 @@ class SimpleMatnRoundTripTest {
             matn = MatnRepositoryImpl(db),
             verse = VerseRepositoryImpl(db),
             audio = AudioAssetRepositoryImpl(db),
-            loader = ContentSeedLoaderImpl(db),
+            loader = TestContentSeeder(db),
         )
     }
 

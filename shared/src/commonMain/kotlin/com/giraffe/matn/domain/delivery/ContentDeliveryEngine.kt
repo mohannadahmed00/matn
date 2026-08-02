@@ -6,37 +6,52 @@ import com.giraffe.matn.domain.model.RemovalOutcome
 import kotlinx.coroutines.flow.Flow
 
 /**
- * The seam between the shared delivery logic and the platform's on-demand content delivery
- * (content-delivery-contract.md §1, research D6). A pure-Kotlin interface in `commonMain`; its
- * concrete implementations (`PlayAssetDeliveryEngine` on Android, `OnDemandResourcesEngine` on iOS)
- * hold **no business logic** — they translate domain primitives to the platform API and platform
- * state callbacks to domain types. All delivery *decisions* (free-space checks, connectivity
- * policy, ordering, formatting) live in the use cases (Principle IV).
+ * The seam between the shared delivery logic and however content actually arrives
+ * (delivery-contract.md §2). This interface is the one piece of Phase 8's delivery model that
+ * survives Phase 13 unchanged in *role* — it is the worked example in Constitution Principle I's
+ * own rationale: the data layer swaps its content source without touching domain or UI code.
  *
- * Injected via `initMatnKoin(driverFactory, audioEngine, wakeLock, deliveryEngine, deviceStorage)`
- * alongside the existing `AudioEngine`/`WakeLock` seams. A `FakeContentDeliveryEngine` implements
- * this same interface for `commonTest` (Principle V).
+ * What changed underneath it: three platform implementations (`PlayAssetDeliveryEngine`,
+ * `OnDemandResourcesEngine`, `DesktopContentDeliveryEngine`) collapsed into one
+ * `RemoteContentDeliveryEngine` in `commonMain` (FR-041, research D3). Over HTTP nothing here is
+ * platform-specific, and Principle IV puts shared logic in `commonMain`. Every parameter is now a
+ * `matnId`: `packId` is gone with the pack concept (research D6).
+ *
+ * `querySize` is also gone — the catalog overview always carries the size, so there is no second
+ * source to reconcile and no download ever waits on a lookup (spec Assumptions).
+ *
+ * The engine holds **no policy**. Free-space checks (FR-019), connectivity checks (FR-020), the
+ * staleness window (FR-006) and queue ordering (FR-015) all live above it.
+ *
+ * A `FakeContentDeliveryEngine` implements this same interface for `commonTest` (Principle V).
  */
 interface ContentDeliveryEngine {
 
-    /** Live size from the platform, or null when unavailable (offline, or iOS — research D4). */
-    suspend fun querySize(packId: String): Long?
+    /**
+     * Fetches the matn's verse text and per-verse recitations and commits them, following the
+     * nine-step sequence in delivery-contract.md §4: stage into `downloads/.tmp-{matnId}/`, move
+     * into `downloads/{matnId}/` only on full success, then insert rows in one transaction.
+     *
+     * Any failure deletes the staging directory and writes nothing (FR-017, SC-006).
+     */
+    suspend fun download(matnId: String): Resource<Unit>
 
-    /** Starts or rejoins a transfer. Idempotent per packId (duplicate taps are a no-op). */
-    suspend fun install(packId: String): Resource<Unit>
+    /** Progress for one matn. Emits as bytes land; completes never. */
+    fun observe(matnId: String): Flow<DeliveryProgress>
 
-    /** Progress for one pack. Emits on every platform state change; completes never. */
-    fun observe(packId: String): Flow<DeliveryProgress>
+    /** Aborts an in-flight transfer and deletes its staging directory. */
+    suspend fun cancel(matnId: String)
 
-    /** Best-effort abort; partial bytes are released by the platform. */
-    suspend fun cancel(packId: String)
+    /** Deletes `downloads/{matnId}/` and reports the bytes reclaimed. */
+    suspend fun remove(matnId: String): Resource<RemovalOutcome>
 
-    /** Android: deletes and reports reclaimed bytes. iOS: releases the tag (research D2). */
-    suspend fun remove(packId: String): Resource<RemovalOutcome>
+    /** Filesystem root of a downloaded matn, or null when not present. */
+    suspend fun contentRootFor(matnId: String): String?
 
-    /** Filesystem root of an installed pack, or null when not present. */
-    suspend fun locate(packId: String): String?
-
-    /** True when the pack's content is present and complete right now. */
-    suspend fun isInstalled(packId: String): Boolean
+    /**
+     * True when the matn's content is present right now — determined by asking the filesystem, not
+     * by reading a stored flag (FR-022). This is what makes FR-045 (files deleted behind the app's
+     * back) a free property rather than a reconciliation job.
+     */
+    suspend fun isDownloaded(matnId: String): Boolean
 }

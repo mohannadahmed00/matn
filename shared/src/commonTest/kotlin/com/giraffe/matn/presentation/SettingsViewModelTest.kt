@@ -41,14 +41,13 @@ class SettingsViewModelTest {
     @AfterTest
     fun tearDown() { Dispatchers.resetMain() }
 
-    private val starter = MatnStorageEntry(matnId = "starter-id", title = "الأجرومية", bytes = 300L, isStarter = true)
-    private val big = MatnStorageEntry(matnId = "big-id", title = "متن كبير", bytes = 5_000L, isStarter = false)
-    private val small = MatnStorageEntry(matnId = "small-id", title = "متن صغير", bytes = 1_000L, isStarter = false)
+    private val starter = MatnStorageEntry(matnId = "starter-id", title = "الأجرومية", bytes = 300L)
+    private val big = MatnStorageEntry(matnId = "big-id", title = "متن كبير", bytes = 5_000L)
+    private val small = MatnStorageEntry(matnId = "small-id", title = "متن صغير", bytes = 1_000L)
 
     private fun usageOf(entries: List<MatnStorageEntry>, freeBytes: Long = 999_000L): StorageUsage = StorageUsage(
         entries = entries.sortedByDescending { it.bytes },
         totalUsedBytes = entries.sumOf { it.bytes },
-        onDemandUsedBytes = entries.filter { !it.isStarter }.sumOf { it.bytes },
         freeSpaceBytes = freeBytes,
     )
 
@@ -76,33 +75,38 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `zero state is driven by onDemandUsedBytes not the starter's presence`() = runTest {
-        val vm = newViewModel(usageFlow = MutableStateFlow(usageOf(listOf(starter))))
-        assertTrue(vm.state.value.isOnDemandEmpty)
-        assertEquals(300L, vm.state.value.totalUsedBytes)
+    fun `zero state is driven by total used bytes`() = runTest {
+        // Phase 13: the old split (`onDemandUsedBytes` vs `totalUsedBytes`) existed only to discount
+        // the bundled starter, which never counted as something the student had downloaded. With no
+        // matn exempt (FR-031) the two figures are the same, so the zero state keys off the total —
+        // and a library with any downloaded matn in it is no longer "empty".
+        val empty = newViewModel(usageFlow = MutableStateFlow(usageOf(emptyList())))
+        assertTrue(empty.state.value.isOnDemandEmpty)
+        assertEquals(0L, empty.state.value.totalUsedBytes)
 
-        val vmPopulated = newViewModel(usageFlow = MutableStateFlow(usageOf(listOf(starter, big))))
-        assertFalse(vmPopulated.state.value.isOnDemandEmpty)
+        val populated = newViewModel(usageFlow = MutableStateFlow(usageOf(listOf(starter))))
+        assertFalse(populated.state.value.isOnDemandEmpty)
+        assertEquals(300L, populated.state.value.totalUsedBytes)
     }
 
     @Test
-    fun `starter row non-removable is enforced by the use case even if targeted`() = runTest {
-        // StorageUsageRow never wires a remove action for the starter (isStarter branch renders
-        // "part of the app" with no button); this proves the ViewModel doesn't independently
-        // second-guess that omission — it defers entirely to RemoveMatnContentUseCase's own
-        // starter refusal (single source of truth, already covered by
-        // RemoveMatnContentUseCaseTest's "removing the starter matn is refused").
+    fun `every row is removable`() = runTest {
+        // Phase 13 replaces the old "starter row is non-removable" test. FR-031 forbids any item
+        // being exempt, and SC-009 requires "remove all" to leave 0 bytes — which a non-removable
+        // row would make impossible. Removal must now succeed for every entry, including the
+        // smallest one that used to be the bundled starter.
         val vm = newViewModel(
             usageFlow = MutableStateFlow(usageOf(listOf(starter))),
-            removeMatnContent = FakeRemove {
-                Resource.Failure(com.giraffe.matn.domain.error.DeliveryError.StarterMatnNotRemovable)
-            },
+            removeMatnContent = FakeRemove { Resource.Success(RemovalOutcome.Reclaimed(starter.bytes)) },
         )
         vm.onRemoveMatn(starter.matnId)
-        assertEquals(RemovalTarget.SingleMatn(starter.matnId, starter.title, starter.bytes), vm.state.value.pendingRemoval)
+        assertEquals(
+            RemovalTarget.SingleMatn(starter.matnId, starter.title, starter.bytes),
+            vm.state.value.pendingRemoval,
+        )
         vm.onConfirmRemoval()
         assertNull(vm.state.value.pendingRemoval)
-        assertNull(vm.state.value.lastOutcome, "a refused removal must never set a successful outcome")
+        assertEquals(RemovalOutcome.Reclaimed(starter.bytes), vm.state.value.lastOutcome)
     }
 
     @Test
@@ -137,29 +141,42 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `remove all spares the starter`() = runTest {
+    fun `remove all spares nothing`() = runTest {
+        // FR-031 / SC-009: the inverse of Phase 8's `remove all spares the starter`. Every entry is
+        // a removal target, the confirmation totals ALL of them, and afterwards zero bytes remain.
         var removeAllInvoked = false
         val usage = MutableStateFlow(usageOf(listOf(starter, big, small)))
         val vm = newViewModel(
             usageFlow = usage,
             removeAllContent = FakeRemoveAll {
                 removeAllInvoked = true
-                Resource.Success(listOf(RemovalOutcome.Reclaimed(5_000L), RemovalOutcome.Reclaimed(1_000L)))
+                Resource.Success(
+                    listOf(
+                        RemovalOutcome.Reclaimed(5_000L),
+                        RemovalOutcome.Reclaimed(1_000L),
+                        RemovalOutcome.Reclaimed(300L),
+                    ),
+                )
             },
         )
         vm.onRemoveAll()
-        assertEquals(RemovalTarget.AllContent(6_000L), vm.state.value.pendingRemoval)
+        // 6_300, not 6_000 — the row that used to be exempt is now included in the total.
+        assertEquals(RemovalTarget.AllContent(6_300L), vm.state.value.pendingRemoval)
         vm.onConfirmRemoval()
         assertTrue(removeAllInvoked)
         assertNull(vm.state.value.pendingRemoval)
 
-        usage.value = usageOf(listOf(starter))
-        assertEquals(listOf(starter.matnId), vm.state.value.entries.map { it.matnId })
+        usage.value = usageOf(emptyList())
+        assertTrue(vm.state.value.entries.isEmpty(), "remove all must spare nothing (FR-031)")
+        assertEquals(0L, vm.state.value.totalUsedBytes)
         assertTrue(vm.state.value.isOnDemandEmpty)
     }
 
     @Test
-    fun `both removal outcomes reach lastOutcome unchanged`() = runTest {
+    fun `the removal outcome reaches lastOutcome unchanged`() = runTest {
+        // Phase 13 collapsed RemovalOutcome to one value: deleting app-private files reclaims
+        // immediately on every platform, so the iOS "released, pending system reclaim" hedge is
+        // gone and the figure shown is always the truth.
         val vmReclaimed = newViewModel(
             usageFlow = MutableStateFlow(usageOf(listOf(starter, big))),
             removeMatnContent = FakeRemove { Resource.Success(RemovalOutcome.Reclaimed(5_000L)) },
@@ -167,14 +184,6 @@ class SettingsViewModelTest {
         vmReclaimed.onRemoveMatn(big.matnId)
         vmReclaimed.onConfirmRemoval()
         assertEquals(RemovalOutcome.Reclaimed(5_000L), vmReclaimed.state.value.lastOutcome)
-
-        val vmPending = newViewModel(
-            usageFlow = MutableStateFlow(usageOf(listOf(starter, big))),
-            removeMatnContent = FakeRemove { Resource.Success(RemovalOutcome.ReleasedPendingSystemReclaim(5_000L)) },
-        )
-        vmPending.onRemoveMatn(big.matnId)
-        vmPending.onConfirmRemoval()
-        assertEquals(RemovalOutcome.ReleasedPendingSystemReclaim(5_000L), vmPending.state.value.lastOutcome)
     }
 
     private class FakeRemove(private val block: suspend (String) -> Resource<RemovalOutcome>) : UseCase<String, RemovalOutcome> {

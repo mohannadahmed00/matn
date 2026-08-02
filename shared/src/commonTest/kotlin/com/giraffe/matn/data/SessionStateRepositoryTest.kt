@@ -2,7 +2,7 @@ package com.giraffe.matn.data
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.SessionStateRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.testseed.TestContentSeeder
 import com.giraffe.matn.domain.model.LoopRange
 import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.domain.model.RepetitionSettings
@@ -26,7 +26,7 @@ class SessionStateRepositoryTest {
     private val v3 = "b3f1e2a4-0000-4000-8000-0000000000v3"
 
     private suspend fun seedMatn(db: com.giraffe.matn.db.ContentDatabase) {
-        ContentSeedLoaderImpl(db).load(parseSeed(SIMPLE_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(SIMPLE_MATN_JSON))
     }
 
     @Test

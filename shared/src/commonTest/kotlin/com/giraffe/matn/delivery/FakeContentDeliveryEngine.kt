@@ -3,135 +3,149 @@ package com.giraffe.matn.delivery
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.delivery.ContentDeliveryEngine
 import com.giraffe.matn.domain.error.DeliveryError
-import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.DeliveryFailure
 import com.giraffe.matn.domain.model.DeliveryPhase
 import com.giraffe.matn.domain.model.DeliveryProgress
 import com.giraffe.matn.domain.model.RemovalOutcome
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * In-memory fake of [ContentDeliveryEngine] for `commonTest` (Principle V). Scripts every path
- * the contract enumerates: progress, completion, eviction, mid-install failures, process death,
- * and both removal outcomes. Per T022: a `MutableMap<String, ContentAvailability>` of current
- * state, plus settable dials and helper methods. No real IO.
+ * In-memory fake of [ContentDeliveryEngine] for `commonTest` (Principle V). No real IO, no network.
+ *
+ * Phase 13 reshaped it along with the interface: `packId` → `matnId`, `querySize` gone, and
+ * `simulateEviction` gone with `DeliveryFailure.Evicted` (an OS-evicted asset pack is not a thing
+ * that can happen any more). What replaces eviction is [simulateExternalDeletion] — files vanishing
+ * behind the app's back, which is FR-045 and is genuinely reachable.
+ *
+ * The important new capability is [holdGate]: a download can be held open so a test can observe the
+ * queue while a transfer is genuinely in flight. Without it the one-at-a-time ordering
+ * (Clarification 4) is unprovable — every download would complete before the next was requested.
  */
 class FakeContentDeliveryEngine : ContentDeliveryEngine {
 
-    /** Current availability snapshot per pack — read by [isInstalled]/[locate]/[observe]. */
-    val states: MutableMap<String, ContentAvailability> = mutableMapOf()
+    /** Matns currently present on the fake device, with their occupied bytes. */
+    val downloaded: MutableMap<String, Long> = mutableMapOf()
 
-    /** Live size override; null ⇒ fall back to declared (matches the engine contract). */
-    var liveSize: Long? = null
+    /** Filesystem root reported by [contentRootFor] for a downloaded matn. */
+    var downloadRoot: String? = "/fake/downloads"
 
-    /** Filesystem root reported by [locate] for an installed pack, used when [installedRoots] has
-     *  no entry for that pack. Sufficient for tests exercising a single on-demand pack. */
-    var installedRoot: String? = "/fake/packs"
-
-    /** Per-pack root override — needed only when a test installs multiple on-demand packs and
-     *  must give each a distinct measurable directory size (e.g. storage-usage ordering tests).
-     *  Falls back to [installedRoot] for any pack without an entry here. */
-    val installedRoots: MutableMap<String, String> = mutableMapOf()
+    /** Per-matn root override, for tests that need distinct measurable directories. */
+    val downloadRoots: MutableMap<String, String> = mutableMapOf()
 
     /** Outcome returned by the next [remove] call. */
     var nextRemovalOutcome: RemovalOutcome = RemovalOutcome.Reclaimed(0L)
 
-    /** Set before calling [install] to make the next install fail with the given reason. */
-    var failInstallWith: DeliveryFailure? = null
+    /** Set before calling [download] to make the next download fail with the given reason. */
+    var failDownloadWith: DeliveryFailure? = null
 
-    /** Per-pack progress [MutableStateFlow]s so [observe] mirrors the real engine's behavior. */
+    /** Bytes a successful [download] reports as occupied. */
+    var downloadedBytes: Long = 1_000L
+
+    /**
+     * When held for a matn, [download] suspends until the test releases it. This is what makes
+     * "one transfer at a time, the rest queued" observable.
+     */
+    private val gates: MutableMap<String, CompletableDeferred<Unit>> = mutableMapOf()
+
     private val progressFlows: MutableMap<String, MutableStateFlow<DeliveryProgress>> = mutableMapOf()
+    private val cancelledMatns: MutableSet<String> = mutableSetOf()
 
-    /** Tracks whether [cancel] was invoked for a pack — used by repository "remove wins" tests. */
-    private val cancelledPacks: MutableSet<String> = mutableSetOf()
+    /** Every [download] invocation, in order — the queue-ordering assertion reads this. */
+    val downloadInvocations: MutableList<String> = mutableListOf()
 
-    /** Records every [install] invocation so use-case tests can assert "engine called once". */
-    val installInvocations: MutableList<String> = mutableListOf()
-
-    /** Records every [remove] invocation. */
+    /** Every [remove] invocation. */
     val removeInvocations: MutableList<String> = mutableListOf()
 
     fun reset() {
-        states.clear()
+        downloaded.clear()
         progressFlows.clear()
-        cancelledPacks.clear()
-        installInvocations.clear()
+        cancelledMatns.clear()
+        downloadInvocations.clear()
         removeInvocations.clear()
-        liveSize = null
-        installedRoot = "/fake/packs"
-        installedRoots.clear()
+        gates.clear()
+        downloadRoot = "/fake/downloads"
+        downloadRoots.clear()
         nextRemovalOutcome = RemovalOutcome.Reclaimed(0L)
-        failInstallWith = null
+        failDownloadWith = null
+        downloadedBytes = 1_000L
     }
 
-    /** Emit progress for a pack from the test driver. */
-    fun emitProgress(packId: String, bytes: Long, total: Long, phase: DeliveryPhase) {
-        progressFlows.getOrPut(packId) {
+    /** Hold [matnId]'s download open until [releaseGate] is called. */
+    fun holdGate(matnId: String) {
+        gates[matnId] = CompletableDeferred()
+    }
+
+    fun releaseGate(matnId: String) {
+        gates[matnId]?.complete(Unit)
+    }
+
+    fun emitProgress(matnId: String, bytes: Long, total: Long, phase: DeliveryPhase) {
+        progressFlows.getOrPut(matnId) {
             MutableStateFlow(DeliveryProgress(0, total, DeliveryPhase.PENDING))
         }.value = DeliveryProgress(bytes, total, phase)
     }
 
-    /** Mark a pack as installed with the given occupied bytes; emits a final progress snapshot. */
-    fun completeInstall(packId: String, occupiedBytes: Long) {
-        states[packId] = ContentAvailability.Installed(occupiedBytes)
-        emitProgress(packId, occupiedBytes, occupiedBytes, DeliveryPhase.TRANSFERRING)
+    /** Mark a matn as present without going through [download]. */
+    fun completeDownload(matnId: String, occupiedBytes: Long) {
+        downloaded[matnId] = occupiedBytes
+        emitProgress(matnId, occupiedBytes, occupiedBytes, DeliveryPhase.TRANSFERRING)
     }
 
-    /** Flip an Installed pack back to absent — used by eviction tests. */
-    fun simulateEviction(packId: String) {
-        states[packId] = ContentAvailability.NotInstalled(DeliveryFailure.Evicted)
+    /**
+     * FR-045: a device cleaner or OS storage reclamation removed the files while the app was not
+     * looking. Availability must report not-downloaded on the next read, with **no** failure —
+     * the student did nothing wrong.
+     */
+    fun simulateExternalDeletion(matnId: String) {
+        downloaded.remove(matnId)
+        progressFlows.remove(matnId)
     }
 
-    /** Simulate a process kill mid-install: state becomes "not installed, no progress". */
-    fun simulateProcessDeathMidInstall(packId: String) {
-        states[packId] = ContentAvailability.NotInstalled(null)
-        progressFlows.remove(packId)
-    }
-
-    override suspend fun querySize(packId: String): Long? = liveSize
-
-    override suspend fun install(packId: String): Resource<Unit> {
-        installInvocations.add(packId)
-        failInstallWith?.let {
-            states[packId] = ContentAvailability.NotInstalled(it)
-            return Resource.Failure(DeliveryError.DeliveryFailed(it))
+    override suspend fun download(matnId: String): Resource<Unit> {
+        downloadInvocations.add(matnId)
+        gates[matnId]?.await()
+        if (matnId in cancelledMatns) {
+            return Resource.Failure(DeliveryError.DeliveryFailed(DeliveryFailure.Cancelled))
         }
-        if (states[packId] !is ContentAvailability.Installed) {
-            states[packId] = ContentAvailability.Installing(
-                progressFlows[packId]?.value ?: DeliveryProgress(0, 0, DeliveryPhase.PENDING),
-            )
-        }
+        failDownloadWith?.let { return Resource.Failure(DeliveryError.DeliveryFailed(it)) }
+        downloaded[matnId] = downloadedBytes
+        emitProgress(matnId, downloadedBytes, downloadedBytes, DeliveryPhase.TRANSFERRING)
         return Resource.Success(Unit)
     }
 
-    override fun observe(packId: String): Flow<DeliveryProgress> =
-        progressFlows.getOrPut(packId) {
+    override fun observe(matnId: String): Flow<DeliveryProgress> =
+        progressFlows.getOrPut(matnId) {
             MutableStateFlow(DeliveryProgress(0, 0, DeliveryPhase.PENDING))
         }
 
-    override suspend fun cancel(packId: String) {
-        cancelledPacks.add(packId)
-        progressFlows.remove(packId)
-        if (states[packId] is ContentAvailability.Installing) {
-            states[packId] = ContentAvailability.NotInstalled(DeliveryFailure.Cancelled)
-        }
+    override suspend fun cancel(matnId: String) {
+        cancelledMatns.add(matnId)
+        progressFlows.remove(matnId)
+        gates[matnId]?.complete(Unit)
     }
 
-    override suspend fun remove(packId: String): Resource<RemovalOutcome> {
-        removeInvocations.add(packId)
-        val outcome = nextRemovalOutcome
-        states[packId] = ContentAvailability.NotInstalled(null)
-        progressFlows.remove(packId)
+    override suspend fun remove(matnId: String): Resource<RemovalOutcome> {
+        removeInvocations.add(matnId)
+        val bytes = downloaded.remove(matnId) ?: 0L
+        progressFlows.remove(matnId)
+        val configured = nextRemovalOutcome
+        // Default dial (Reclaimed(0)) means "report what was actually there"; an explicitly set
+        // outcome wins, so tests can still pin an exact figure.
+        val outcome = if (configured is RemovalOutcome.Reclaimed && configured.bytes == 0L) {
+            RemovalOutcome.Reclaimed(bytes)
+        } else {
+            configured
+        }
         return Resource.Success(outcome)
     }
 
-    override suspend fun locate(packId: String): String? =
-        if (states[packId] is ContentAvailability.Installed) installedRoots[packId] ?: installedRoot else null
+    override suspend fun contentRootFor(matnId: String): String? =
+        if (matnId in downloaded) downloadRoots[matnId] ?: downloadRoot else null
 
-    override suspend fun isInstalled(packId: String): Boolean =
-        states[packId] is ContentAvailability.Installed
+    override suspend fun isDownloaded(matnId: String): Boolean = matnId in downloaded
 
-    /** Was [cancel] called for this pack since install? */
-    fun wasCancelled(packId: String): Boolean = cancelledPacks.contains(packId)
+    /** Was [cancel] called for this matn? */
+    fun wasCancelled(matnId: String): Boolean = cancelledMatns.contains(matnId)
 }

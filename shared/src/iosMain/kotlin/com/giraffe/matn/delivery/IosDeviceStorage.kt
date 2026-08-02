@@ -40,4 +40,24 @@ class IosDeviceStorage : DeviceStorage {
         // summing NSFileSize only for files (directories contribute 0).
         return 0L
     }
+
+    /**
+     * Phase 13 (research D4): the root everything downloaded lives under.
+     *
+     * macOS-completion body, per this file's top note:
+     * ```
+     * NSFileManager.defaultManager.URLsForDirectory(
+     *     NSApplicationSupportDirectory, NSUserDomainMask,
+     * ).first().let { (it as NSURL).path!! } + "/matn"
+     * ```
+     * Application Support rather than Documents, because downloaded content is app-managed and
+     * must not surface in the Files app or be swept into iCloud backup. Until the macOS pass this
+     * returns a relative fallback, which keeps the module compiling on the Windows sysroot without
+     * pretending to be a real absolute path.
+     */
+    override suspend fun contentRootPath(): String = FALLBACK_ROOT
+
+    private companion object {
+        const val FALLBACK_ROOT = "matn"
+    }
 }

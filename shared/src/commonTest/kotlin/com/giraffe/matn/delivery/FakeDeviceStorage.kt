@@ -13,12 +13,21 @@ class FakeDeviceStorage : DeviceStorage {
 
     val directorySizes: MutableMap<String, Long> = mutableMapOf()
 
+    /**
+     * Phase 13: the fake content root. Settable so a test that touches the real filesystem
+     * (via `ContentFileStore`) can point it at a per-test temporary directory and stay isolated.
+     */
+    var contentRoot: String = "/fake-content-root"
+
     fun reset() {
         freeSpace = Long.MAX_VALUE
         directorySizes.clear()
+        contentRoot = "/fake-content-root"
     }
 
     override suspend fun freeSpaceBytes(): Long = freeSpace
 
     override suspend fun sizeOfDirectory(path: String): Long = directorySizes[path] ?: 0L
+
+    override suspend fun contentRootPath(): String = contentRoot
 }

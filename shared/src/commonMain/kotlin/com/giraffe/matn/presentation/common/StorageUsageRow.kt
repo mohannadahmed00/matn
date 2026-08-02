@@ -50,16 +50,14 @@ fun StorageUsageRow(
             color = scheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = MatnSpacing.unit),
         )
-        if (entry.isStarter) {
-            Text(
-                text = stringResource(Res.string.storage_row_part_of_app),
-                style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurfaceVariant,
+        // FR-031: every row is removable. Phase 8's "part of the app" branch, which suppressed the
+        // remove action for the starter matn, is gone with the starter itself (FR-040) — SC-009
+        // requires "remove all" to leave 0 bytes, which a non-removable row would make impossible.
+        IconButton(onClick = onRemove) {
+            RemoveContentGlyph(
+                color = scheme.error,
+                contentDescription = stringResource(Res.string.content_action_remove),
             )
-        } else {
-            IconButton(onClick = onRemove) {
-                RemoveContentGlyph(color = scheme.error, contentDescription = stringResource(Res.string.content_action_remove))
-            }
         }
     }
 }
@@ -71,18 +69,19 @@ fun StorageUsageRow(
 private fun StorageUsageRowRemovablePreview() {
     MatnTheme {
         StorageUsageRow(
-            entry = MatnStorageEntry(matnId = "m1", title = "الأجرومية المهذبة", bytes = 2_400_000, isStarter = false),
+            entry = MatnStorageEntry(matnId = "m1", title = "الأجرومية المهذبة", bytes = 2_400_000),
             onRemove = {},
         )
     }
 }
 
+/** Phase 13: replaces the old starter preview — there is no non-removable row any more (FR-031). */
 @Preview
 @Composable
-private fun StorageUsageRowStarterPreview() {
+private fun StorageUsageRowSmallPreview() {
     MatnTheme {
         StorageUsageRow(
-            entry = MatnStorageEntry(matnId = "m2", title = "الأجرومية", bytes = 296_000, isStarter = true),
+            entry = MatnStorageEntry(matnId = "m2", title = "الأجرومية", bytes = 296_000),
             onRemove = {},
         )
     }

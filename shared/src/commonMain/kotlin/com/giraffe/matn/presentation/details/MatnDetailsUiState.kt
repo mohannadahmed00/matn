@@ -53,8 +53,6 @@ data class MatnDetailsUiState(
     val availability: ContentAvailability? = null,
     /** Phase 8 (FR-003): the catalog's declared install size (data-model.md §1.1). */
     val declaredSizeBytes: Long = 0L,
-    /** Phase 8 (FR-027): true for the bundled, non-removable starter matn. */
-    val isStarter: Boolean = false,
     /** Phase 8 (FR-007/FR-015): the reason the last install attempt was refused (offline /
      *  required-vs-available bytes) — the screen maps this to a localized message, mirroring
      *  [errorMessage] for [error]. `null` when there is nothing to report. */

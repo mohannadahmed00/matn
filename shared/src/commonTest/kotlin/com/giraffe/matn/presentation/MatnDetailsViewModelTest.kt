@@ -550,9 +550,9 @@ class MatnDetailsViewModelTest {
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
             verses = simpleVerses,
-            availabilityFlow = flowOf(ContentAvailability.NotInstalled()),
+            availabilityFlow = flowOf(ContentAvailability.NotDownloaded()),
         )
-        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability)
+        assertEquals(ContentAvailability.NotDownloaded(), vm.state.value.availability)
     }
 
     @Test
@@ -560,7 +560,7 @@ class MatnDetailsViewModelTest {
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
             verses = simpleVerses,
-            availabilityFlow = flowOf(ContentAvailability.NotInstalled()),
+            availabilityFlow = flowOf(ContentAvailability.NotDownloaded()),
             installMatnContent = FakeUseCase {
                 Resource.Failure(DeliveryError.DeliveryFailed(DeliveryFailure.NoConnectivity))
             },
@@ -574,7 +574,7 @@ class MatnDetailsViewModelTest {
     @Test
     fun `T050 cancel returns the state to not-installed`() = runTest {
         val availability = MutableStateFlow<ContentAvailability>(
-            ContentAvailability.Installing(
+            ContentAvailability.Downloading(
                 com.giraffe.matn.domain.model.DeliveryProgress(
                     bytesTransferred = 1_000,
                     totalBytes = 2_000,
@@ -594,8 +594,8 @@ class MatnDetailsViewModelTest {
         // The use case's own effect (flipping the engine's state) is exercised in
         // CancelInstallUseCaseTest / ContentPackRepositoryTest; here we simulate its
         // observable consequence to prove the ViewModel's collector reflects it.
-        availability.value = ContentAvailability.NotInstalled()
-        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability)
+        availability.value = ContentAvailability.NotDownloaded()
+        assertEquals(ContentAvailability.NotDownloaded(), vm.state.value.availability)
     }
 
     @Test
@@ -604,7 +604,7 @@ class MatnDetailsViewModelTest {
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
             verses = simpleVerses,
-            availabilityFlow = flowOf(ContentAvailability.Installed(2_400_000)),
+            availabilityFlow = flowOf(ContentAvailability.Downloaded(2_400_000)),
             removeMatnContent = FakeUseCase {
                 removeInvoked = true
                 Resource.Success(RemovalOutcome.Reclaimed(2_400_000))
@@ -626,7 +626,7 @@ class MatnDetailsViewModelTest {
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
             verses = simpleVerses,
-            availabilityFlow = flowOf(ContentAvailability.Installed(2_400_000)),
+            availabilityFlow = flowOf(ContentAvailability.Downloaded(2_400_000)),
             removeMatnContent = FakeUseCase {
                 removeInvoked = true
                 Resource.Success(RemovalOutcome.Reclaimed(2_400_000))
@@ -640,15 +640,15 @@ class MatnDetailsViewModelTest {
 
     @Test
     fun `T050 a mid-flight availability change reaches the state object`() = runTest {
-        val availability = MutableStateFlow<ContentAvailability>(ContentAvailability.NotInstalled())
+        val availability = MutableStateFlow<ContentAvailability>(ContentAvailability.NotDownloaded())
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
             verses = simpleVerses,
             availabilityFlow = availability,
         )
-        assertEquals(ContentAvailability.NotInstalled(), vm.state.value.availability)
-        availability.value = ContentAvailability.Installed(2_400_000)
-        assertEquals(ContentAvailability.Installed(2_400_000), vm.state.value.availability)
+        assertEquals(ContentAvailability.NotDownloaded(), vm.state.value.availability)
+        availability.value = ContentAvailability.Downloaded(2_400_000)
+        assertEquals(ContentAvailability.Downloaded(2_400_000), vm.state.value.availability)
     }
 }
 

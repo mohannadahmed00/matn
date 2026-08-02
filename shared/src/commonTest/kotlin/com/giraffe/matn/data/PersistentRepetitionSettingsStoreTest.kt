@@ -1,7 +1,7 @@
 package com.giraffe.matn.data
 
 import com.giraffe.matn.data.repository.PersistentRepetitionSettingsStore
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.testseed.TestContentSeeder
 import com.giraffe.matn.domain.model.LoopRange
 import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.domain.model.RepetitionSettings
@@ -26,11 +26,11 @@ class PersistentRepetitionSettingsStoreTest {
     private val matnB = "e5c5c5c5-0000-4000-8000-000000000001"
 
     private suspend fun seedMatnA(db: ContentDatabase) {
-        ContentSeedLoaderImpl(db).load(parseSeed(SIMPLE_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(SIMPLE_MATN_JSON))
     }
 
     private suspend fun seedMatnB(db: ContentDatabase) {
-        ContentSeedLoaderImpl(db).load(parseSeed(STRUCTURED_MATN_JSON))
+        TestContentSeeder(db).load(parseSeed(STRUCTURED_MATN_JSON))
     }
 
     private fun TestScope.newStore(db: ContentDatabase): PersistentRepetitionSettingsStore =

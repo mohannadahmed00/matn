@@ -90,8 +90,22 @@
     <string name="install_prompt_dismiss">Not now</string>
     <string name="content_error_no_connectivity">No internet connection</string>
     <string name="content_error_insufficient_storage">Not enough storage space</string>
-    <string name="content_error_cancelled">Install cancelled</string>
-    <string name="content_error_unknown">Couldn't complete the install</string>
+    <string name="content_error_cancelled">Download cancelled</string>
+    <string name="content_error_unknown">Couldn't complete the download</string>
+    <!-- Phase 13 (FR-043): every failure the student can reach names a cause and a next action. -->
+    <string name="content_error_server">Couldn't reach the server</string>
+    <string name="content_error_source_unavailable">This matn is no longer available to download</string>
+    <string name="content_error_retry">Try again</string>
+    <string name="content_error_free_space">Free up some space and try again</string>
+    <string name="content_error_connect">Check your connection and try again</string>
+    <string name="catalog_sync_failed">Couldn't refresh the library</string>
+    <string name="catalog_connect_to_browse">Connect to browse the published متون</string>
+    <string name="catalog_empty">No متون published yet</string>
+    <string name="catalog_nothing_downloaded">You haven't downloaded anything yet</string>
+    <string name="catalog_verse_search_scope">Verse search covers downloaded متون only</string>
+    <string name="catalog_update_available">Update available</string>
+    <string name="catalog_refresh">Refresh</string>
+    <string name="content_state_queued">Queued</string>
     <string name="confirm_removal_title">Remove %1$s?</string>
     <string name="confirm_removal_message_reclaimed">%1$s will be freed from storage immediately.</string>
     <string name="confirm_removal_message_pending">%1$s will be released; the system reclaims it when needed.</string>

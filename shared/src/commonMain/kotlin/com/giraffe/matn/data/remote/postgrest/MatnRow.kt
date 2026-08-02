@@ -1,6 +1,7 @@
 package com.giraffe.matn.data.remote.postgrest
 
 import com.giraffe.matn.domain.catalog.AudioCompleteness
+import com.giraffe.matn.domain.catalog.CatalogOverview
 import com.giraffe.matn.domain.catalog.CatalogEntry
 import com.giraffe.matn.domain.catalog.DraftAudio
 import com.giraffe.matn.domain.catalog.DraftChapter
@@ -92,10 +93,19 @@ val MATN_FULL_COLUMNS: List<String> = listOf(
     "declared_size_bytes", "created_at", "updated_at", "chapters", "verses", "revision",
 )
 
-/** The overview projection (FR-012, FR-035): the `verses` and `chapters` jsonb never travel. */
+/**
+ * The overview projection (FR-012, FR-035): the `verses` and `chapters` jsonb never travel. That
+ * omission is how Phase 13's FR-003 ("a catalog sync MUST NOT transfer verse text or recitation
+ * audio") is enforced structurally rather than by convention.
+ *
+ * Phase 13 added `structure_kind` and `revision`: the student's catalog needs the former to render
+ * a chaptered matn's details and the latter to flag an available update (FR-010). `revision` is
+ * server-owned and trigger-bumped, so it is a safer update signal than `updated_at` — integral,
+ * monotone, and immune to clock skew.
+ */
 val MATN_OVERVIEW_COLUMNS: List<String> = listOf(
-    "id", "title", "author", "description", "cover_image_ref", "published",
-    "audio_completeness", "verse_count", "declared_size_bytes", "updated_at",
+    "id", "title", "author", "description", "cover_image_ref", "structure_kind", "published",
+    "audio_completeness", "verse_count", "declared_size_bytes", "updated_at", "revision",
 )
 
 fun JsonObject.toMatnRow(): MatnRow = matnRowJson.decodeFromJsonElement(MatnRow.serializer(), this)
@@ -202,6 +212,28 @@ fun MatnRow.toMatnDraft(): MatnDraft = MatnDraft(
     createdAt = createdAt.toEpochMillis(),
     updatedAt = updatedAt.toEpochMillis(),
     remoteRevision = revision?.toString(),
+)
+
+/**
+ * Phase 13: the student-side projection. Distinct from [toCatalogEntry], which is the teacher tool's
+ * list row — this one carries `revision` and `structureKind` and drops publication state, because a
+ * student can only ever see published متون anyway (RLS, research D1).
+ */
+fun MatnRow.toCatalogOverview(): CatalogOverview = CatalogOverview(
+    matnId = id,
+    title = title,
+    author = author,
+    description = description,
+    coverImageRef = coverImageRef,
+    structureKind = StructureKind.fromStorageOrNull(structureKind) ?: StructureKind.SIMPLE,
+    verseCount = verseCount,
+    downloadSizeBytes = declaredSizeBytes,
+    audioCompleteness = runCatching { AudioCompleteness.valueOf(audioCompleteness) }
+        .getOrDefault(AudioCompleteness.NONE),
+    revision = revision ?: 0L,
+    // A sync only ever returns published متون, so anything it returns is by definition not
+    // withdrawn. The reconciler is what sets the flag, on the متون that stop coming back.
+    withdrawn = false,
 )
 
 fun MatnRow.toCatalogEntry(): CatalogEntry = CatalogEntry(

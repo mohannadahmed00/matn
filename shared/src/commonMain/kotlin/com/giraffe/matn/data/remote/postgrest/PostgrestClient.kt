@@ -3,7 +3,7 @@ package com.giraffe.matn.data.remote.postgrest
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.remote.RemoteErrorMapper
 import com.giraffe.matn.data.remote.SupabaseConfig
-import com.giraffe.matn.data.remote.auth.TokenRefresher
+import com.giraffe.matn.data.remote.auth.AccessTokenProvider
 import com.giraffe.matn.domain.error.RemoteError
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
@@ -41,7 +41,7 @@ data class PostgrestFilter(val column: String, val value: String)
 class PostgrestClient(
     private val httpClient: HttpClient,
     private val config: SupabaseConfig,
-    private val tokenRefresher: TokenRefresher,
+    private val tokenProvider: AccessTokenProvider,
 ) {
     suspend fun select(
         table: String,
@@ -86,15 +86,20 @@ class PostgrestClient(
             }
         }
 
-    private fun HttpRequestBuilder.standardHeaders(token: String) {
+    /**
+     * `apikey` always; `Authorization` **only when there is a token**. A null token is the student
+     * clients' normal state (FR-027) and makes Postgres see the caller as the `anon` role, which is
+     * precisely what `matns_read`'s `published or private.is_teacher()` predicate expects.
+     */
+    private fun HttpRequestBuilder.standardHeaders(token: String?) {
         headers {
             append("apikey", config.anonKey)
-            append(HttpHeaders.Authorization, "Bearer $token")
+            if (token != null) append(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    private suspend fun withToken(call: suspend (String) -> HttpResponse): Resource<List<JsonObject>> {
-        val tokenResult = tokenRefresher.currentAccessToken()
+    private suspend fun withToken(call: suspend (String?) -> HttpResponse): Resource<List<JsonObject>> {
+        val tokenResult = tokenProvider.currentAccessToken()
         if (tokenResult is Resource.Failure) return Resource.Failure(tokenResult.error)
         val token = (tokenResult as Resource.Success).data
         return try {

@@ -1,4 +1,4 @@
-package com.giraffe.matn.data.seed
+package com.giraffe.matn.testseed
 
 import com.giraffe.matn.domain.catalog.DraftAudio
 import com.giraffe.matn.domain.catalog.DraftChapter

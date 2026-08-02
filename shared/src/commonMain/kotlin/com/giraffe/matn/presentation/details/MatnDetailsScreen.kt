@@ -157,7 +157,9 @@ fun MatnDetailsContent(
     // screen renders that PlaybackController.startSession's gate (T041) cannot pre-empt visibly,
     // since nothing currently surfaces PlaybackState.notice to the user.
     var installPromptOpen by rememberSaveable { mutableStateOf(false) }
-    val isPlayable = state.isStarter || state.availability is ContentAvailability.Installed
+    // FR-021: playback is gated on the content actually being present. Phase 13 removed the
+    // `isStarter ||` disjunct — no matn is permanently playable any more (FR-040).
+    val isPlayable = state.availability is ContentAvailability.Downloaded
     val guardedVersePlayClicked: (String) -> Unit = { verseId ->
         if (isPlayable) onVersePlayClicked(verseId) else installPromptOpen = true
     }
@@ -245,7 +247,7 @@ fun MatnDetailsContent(
             )
         }
         if (state.pendingRemovalConfirmation && state.header != null) {
-            val occupiedBytes = (state.availability as? ContentAvailability.Installed)?.occupiedBytes
+            val occupiedBytes = (state.availability as? ContentAvailability.Downloaded)?.occupiedBytes
                 ?: state.declaredSizeBytes
             com.giraffe.matn.presentation.common.ConfirmRemovalDialog(
                 matnTitle = state.header.title,
@@ -361,7 +363,6 @@ private fun VerseList(
                     onGlobalPlayClicked = onGlobalPlayClicked,
                     availability = state.availability,
                     declaredSizeBytes = state.declaredSizeBytes,
-                    isStarter = state.isStarter,
                     installError = state.installError,
                     onInstall = onInstall,
                     onCancelInstall = onCancelInstall,
@@ -412,7 +413,6 @@ private fun Frontispiece(
     onGlobalPlayClicked: () -> Unit = {},
     availability: ContentAvailability? = null,
     declaredSizeBytes: Long = 0L,
-    isStarter: Boolean = false,
     installError: DeliveryError? = null,
     onInstall: () -> Unit = {},
     onCancelInstall: () -> Unit = {},
@@ -431,7 +431,7 @@ private fun Frontispiece(
             // Play affordance slot. Installed (or the starter, which is always Installed) keeps
             // the Play button unchanged; otherwise the install/cancel action takes its place —
             // there is nothing to play yet (FR-011).
-            if (isStarter || availability is ContentAvailability.Installed) {
+            if (availability is ContentAvailability.Downloaded) {
                 IconButton(onClick = onGlobalPlayClicked) {
                     PlayGlyph(
                         color = MaterialTheme.colorScheme.primary,
@@ -442,7 +442,7 @@ private fun Frontispiece(
             } else if (availability != null) {
                 ContentActionButton(
                     availability = availability,
-                    isStarter = false,
+
                     onInstall = onInstall,
                     onCancel = onCancelInstall,
                     onRemove = onRemoveRequested,
@@ -458,7 +458,7 @@ private fun Frontispiece(
                 modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit / 2),
             )
         }
-        if (!isStarter && availability is ContentAvailability.NotInstalled && declaredSizeBytes > 0L) {
+        if (availability is ContentAvailability.NotDownloaded && declaredSizeBytes > 0L) {
             Text(
                 text = formatBytes(declaredSizeBytes),
                 style = MaterialTheme.typography.labelSmall,
@@ -600,17 +600,18 @@ private fun errorMessage(error: AppError?): String = when (error) {
     else -> stringResource(Res.string.error_storage)
 }
 
-/** Phase 8 (FR-007/FR-015): localizes the reason an install attempt was refused, mirroring
- *  [errorMessage]. `InsufficientStorage` states both the required and available bytes. */
+/**
+ * Phase 13 (FR-043): delegates to the single exhaustive mapping in
+ * [com.giraffe.matn.presentation.common.deliveryFailureCopy], joining the cause and its next action
+ * into one line. Kept as a thin wrapper so this screen's call sites are unchanged.
+ */
 @Composable
-private fun installErrorMessage(failure: DeliveryFailure): String = when (failure) {
-    DeliveryFailure.NoConnectivity -> stringResource(Res.string.content_error_no_connectivity)
-    is DeliveryFailure.InsufficientStorage ->
-        stringResource(Res.string.content_error_insufficient_storage) +
-            " (" + formatBytes(failure.requiredBytes) + " / " + formatBytes(failure.availableBytes) + ")"
-    DeliveryFailure.Cancelled -> stringResource(Res.string.content_error_cancelled)
-    DeliveryFailure.Evicted -> "" // renders as plain "not installed", never an error (spec)
-    is DeliveryFailure.Unknown -> stringResource(Res.string.content_error_unknown)
+private fun installErrorMessage(failure: DeliveryFailure): String {
+    val figures = (failure as? DeliveryFailure.InsufficientStorage)?.let {
+        formatBytes(it.requiredBytes) + " / " + formatBytes(it.availableBytes)
+    }
+    val copy = com.giraffe.matn.presentation.common.deliveryFailureCopy(failure, figures)
+    return copy.action?.let { "${copy.message} — $it" } ?: copy.message
 }
 
 /**

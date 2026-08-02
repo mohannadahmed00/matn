@@ -1,9 +1,13 @@
 package com.giraffe.matn.domain.model
 
 /**
- * One playable track in a [PlaybackQueue] — exactly one micro-audio file per verse (FR-022 /
- * data-model.md §2.2). Built by `BuildPlaybackQueueUseCase`; `uri` is the resolved playable
- * URI produced by `AudioSourceResolver` (Res.getUri("files/audio/<fileRef>")).
+ * One playable track in a [PlaybackQueue] — exactly one micro-audio file per verse (FR-024 /
+ * data-model.md §2.2). Built by `BuildPlaybackQueueUseCase`; `uri` is the resolved playable URI
+ * produced by `AudioSourceResolver`.
+ *
+ * Phase 13: that URI is now always `file://{contentRoot}/downloads/{matnId}/audio/{fileRef}`. It
+ * used to be a Compose-resources URI for the bundled starter matn; nothing ships in the binary any
+ * more (FR-038), so there is exactly one resolution rule.
  */
 data class AudioTrack(
     val verseId: String,

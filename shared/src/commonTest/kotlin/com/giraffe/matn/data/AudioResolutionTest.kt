@@ -4,7 +4,7 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.AudioAssetRepositoryImpl
 import com.giraffe.matn.data.repository.MatnRepositoryImpl
 import com.giraffe.matn.data.repository.VerseRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
+import com.giraffe.matn.testseed.TestContentSeeder
 import com.giraffe.matn.db.ContentDatabase
 import com.giraffe.matn.domain.repository.AudioAssetRepository
 import com.giraffe.matn.SIMPLE_MATN_JSON
@@ -23,7 +23,7 @@ class AudioResolutionTest {
         val db: ContentDatabase,
         val matn: MatnRepositoryImpl,
         val verse: VerseRepositoryImpl,
-        val loader: ContentSeedLoaderImpl,
+        val loader: TestContentSeeder,
         val audio: AudioAssetRepositoryImpl,
     )
 
@@ -33,7 +33,7 @@ class AudioResolutionTest {
             db = db,
             matn = MatnRepositoryImpl(db),
             verse = VerseRepositoryImpl(db),
-            loader = ContentSeedLoaderImpl(db),
+            loader = TestContentSeeder(db),
             audio = AudioAssetRepositoryImpl(db),
         )
     }

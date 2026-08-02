@@ -42,7 +42,6 @@ class SettingsViewModel(
                     it.copy(
                         isLoading = false,
                         totalUsedBytes = usage.totalUsedBytes,
-                        onDemandUsedBytes = usage.onDemandUsedBytes,
                         freeSpaceBytes = usage.freeSpaceBytes,
                         entries = usage.entries,
                     )
@@ -98,7 +97,7 @@ class SettingsViewModel(
 
     /** FR-018/FR-029: open the confirmation for "remove all downloaded content". */
     fun onRemoveAll() {
-        setState { it.copy(pendingRemoval = RemovalTarget.AllContent(stateValue.onDemandUsedBytes)) }
+        setState { it.copy(pendingRemoval = RemovalTarget.AllContent(stateValue.totalUsedBytes)) }
     }
 
     /** FR-018: dismiss without removing. */

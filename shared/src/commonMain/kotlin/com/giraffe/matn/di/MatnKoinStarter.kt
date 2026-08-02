@@ -1,26 +1,18 @@
 package com.giraffe.matn.di
 
 import com.giraffe.matn.data.db.DatabaseDriverFactory
-import com.giraffe.matn.data.seed.ContentSeedLoader
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedChapter
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.data.remote.SupabaseConfig
 import com.giraffe.matn.domain.appearance.AppearanceMirror
 import com.giraffe.matn.domain.audio.AudioEngine
 import com.giraffe.matn.domain.audio.WakeLock
-import com.giraffe.matn.domain.delivery.ContentDeliveryEngine
 import com.giraffe.matn.domain.delivery.DeviceStorage
 import com.giraffe.matn.domain.permission.NotificationPermission
 import com.giraffe.matn.domain.preferences.MotionPreferences
-import com.giraffe.matn.domain.repository.MatnRepository
 import com.giraffe.matn.playback.PracticeSignalRecorder
 import com.giraffe.matn.playback.SessionStateRecorder
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.core.Koin
 import org.koin.core.annotation.Module
@@ -38,11 +30,11 @@ class PlatformModule(
     private val driverFactory: DatabaseDriverFactory,
     private val audioEngine: AudioEngine,
     private val wakeLock: WakeLock,
-    private val deliveryEngine: ContentDeliveryEngine,
     private val deviceStorage: DeviceStorage,
     private val appearanceMirror: AppearanceMirror,
     private val notificationPermission: NotificationPermission,
     private val motionPreferences: MotionPreferences,
+    private val supabaseConfig: SupabaseConfig,
 ) {
     @Single
     fun driverFactory(): DatabaseDriverFactory = driverFactory
@@ -52,9 +44,6 @@ class PlatformModule(
 
     @Single
     fun wakeLock(): WakeLock = wakeLock
-
-    @Single
-    fun contentDeliveryEngine(): ContentDeliveryEngine = deliveryEngine
 
     @Single
     fun deviceStorage(): DeviceStorage = deviceStorage
@@ -67,6 +56,11 @@ class PlatformModule(
 
     @Single
     fun motionPreferences(): MotionPreferences = motionPreferences
+
+    /** Phase 13: the backend the student reads from. Injected, never compiled in (research D13),
+     *  so a local stack is just a different [SupabaseConfig.projectUrl]. */
+    @Single
+    fun supabaseConfig(): SupabaseConfig = supabaseConfig
 }
 
 /**
@@ -102,25 +96,26 @@ object MatnKoinHolder {
  * the platform-specific construction of [DatabaseDriverFactory] and calls this exactly once
  * before any composable that resolves a use case (Constitution Principle I/III).
  *
- * After Koin starts, optionally seeds the local store with the bundled sample content if the
- * library is empty — so the Phase 1 manual walkthrough has at least one simple and one
- * structured matn to exercise (per Phase 0's "Assumptions: a simple and a structured matn are
- * seeded"). Seeding is fire-and-forget on a background [SupervisorJob] scope so it never blocks
- * app startup; if it fails the empty-state screen is shown (FR-004/SC-008) rather than crashing.
+ * Phase 13 removed two things from this function. The `deliveryEngine` parameter is gone: three
+ * platform `ContentDeliveryEngine` implementations collapsed into one `RemoteContentDeliveryEngine`
+ * in `commonMain`, which [ContentModule] can autowire (FR-041, research D3) — so it is no longer
+ * something the platform shell hands in. And the bundled-sample seeding is gone with the content it
+ * seeded (FR-038): the library now starts genuinely empty and fills only from what the teacher
+ * published, so a first launch with no network is a connect-to-browse state rather than a
+ * pre-populated one (constitution Principle VI, amended 2.0.0).
  */
 fun initMatnKoin(
     driverFactory: DatabaseDriverFactory,
     audioEngine: AudioEngine,
     wakeLock: WakeLock,
-    deliveryEngine: ContentDeliveryEngine,
     deviceStorage: DeviceStorage,
     appearanceMirror: AppearanceMirror,
     notificationPermission: NotificationPermission,
     motionPreferences: MotionPreferences,
-    seedIfEmpty: Boolean = true,
+    supabaseConfig: SupabaseConfig,
 ) {
     // Guard the whole body: a second call (e.g. Android `onCreate` after a rotation) must not
-    // re-start Koin nor re-launch the seed coroutine. Everything below runs exactly once.
+    // re-start Koin. Everything below runs exactly once.
     if (MatnKoinHolder.isInitialized()) return
 
     val app = koinApplication {
@@ -129,11 +124,11 @@ fun initMatnKoin(
                 driverFactory = driverFactory,
                 audioEngine = audioEngine,
                 wakeLock = wakeLock,
-                deliveryEngine = deliveryEngine,
                 deviceStorage = deviceStorage,
                 appearanceMirror = appearanceMirror,
                 notificationPermission = notificationPermission,
                 motionPreferences = motionPreferences,
+                supabaseConfig = supabaseConfig,
             ).module(),
             ContentModule().module(),
         )
@@ -146,11 +141,6 @@ fun initMatnKoin(
     app.koin.get<SessionStateRecorder>().start()
     // Phase 7 (US2): start crediting the daily practice goal for the same PlaybackController.
     app.koin.get<PracticeSignalRecorder>().start()
-
-    if (seedIfEmpty) {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        scope.launch { seedBundledSamplesIfEmpty() }
-    }
 }
 
 /**
@@ -164,175 +154,3 @@ fun flushSessionState() {
     MatnKoinHolder.koin.get<SessionStateRecorder>().flushAsync()
 }
 
-private suspend fun seedBundledSamplesIfEmpty() {
-    try {
-        val koin = MatnKoinHolder.koin
-        val matnRepo = koin.get<MatnRepository>()
-        val loader = koin.get<ContentSeedLoader>()
-        val library = matnRepo.observeLibrary().first()
-        if (library.isNotEmpty()) return
-        bundledSampleMatns().forEach { payload -> loader.load(payload) }
-    } catch (t: CancellationException) {
-        throw t
-    } catch (t: Throwable) {
-        // Per this function's contract (see initMatnKoin's doc comment): a failed seed must degrade
-        // to the empty-state screen, never crash the process this coroutine has no caller to report to.
-    }
-}
-
-/**
- * Phase 8 (data-model §1.1): the starter matn (الأجرومية) ships bundled in the app binary and the
- * structured sample ships as an on-demand asset pack. The `packId`s MUST match the Gradle asset-pack
- * module name and the iOS On-Demand Resources tag exactly (T003/T007). The `declaredSizeBytes`
- * figures below are **measured from the actual audio files** and MUST be re-measured whenever a
- * matn's audio changes (SC-002 / SC-003) — T006 records the measurement procedure.
- */
-private fun bundledSampleMatns(): List<SeedMatn> = listOf(
-    SeedMatn(
-        id = "b3f1e2a4-0000-4000-8000-000000000001",
-        title = "الأجرومية",
-        author = "ابن آجُرُّوم",
-        description = "متن مختصر في علم النحو",
-        // No cover assets are bundled in Phase 1 — leave null so the shared placeholder renders
-        // (FR-002: "cover image, or a consistent placeholder when none is set"). Real cover
-        // rendering from a content-provided ref is deferred to a later phase.
-        coverImageRef = null,
-        structureKind = "SIMPLE",
-        defaultReciterId = "reciter-default-v1",
-        packId = "matn_ajurrumiyya",
-        declaredSizeBytes = 296L,
-        isStarter = true,
-        verses = listOf(
-            SeedVerse(
-                id = "b3f1e2a4-0000-4000-8000-0000000000v1",
-                displayNumber = 1,
-                arabicText = "الكَلامُ هُوَ اللَّفظُ المُرَكَّبُ المُفيدُ بِالوَضعِ",
-                durationMs = 8200,
-                audio = SeedAudio(
-                    id = "b3f1e2a4-0000-4000-8000-0000000000a1",
-                    fileRef = "ajurrumiyya_verse_001.mp3",
-                    durationMs = 8200,
-                ),
-            ),
-            SeedVerse(
-                id = "b3f1e2a4-0000-4000-8000-0000000000v2",
-                displayNumber = 2,
-                arabicText = "وَأَقسامُهُ ثَلاثَةٌ: اِسمٌ، وَفِعلٌ، وَحَرفٌ جاءَ لِمَعنىً",
-                durationMs = 7400,
-                audio = SeedAudio(
-                    id = "b3f1e2a4-0000-4000-8000-0000000000a2",
-                    fileRef = "ajurrumiyya_verse_002.mp3",
-                    durationMs = 7400,
-                ),
-            ),
-            SeedVerse(
-                id = "b3f1e2a4-0000-4000-8000-0000000000v3",
-                displayNumber = 3,
-                arabicText = "فَالاسمُ يُعرَفُ بِالخَفضِ وَالتَنوينِ وَوُروجِ الأَلِفِ",
-                durationMs = 6900,
-                audio = SeedAudio(
-                    id = "b3f1e2a4-0000-4000-8000-0000000000a3",
-                    fileRef = "ajurrumiyya_verse_003.mp3",
-                    durationMs = 6900,
-                ),
-            ),
-            SeedVerse(
-                id = "b3f1e2a4-0000-4000-8000-0000000000v4",
-                displayNumber = 4,
-                arabicText = "والفِعلُ يُعرَفُ بِقَد وَالسينِ وَسَوفَ وَتاءِ التَّأنيثِ",
-                durationMs = 8800,
-                audio = SeedAudio(
-                    id = "b3f1e2a4-0000-4000-8000-0000000000a4",
-                    fileRef = "ajurrumiyya_verse_004.mp3",
-                    durationMs = 8800,
-                ),
-            ),
-        ),
-    ),
-    SeedMatn(
-        id = "e5c5c5c5-0000-4000-8000-000000000001",
-        title = "متن الآجرومية مبوب",
-        author = "ابن آجُرُّوم",
-        description = "نموذج مبوب بأبواب",
-        coverImageRef = null,
-        structureKind = "STRUCTURED",
-        defaultReciterId = "reciter-default-v1",
-        packId = "matn_structured_sample",
-        declaredSizeBytes = 296L,
-        isStarter = false,
-        chapters = listOf(
-            SeedChapter(
-                id = "e5c5c5c5-0000-4000-8000-0000000000c1",
-                title = "باب الكلام",
-                order = 1,
-            ),
-            SeedChapter(
-                id = "e5c5c5c5-0000-4000-8000-0000000000c2",
-                title = "باب الإعراب",
-                order = 2,
-            ),
-        ),
-        verses = listOf(
-            SeedVerse(
-                id = "e5c5c5c5-0000-4000-8000-0000000000v1",
-                chapterId = "e5c5c5c5-0000-4000-8000-0000000000c1",
-                displayNumber = 1,
-                arabicText = "الكَلامُ هُوَ اللَّفظُ المُرَكَّبُ المُفيدُ بِالوَضعِ",
-                durationMs = 8200,
-                audio = SeedAudio(
-                    id = "e5c5c5c5-0000-4000-8000-0000000000a1",
-                    fileRef = "structured_verse_001.mp3",
-                    durationMs = 8200,
-                ),
-            ),
-            SeedVerse(
-                id = "e5c5c5c5-0000-4000-8000-0000000000v2",
-                chapterId = "e5c5c5c5-0000-4000-8000-0000000000c1",
-                displayNumber = 2,
-                arabicText = "وَأَقسامُهُ ثَلاثَةٌ: اِسمٌ، وَفِعلٌ، وَحَرفٌ",
-                durationMs = 7400,
-                audio = SeedAudio(
-                    id = "e5c5c5c5-0000-4000-8000-0000000000a2",
-                    fileRef = "structured_verse_002.mp3",
-                    durationMs = 7400,
-                ),
-            ),
-            SeedVerse(
-                id = "e5c5c5c5-0000-4000-8000-0000000000v3",
-                chapterId = "e5c5c5c5-0000-4000-8000-0000000000c1",
-                displayNumber = 3,
-                arabicText = "فَالاسمُ يُعرَفُ بِالخَفضِ وَالتَنوينِ",
-                durationMs = 6900,
-                audio = SeedAudio(
-                    id = "e5c5c5c5-0000-4000-8000-0000000000a3",
-                    fileRef = "structured_verse_003.mp3",
-                    durationMs = 6900,
-                ),
-            ),
-            SeedVerse(
-                id = "e5c5c5c5-0000-4000-8000-0000000000v4",
-                chapterId = "e5c5c5c5-0000-4000-8000-0000000000c2",
-                displayNumber = 4,
-                arabicText = "الإِعرابُ هُوَ تَغييرُ أَواخِرِ الكَلِماتِ",
-                durationMs = 8100,
-                audio = SeedAudio(
-                    id = "e5c5c5c5-0000-4000-8000-0000000000a4",
-                    fileRef = "structured_verse_004.mp3",
-                    durationMs = 8100,
-                ),
-            ),
-            SeedVerse(
-                id = "e5c5c5c5-0000-4000-8000-0000000000v5",
-                chapterId = "e5c5c5c5-0000-4000-8000-0000000000c2",
-                displayNumber = 5,
-                arabicText = "وَأَقسامُهُ أَربَعَةٌ: رَفعٌ وَنَصبٌ وَخَفضٌ وَجَزْمٌ",
-                durationMs = 9300,
-                audio = SeedAudio(
-                    id = "e5c5c5c5-0000-4000-8000-0000000000a5",
-                    fileRef = "structured_verse_005.mp3",
-                    durationMs = 9300,
-                ),
-            ),
-        ),
-    ),
-)

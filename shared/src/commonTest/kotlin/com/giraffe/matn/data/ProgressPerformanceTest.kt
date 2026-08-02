@@ -2,10 +2,10 @@ package com.giraffe.matn.data
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.data.repository.ProgressRepositoryImpl
-import com.giraffe.matn.data.seed.ContentSeedLoaderImpl
-import com.giraffe.matn.data.seed.SeedAudio
-import com.giraffe.matn.data.seed.SeedMatn
-import com.giraffe.matn.data.seed.SeedVerse
+import com.giraffe.matn.testseed.TestContentSeeder
+import com.giraffe.matn.testseed.SeedAudio
+import com.giraffe.matn.testseed.SeedMatn
+import com.giraffe.matn.testseed.SeedVerse
 import com.giraffe.matn.newTestDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -25,7 +25,7 @@ class ProgressPerformanceTest {
     @Test
     fun markingAVerseUpdatesProgressUnderBudget() = runTest(UnconfinedTestDispatcher()) {
         val db = newTestDatabase()
-        val loader = ContentSeedLoaderImpl(db)
+        val loader = TestContentSeeder(db)
 
         val matnCount = 3
         val versesPerMatn = 400 // 3 * 400 = 1200 >= 1,000
