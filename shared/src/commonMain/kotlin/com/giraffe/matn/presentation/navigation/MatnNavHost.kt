@@ -286,6 +286,7 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         installMatnContent = koin.get<com.giraffe.matn.domain.usecase.DownloadMatnUseCase>(),
                         cancelInstall = koin.get<com.giraffe.matn.domain.usecase.CancelInstallUseCase>(),
                         removeMatnContent = koin.get<com.giraffe.matn.domain.usecase.RemoveMatnContentUseCase>(),
+                        loadCachedCover = koin.get<com.giraffe.matn.data.cover.CoverImageCache>()::cached,
                     )
                 }
                 val playerBar: PlayerBarViewModel = viewModel {
