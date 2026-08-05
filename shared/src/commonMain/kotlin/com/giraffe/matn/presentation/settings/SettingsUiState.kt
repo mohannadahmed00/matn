@@ -2,6 +2,7 @@ package com.giraffe.matn.presentation.settings
 
 import com.giraffe.matn.domain.model.MatnStorageEntry
 import com.giraffe.matn.domain.model.PermissionStatus
+import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.ThemeMode
 
@@ -26,6 +27,9 @@ data class SettingsUiState(
     /** T077 (US3) — the OS-level notification-permission status (FR-023); re-read on resume so a
      *  change made outside the app (e.g. revoked in device settings) is reflected. */
     val notificationStatus: PermissionStatus = PermissionStatus.NOT_DETERMINED,
+    /** The global reading font size (FR-016), surfaced here as well as on the reading screen so it
+     *  is discoverable — the details screen's only affordance for it is an unlabelled glyph. */
+    val fontSize: ReadingFontSize = ReadingFontSize.DEFAULT,
 ) {
     /** FR-030: nothing downloaded yet. Phase 13: with no matn exempt from removal, this is simply
      *  the total (the old `onDemandUsedBytes` split existed only to discount the starter). */

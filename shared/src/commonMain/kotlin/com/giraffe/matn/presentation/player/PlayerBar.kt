@@ -243,7 +243,13 @@ private fun ScrubRow(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit)
             color = scheme.outline,
         )
         Text(
-            text = "-${formatDuration((durationMs - positionMs).coerceAtLeast(0L))}",
+            // The sign belongs inside the isolate, so it stays welded to the digits rather than
+            // being resolved as a neutral against the paragraph direction.
+            text = com.giraffe.matn.presentation.common.ltrIsolated(
+                "-" + com.giraffe.matn.presentation.common.formatDurationRaw(
+                    (durationMs - positionMs).coerceAtLeast(0L),
+                ),
+            ),
             style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
             color = scheme.outline,
         )
