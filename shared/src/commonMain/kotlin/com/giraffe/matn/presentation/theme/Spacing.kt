@@ -10,16 +10,31 @@ import androidx.compose.ui.unit.dp
  * guidelines are exempt — this governs layout spacing, not icon size.
  */
 object MatnSpacing {
-    /** Stitch `unit`: 8px — the base increment; most gaps are a small multiple of this. */
+    /** 4dp — icon-to-label, and the only sub-unit step. */
+    val hairline: Dp = 4.dp
+
+    /** 8px — the base increment; most gaps are a small multiple of this. */
     val unit: Dp = 8.dp
 
-    /** Stitch `gutter`: 24px — spacing between grid items / major sections. */
+    /** 12dp — inside chips and other pill-shaped containers. */
+    val snug: Dp = 12.dp
+
+    /** 16dp — card and row padding. */
+    val cozy: Dp = 16.dp
+
+    /** `gutter`: 24px — spacing between grid items / major sections. */
     val gutter: Dp = 24.dp
 
-    /** Stitch `margin-mobile`: 20px — horizontal screen edge inset on phones. */
+    /** 32dp — the narrow desktop margin, and the gap between desktop panes. */
+    val pane: Dp = 32.dp
+
+    /** 48dp — the standard desktop margin. */
+    val marginDesktopNarrow: Dp = 48.dp
+
+    /** `margin-mobile`: 20px — horizontal screen edge inset on phones. */
     val marginMobile: Dp = 20.dp
 
-    /** Stitch `margin-desktop`: 64px — horizontal screen edge inset on wide/tablet layouts. */
+    /** `margin-desktop`: 64px — horizontal screen edge inset on wide/tablet layouts. */
     val marginDesktop: Dp = 64.dp
 
     /** Per-class horizontal screen edge inset (FR-027). COMPACT uses the phone margin; MEDIUM/EXPANDED the desktop one. */

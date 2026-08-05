@@ -1,6 +1,42 @@
 # Matn — Design Source of Truth
 
-The canonical visual reference for Matn's UI is the **Stitch** project below. Any model or
+> ## ⚠️ Superseded for tokens — read this first (2026-08-05)
+>
+> The canonical design reference is now the **Matn Design System** in Claude Design:
+> project `9902f252-a0d0-46c9-9e44-d7a7d7a8a0b2`, file `Matn Design System.dc.html`.
+> Read it with the `DesignSync` tool (`get_file`), or open the checked-in copy at
+> [`design/Matn Design System.dc.html`](./design/Matn%20Design%20System.dc.html). (`support.js`
+> in the Claude Design project is the generated render runtime, not design content — ignore it.)
+> The live project is authoritative if the two ever drift.
+>
+> It covers what Stitch never did: a **dark scheme**, stated contrast ratios, a **bilingual**
+> type scale, semantic download/validation colours, a motion vocabulary, a logo, and a
+> navigation consolidation for both clients.
+>
+> **The token tables further down this file are historical.** The live values are the Kotlin
+> files themselves — `presentation/theme/{Color,Type,Shape,Spacing,Motion,FontScale}.kt` —
+> which now carry the design-system values and a note on every place they diverge from it.
+>
+> ### Where the implementation deliberately diverges from the design
+>
+> 1. **Typography stays on Amiri for every M3 role.** The design assigns Source Serif 4 to
+>    `bodyLarge`/`headlineSmall`/`titleLarge`, which is right for a stylesheet and wrong for
+>    Compose: M3 roles are shared by both scripts, Compose does not fall back across
+>    `FontFamily` boundaries, and Source Serif 4 has no Arabic glyphs — so that assignment
+>    renders Arabic as tofu. Latin styles live in `MatnLatinType` as an explicit opt-in
+>    instead. The failure mode is inverted on purpose: a missed Latin call site is merely
+>    less pretty; a missed Arabic one would be unreadable.
+> 2. **The Arabic scale ships 4 of its 5 stops.** Stops 1–4 map onto the persisted
+>    `ReadingFontSize`. Stop 5 ("Accessible", 38sp/87sp) needs a new enum constant and a
+>    settings-slider step, so it is not yet wired.
+> 3. **Reduced motion now crossfades rather than cutting to 0ms** where a crossfade is
+>    meaningful — see `MotionTransition`. This matches `adaptive-motion-contract.md` §B2.1's
+>    "Fade only" wording, which the previous implementation did not.
+>
+> Still **not** implemented from the design: the navigation consolidation (student 7 routes →
+> 5, Studio 4 destinations → 3), the component library, the screen designs, and the logo.
+
+The **Stitch** project below is the historical reference for screen layout. Any model or
 developer implementing a screen MUST pull that screen's design from Stitch rather than inventing
 a layout — see Principle VIII in [`../.specify/memory/constitution.md`](../.specify/memory/constitution.md).
 

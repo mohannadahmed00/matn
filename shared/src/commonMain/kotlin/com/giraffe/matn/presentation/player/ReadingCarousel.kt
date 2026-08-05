@@ -36,6 +36,7 @@ import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.arabicLabelSmall
+import com.giraffe.matn.presentation.theme.lineHeightSp
 import com.giraffe.matn.presentation.theme.toSp
 import com.giraffe.matn.presentation.theme.verseFontFamily
 import com.giraffe.matn.domain.model.ReadingFontSize
@@ -289,7 +290,7 @@ private fun ActiveVerseCard(
                 text = verse.arabicText,
                 fontFamily = verseFont,
                 fontSize = fontSize.toSp(),
-                lineHeight = fontSize.toSp() * 1.6f,
+                lineHeight = fontSize.lineHeightSp(),
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                 color = scheme.onSurface,
                 textAlign = TextAlign.Center,

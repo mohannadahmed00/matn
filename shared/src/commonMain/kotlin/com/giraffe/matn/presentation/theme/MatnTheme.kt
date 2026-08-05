@@ -30,7 +30,8 @@ import com.giraffe.matn.domain.model.effectiveAppearance
  * screen renders RTL regardless of device locale, resolves [themeMode] against the platform
  * system-dark signal once here (FR-006 — the single decision point), and applies the canonical
  * Stitch token set (`docs/DESIGN-SOURCE.md`):
- * - Color: [MatnLightColors] / [MatnDarkColors] via `MaterialTheme.colorScheme`.
+ * - Color: [MatnLightColors] / [MatnDarkColors] via `MaterialTheme.colorScheme`, plus the two
+ *   non-M3 roles ([MatnSemantics]) via [LocalMatnSemantics].
  * - Typography: [matnTypography], via `MaterialTheme.typography`.
  * - Shape: [MatnShapes] (`lg`/`xl`/`full`) — also mapped onto `MaterialTheme.shapes.medium/large`
  *   so M3 components that default to the ambient shape scale pick up the right radii for free.
@@ -56,10 +57,12 @@ fun MatnTheme(
 ) {
     val systemIsDark = isSystemInDarkTheme()
     val appearance = themeMode.effectiveAppearance(systemIsDark)
-    val colorScheme: ColorScheme = if (appearance == Appearance.DARK) MatnDarkColors else MatnLightColors
+    val isDark = appearance == Appearance.DARK
+    val colorScheme: ColorScheme = if (isDark) MatnDarkColors else MatnLightColors
     CompositionLocalProvider(
         LocalLayoutDirection provides layoutDirection,
         LocalReduceMotion provides reduceMotion,
+        LocalMatnSemantics provides if (isDark) MatnSemanticsDark else MatnSemanticsLight,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
