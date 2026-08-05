@@ -130,7 +130,14 @@ private fun TeacherApp() {
                         state = PortalShellState(
                             displayName = currentSession.displayName.ifBlank { currentSession.email },
                             selectedDestination = destination,
-                            storageUsageText = usageBytes?.let { "${formatBytes(it)} / ${formatBytes(STORAGE_DISPLAY_CAP_BYTES)}" },
+                            // "used / cap" — the order is the meaning, so the pair is isolated as
+                            // one run; the teacher interface can be Arabic, which would otherwise
+                            // resolve the neutral separator right-to-left and swap the figures.
+                            storageUsageText = usageBytes?.let {
+                                com.giraffe.matn.presentation.common.ltrIsolated(
+                                    "${formatBytes(it)} / ${formatBytes(STORAGE_DISPLAY_CAP_BYTES)}",
+                                )
+                            },
                             storageUsageFraction = usageBytes?.let { (it.toFloat() / STORAGE_DISPLAY_CAP_BYTES).coerceIn(0f, 1f) } ?: 0f,
                         ),
                         onDestinationSelected = { destination = it },

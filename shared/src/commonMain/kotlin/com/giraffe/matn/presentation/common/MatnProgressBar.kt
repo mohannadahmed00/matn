@@ -50,7 +50,7 @@ fun MatnProgressBar(fraction: Float, modifier: Modifier = Modifier, label: Strin
                 )
             }
             Text(
-                text = "${(target * 100).roundToInt()}%",
+                text = ltrIsolated("${(target * 100).roundToInt()}%"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

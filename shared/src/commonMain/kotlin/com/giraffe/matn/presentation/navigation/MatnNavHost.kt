@@ -354,6 +354,10 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         observeThemeMode = koin.get<com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase>(),
                         setThemeMode = koin.get<com.giraffe.matn.domain.usecase.SetThemeModeUseCase>(),
                         notificationPermission = koin.get<com.giraffe.matn.domain.permission.NotificationPermission>(),
+                        // Reading font size is a global preference, so Settings observes and writes
+                        // the same use cases the reading screen does.
+                        getFontSize = koin.get<GetFontSizeUseCase>(),
+                        setFontSize = koin.get<SetFontSizeUseCase>(),
                     )
                 }
                 com.giraffe.matn.presentation.settings.SettingsScreen(

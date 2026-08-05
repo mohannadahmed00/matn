@@ -9,13 +9,24 @@ package com.giraffe.matn.presentation.common
  * - `B` below 1 KB (e.g. `0 B`, `296 B`, `999 B`)
  * - one decimal place above KB / MB / GB (e.g. `1.0 KB`, `2.4 MB`, `3.5 GB`)
  *
- * RTL-correct: digits stay LTR-ordered; the unit is appended with a space, mirroring how
- * `formatDuration` writes `0:08` — numerals stay LTR inside an RTL flow.
+ * **Bidi-safe.** The result is wrapped in a [ltrIsolated] LTR isolate, because a size is a number
+ * followed by a Latin unit and must keep that order in both interface languages. Without it the
+ * space between value and unit is a neutral character, and an Arabic (RTL) paragraph resolves it
+ * right-to-left — rendering `765.8 KB` as `KB 765.8`. See [BidiText.kt] for the full rationale.
+ *
+ * The isolate characters are zero-width and ignored by screen readers, so the result stays usable
+ * as an accessibility label.
  *
  * No platform APIs (Constitution Principle IV); no locale-sensitive `String.format`. Negative
  * inputs are clamped to zero.
  */
-fun formatBytes(bytes: Long): String {
+fun formatBytes(bytes: Long): String = ltrIsolated(formatBytesRaw(bytes))
+
+/**
+ * The unwrapped size string, without bidi isolation — for tests and for callers that compose a
+ * larger run and isolate it themselves. Prefer [formatBytes] anywhere the result reaches the screen.
+ */
+internal fun formatBytesRaw(bytes: Long): String {
     val clamped = if (bytes < 0L) 0L else bytes
     if (clamped < 1_000L) return "$clamped B"
     val kb = clamped.toDouble() / 1_000.0

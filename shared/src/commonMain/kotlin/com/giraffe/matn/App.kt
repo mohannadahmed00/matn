@@ -20,11 +20,11 @@ import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.widthClassFor
 
 /**
- * App root composable. Hosts the navigation graph inside [MatnTheme], which forces right-to-left
- * layout and resolves the appearance from the student's [com.giraffe.matn.domain.model.ThemeMode]
- * against the platform system-dark signal (FR-006, research D12). The `@Composable fun App()`
- * signature is preserved so `MainActivity` (Android) and `MainViewController` (iOS) keep their
- * thin entry points unchanged.
+ * App root composable. Hosts the navigation graph inside [MatnTheme], which takes its layout
+ * direction from the device locale — Arabic renders RTL, English LTR — and resolves the appearance
+ * from the student's [com.giraffe.matn.domain.model.ThemeMode] against the platform system-dark
+ * signal (FR-006, research D12). The `@Composable fun App()` signature is preserved so
+ * `MainActivity` (Android) and `MainViewController` (iOS) keep their thin entry points unchanged.
  *
  * T042 — builds [AppViewModel] via `viewModel { }` from [MatnKoinHolder.koin] (the same pattern
  * `MatnNavHost.kt` uses per destination) and threads the resolved `themeMode` / `reduceMotion`

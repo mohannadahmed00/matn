@@ -3,11 +3,14 @@ package com.giraffe.matn.presentation.settings
 import androidx.lifecycle.viewModelScope
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
+import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.StorageUsage
 import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.domain.permission.NotificationPermission
+import com.giraffe.matn.domain.usecase.GetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase
+import com.giraffe.matn.domain.usecase.SetFontSizeUseCase
 import com.giraffe.matn.domain.usecase.SetThemeModeUseCase
 import com.giraffe.matn.presentation.base.BaseViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -30,6 +33,8 @@ class SettingsViewModel(
     observeThemeMode: ObserveThemeModeUseCase,
     private val setThemeMode: SetThemeModeUseCase,
     private val notificationPermission: NotificationPermission,
+    getFontSize: GetFontSizeUseCase,
+    private val setFontSize: SetFontSizeUseCase,
 ) : BaseViewModel<SettingsUiState>(SettingsUiState()) {
 
     init {
@@ -54,6 +59,24 @@ class SettingsViewModel(
         observeThemeMode.invoke(Unit)
             .onEach { mode -> setState { it.copy(themeMode = mode) } }
             .launchIn(viewModelScope)
+
+        // Reading font size was previously reachable only from the details screen's unlabelled "أ"
+        // affordance. It is a global preference (FR-016), so it belongs here too; both entry points
+        // write through the same use case and observe the same flow, so they stay in step.
+        getFontSize.invoke(Unit)
+            .onEach { size -> setState { it.copy(fontSize = size) } }
+            .launchIn(viewModelScope)
+    }
+
+    /** FR-016/FR-017: applies immediately and persists, exactly as the reading screen's control does. */
+    fun onFontSizeSelected(size: ReadingFontSize) {
+        setState { it.copy(fontSize = size) }
+        runUseCase(
+            useCase = setFontSize,
+            params = size,
+            onSuccess = { /* observed live; nothing extra to do */ },
+            onError = { /* best-effort — re-emission from storage corrects state */ },
+        )
     }
 
     /** T077 (US3, onboarding-permissions-contract.md §5): re-read the OS-level status. */
