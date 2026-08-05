@@ -497,8 +497,11 @@ private fun Frontispiece(
                 textAlign = TextAlign.Center,
             )
         }
-        val totals = pluralStringResource(Res.plurals.verses_count, header.verseCount, header.verseCount) +
-                "  ·  " + formatDuration(header.totalDurationMs)
+        // Isolated as a whole (BidiText.kt § Composites) — see MatnCard for the same pairing.
+        val totals = com.giraffe.matn.presentation.common.autoIsolated(
+            pluralStringResource(Res.plurals.verses_count, header.verseCount, header.verseCount) +
+                "  ·  " + formatDuration(header.totalDurationMs),
+        )
         Text(
             text = totals,
             style = MaterialTheme.typography.labelLarge,
@@ -610,8 +613,12 @@ private fun errorMessage(error: AppError?): String = when (error) {
  */
 @Composable
 private fun installErrorMessage(failure: DeliveryFailure): String {
+    // "required / available" — the order is the meaning, so the pair is isolated as one LTR run
+    // rather than left to the paragraph direction (BidiText.kt § Composites).
     val figures = (failure as? DeliveryFailure.InsufficientStorage)?.let {
-        formatBytes(it.requiredBytes) + " / " + formatBytes(it.availableBytes)
+        com.giraffe.matn.presentation.common.ltrIsolated(
+            formatBytes(it.requiredBytes) + " / " + formatBytes(it.availableBytes),
+        )
     }
     val copy = com.giraffe.matn.presentation.common.deliveryFailureCopy(failure, figures)
     return copy.action?.let { "${copy.message} — $it" } ?: copy.message

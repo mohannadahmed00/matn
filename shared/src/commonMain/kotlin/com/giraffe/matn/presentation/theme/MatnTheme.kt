@@ -26,10 +26,9 @@ import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.domain.model.effectiveAppearance
 
 /**
- * App-wide theme wrapper (Phase 9). Forces **right-to-left** layout direction at the root so every
- * screen renders RTL regardless of device locale, resolves [themeMode] against the platform
- * system-dark signal once here (FR-006 — the single decision point), and applies the canonical
- * Stitch token set (`docs/DESIGN-SOURCE.md`):
+ * App-wide theme wrapper (Phase 9). Resolves [themeMode] against the platform system-dark signal
+ * once here (FR-006 — the single decision point), and applies the canonical Stitch token set
+ * (`docs/DESIGN-SOURCE.md`):
  * - Color: [MatnLightColors] / [MatnDarkColors] via `MaterialTheme.colorScheme`, plus the two
  *   non-M3 roles ([MatnSemantics]) via [LocalMatnSemantics].
  * - Typography: [matnTypography], via `MaterialTheme.typography`.
@@ -41,9 +40,26 @@ import com.giraffe.matn.domain.model.effectiveAppearance
  * - Motion: [LocalReduceMotion] — provided here from [reduceMotion]; defaults to `false`.
  *
  * [themeMode] and [reduceMotion] are **both defaulted** so the 88 existing `@Preview`s keep
- * working untouched (research D12, rule 3). [layoutDirection] is a third defaulted parameter
- * (Phase 11, research D6): every existing call site still forces RTL; `:teacherApp` is the only
- * caller that passes `Ltr`, for its English interface language.
+ * working untouched (research D12, rule 3).
+ *
+ * ## Layout direction follows the interface language
+ *
+ * [layoutDirection] defaults to the **ambient** direction — the one the platform already derived
+ * from the device locale — rather than forcing `Rtl` as it did through Phase 13. The student app is
+ * bilingual: `values/` is Arabic and `values-en/` is English, and the resource loader picks between
+ * them by locale. Pinning the layout to RTL while the loader served English strings put the two
+ * halves of the interface into permanent disagreement, and that mismatch — not any single layout
+ * bug — is what produced the reversed sizes, torn-apart durations, and line-leading full stops
+ * across the app.
+ *
+ * Deferring to the ambient value means an Arabic device gets RTL with Arabic copy and an English
+ * device gets LTR with English copy, with no per-screen branching. Callers that genuinely need to
+ * pin a direction still can: `:teacherApp` passes `Ltr` for its English interface, and individual
+ * `@Preview`s pass `Rtl` to exercise the mirrored layout.
+ *
+ * Direction-dependent *content* is handled separately, at the string level, by the bidi isolate
+ * helpers in [com.giraffe.matn.presentation.common.ltrIsolated] — layout direction alone cannot fix
+ * a numeral embedded in an opposite-direction sentence.
  *
  * Paints the Material `background` behind content via a root [Surface] so the app (and every
  * `@Preview`) has an opaque backdrop rather than a transparent window.
@@ -52,7 +68,7 @@ import com.giraffe.matn.domain.model.effectiveAppearance
 fun MatnTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     reduceMotion: Boolean = false,
-    layoutDirection: LayoutDirection = LayoutDirection.Rtl,
+    layoutDirection: LayoutDirection = LocalLayoutDirection.current,
     content: @Composable () -> Unit,
 ) {
     val systemIsDark = isSystemInDarkTheme()

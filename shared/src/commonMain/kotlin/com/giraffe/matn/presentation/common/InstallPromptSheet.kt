@@ -78,7 +78,9 @@ fun InstallPromptSheet(
                 modifier = Modifier.padding(bottom = MatnSpacing.unit),
             )
             Text(
-                text = stringResource(Res.string.install_prompt_message) + " · " + formatBytes(declaredSizeBytes),
+                text = autoIsolated(
+                    stringResource(Res.string.install_prompt_message) + " · " + formatBytes(declaredSizeBytes),
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = MatnSpacing.gutter),

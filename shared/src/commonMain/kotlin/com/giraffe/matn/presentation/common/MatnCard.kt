@@ -86,10 +86,13 @@ fun MatnCard(
         // a fabricated "0:00"; the verse count and download size still tell the student what they
         // are getting.
         val verses = pluralStringResource(Res.plurals.verses_count, summary.verseCount, summary.verseCount)
+        // Isolated as a whole (BidiText.kt § Composites): the " · " separator is neutral and sits
+        // between a localized count and an LTR duration, so without this the paragraph direction
+        // decides their order — which is what rendered "4 verses · 0:31" as "verses · 0:314".
         val totals = if (summary.totalDurationMs > 0L) {
-            verses + " · " + formatDuration(summary.totalDurationMs)
+            autoIsolated(verses + " · " + formatDuration(summary.totalDurationMs))
         } else {
-            verses
+            autoIsolated(verses)
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit / 2),
