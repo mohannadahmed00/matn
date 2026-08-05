@@ -128,12 +128,18 @@ Injected via Koin; surfaced as `LocalReduceMotion` by `MatnTheme`. Compose expos
 
 | Normal | Reduced |
 |---|---|
-| Screen slide + fade | Fade only, `durationShort` |
-| Sheet slide up | Fade only |
-| Progress bar animated fill | Immediate value, no tween |
-| Goal ring sweep | Immediate value |
-| Carousel verse slide | Immediate position change |
-| Onboarding logo reveal | No reveal; static |
+| Screen slide + fade | Fade only, `MatnMotion.fade` (90ms) |
+| Sheet slide up | Fade only, 90ms |
+| Progress bar animated fill | Immediate value, no tween (0ms) |
+| Goal ring sweep | Immediate value (0ms) |
+| Carousel verse slide | Alpha crossfade, no translation, 90ms |
+| Onboarding logo reveal | No reveal; static (0ms) |
+
+> **Amended 2026-08-05.** The durations above are now explicit, and `MotionTransition` carries a
+> `reducedDurationMs` per entry rather than resolving everything to 0ms. The earlier blanket-0
+> implementation contradicted this table's own "Fade only" rows. Reduced motion removes translation,
+> parallax and scale; a 90ms opacity crossfade moves nothing across the retina, and dropping it made
+> state changes harder to follow for no accessibility gain. See the Matn Design System §07.
 
 **Never suppressed**: the *information*. A progress bar still shows its value, the active verse is
 still indicated, the ring still reads "4/10" — only the interpolation stops. This is what separates

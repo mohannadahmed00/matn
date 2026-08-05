@@ -3,13 +3,13 @@
     <!--
       T047 (US1): the dark launch theme, picked automatically when the device is in night mode
       (unavoidable — the splash is chosen before any Kotlin runs, research D9). Background mirrors
-      the dark `surface` role (#121414, presentation/theme/Color.kt DarkSurface) — this value,
+      the dark `surface` role (#131513, presentation/theme/Color.kt DarkSurface) — this value,
       values/themes.xml's light counterpart, and theme/Color.kt must always agree (T105). This
       resource is what fixes FR-005: without it, AndroidManifest.xml's hard-coded light theme
       flashes white on every dark-mode cold launch.
     -->
     <style name="Theme.Matn.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#121414</item>
+        <item name="windowSplashScreenBackground">#131513</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.Matn.Main.Dark</item>
     </style>

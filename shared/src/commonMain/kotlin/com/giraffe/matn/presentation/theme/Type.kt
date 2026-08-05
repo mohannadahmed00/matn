@@ -45,22 +45,82 @@ fun labelFontFamily(): FontFamily = FontFamily(
 )
 
 /**
- * [Source Serif 4](https://github.com/adobe-fonts/source-serif) (SIL OFL), the Stitch design
- * set's `headline-lg`/`body-md` face. **Not currently wired into any [Typography] role**: every
- * concrete `headline-lg`/`body-md` usage fetched from the live Stitch screens
- * (`docs/DESIGN-SOURCE.md`) turned out to be Arabic text, and Source Serif 4 — like Plus Jakarta
- * Sans — has no Arabic glyphs. Wiring it in as those roles' family would silently break Arabic
- * rendering across most of the app (Compose does not fall back across `FontFamily` boundaries the
- * way a browser's CSS font-stack does), so per Constitution Principle VIII ("the constitution
- * outranks the design" for genuine technical necessity, not just style preference) those roles
- * stay on Amiri. This family is bundled and ready for the first genuinely Latin-only UI context
- * that needs it (e.g. a future English locale) rather than left unbundled.
+ * [Source Serif 4](https://github.com/adobe-fonts/source-serif) (SIL OFL) — the design system's
+ * headline and body face for **Latin text only**. It has no Arabic glyphs.
+ *
+ * **Deliberately not wired into any [Typography] role.** The M3 roles are shared by both scripts,
+ * and Compose does not fall back across `FontFamily` boundaries the way a browser's CSS font-stack
+ * does — so assigning Source Serif 4 to `bodyLarge` would silently break every Arabic surface that
+ * reads the ambient typography. The design system specifies it for those roles because it is
+ * reasoning about a stylesheet, where fallback is free; in Compose the same assignment is a
+ * rendering bug.
+ *
+ * Reach for it through [MatnLatinType] at sites where the content is *known* to be Latin. The
+ * failure mode of that arrangement is benign — a Latin string that misses the opt-in renders in
+ * Amiri, which is merely less pretty — whereas the inverse arrangement fails by rendering Arabic
+ * as tofu.
  */
 @Composable
 fun uiSerifFontFamily(): FontFamily = FontFamily(
     Font(Res.font.SourceSerif4_Variable, FontWeight.Normal),
     Font(Res.font.SourceSerif4_Variable, FontWeight.SemiBold),
 )
+
+/**
+ * The Latin display/heading/body styles (Matn Design System §03 — Latin scale), for content known
+ * at the call site to be Latin: English UI copy, transliterated titles, Studio's LTR-pinned chrome.
+ *
+ * Arabic content must **not** use these — see [uiSerifFontFamily] for why. Anything that might hold
+ * either script keeps the ambient `MaterialTheme.typography`, which is Amiri and renders both.
+ */
+object MatnLatinType {
+
+    /** 32/38 · w600 · -0.32sp. Screen titles. */
+    @Composable
+    fun displaySmall(): TextStyle = TextStyle(
+        fontFamily = uiSerifFontFamily(),
+        fontSize = 32.sp,
+        lineHeight = 38.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.32).sp,
+    )
+
+    /** 24/30 · w600. Section headings. */
+    @Composable
+    fun headlineSmall(): TextStyle = TextStyle(
+        fontFamily = uiSerifFontFamily(),
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+
+    /** 20/26 · w600. Sheet and dialog titles. */
+    @Composable
+    fun titleLarge(): TextStyle = TextStyle(
+        fontFamily = uiSerifFontFamily(),
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+
+    /** 16/26 · w400. Body copy — descriptions, explanatory text. */
+    @Composable
+    fun bodyLarge(): TextStyle = TextStyle(
+        fontFamily = uiSerifFontFamily(),
+        fontSize = 16.sp,
+        lineHeight = 26.sp,
+        fontWeight = FontWeight.Normal,
+    )
+
+    /** 14/22 · w400. Secondary body — metadata lines, captions. */
+    @Composable
+    fun bodyMedium(): TextStyle = TextStyle(
+        fontFamily = uiSerifFontFamily(),
+        fontSize = 14.sp,
+        lineHeight = 22.sp,
+        fontWeight = FontWeight.Normal,
+    )
+}
 
 /**
  * Explicit small-Arabic-label style (verse-number badges, in-carousel meta chips like "البيت ٢")
@@ -98,8 +158,29 @@ fun matnTypography(): Typography {
         titleSmall = base.titleSmall.copy(fontFamily = amiri),
         bodyLarge = base.bodyLarge.copy(fontFamily = amiri, lineHeight = 32.sp),
         bodyMedium = base.bodyMedium.copy(fontFamily = amiri, lineHeight = 26.sp),
-        labelLarge = base.labelLarge.copy(fontFamily = label, fontWeight = FontWeight.SemiBold),
-        labelMedium = base.labelMedium.copy(fontFamily = label, fontWeight = FontWeight.SemiBold),
-        labelSmall = base.labelSmall.copy(fontFamily = label, fontWeight = FontWeight.SemiBold),
+        // Label metrics per design system §03. The tracking widens as the size drops — at 11sp,
+        // uppercase state text needs the extra letter-spacing to stay readable as a word rather
+        // than a smear.
+        labelLarge = base.labelLarge.copy(
+            fontFamily = label,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.14.sp,
+        ),
+        labelMedium = base.labelMedium.copy(
+            fontFamily = label,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.96.sp,
+        ),
+        labelSmall = base.labelSmall.copy(
+            fontFamily = label,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.1.sp,
+        ),
     )
 }
