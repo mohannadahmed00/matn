@@ -2,27 +2,27 @@ package com.giraffe.matn.presentation.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import com.giraffe.matn.presentation.common.GoalsGlyph
 import com.giraffe.matn.presentation.common.LibraryGlyph
-import com.giraffe.matn.presentation.common.NotesGlyph
+import com.giraffe.matn.presentation.common.SavedGlyph
 import com.giraffe.matn.presentation.common.SettingsGlyph
 import matn.shared.generated.resources.Res
-import matn.shared.generated.resources.nav_goals
 import matn.shared.generated.resources.nav_library
-import matn.shared.generated.resources.nav_notes
+import matn.shared.generated.resources.nav_saved
 import matn.shared.generated.resources.nav_settings
 import org.jetbrains.compose.resources.StringResource
 
 /**
- * The four persistent bottom-nav destinations (specs/010-design-system-adoption User Story 3;
- * `docs/PRODUCT-SPEC.md` § Navigation & App Shell). All four now route to real screens:
- * [LIBRARY], [NOTES] (Phase 6), [GOALS] (Phase 7), and [SETTINGS] (Phase 8 US3) — storage
- * management, the last tab to leave the shared "coming soon" placeholder.
+ * The three persistent bottom-nav destinations (Matn Design System §02 — *Navigation
+ * consolidation*; `docs/PRODUCT-SPEC.md` § Navigation & App Shell).
+ *
+ * Down from four. **Goals** left the bar because its ring was already rendered on Library, so the
+ * tab was a second copy of the control the student reaches for — it is now a sheet opened from that
+ * ring. **Notes** became [SAVED], which absorbed bookmarks, notes and memorized verses: all three
+ * are "verses I have touched", so they are one route filtered in place rather than three surfaces.
  */
 enum class NavigationTab(val route: String, val labelRes: StringResource) {
     LIBRARY(Routes.HOME, Res.string.nav_library),
-    GOALS(Routes.GOALS, Res.string.nav_goals),
-    NOTES(Routes.NOTES, Res.string.nav_notes),
+    SAVED(Routes.SAVED, Res.string.nav_saved),
     SETTINGS(Routes.SETTINGS, Res.string.nav_settings),
 }
 
@@ -31,8 +31,7 @@ enum class NavigationTab(val route: String, val labelRes: StringResource) {
 fun NavTabIcon(tab: NavigationTab, color: Color) {
     when (tab) {
         NavigationTab.LIBRARY -> LibraryGlyph(color = color)
-        NavigationTab.GOALS -> GoalsGlyph(color = color)
-        NavigationTab.NOTES -> NotesGlyph(color = color)
+        NavigationTab.SAVED -> SavedGlyph(color = color)
         NavigationTab.SETTINGS -> SettingsGlyph(color = color)
     }
 }

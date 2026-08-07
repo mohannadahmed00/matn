@@ -8,10 +8,10 @@ import matn.shared.generated.resources.content_action_cancel
 import matn.shared.generated.resources.content_action_install
 import matn.shared.generated.resources.content_action_remove
 import matn.shared.generated.resources.font_size
+import matn.shared.generated.resources.goals_open
 import matn.shared.generated.resources.mark_chapter_memorized
-import matn.shared.generated.resources.nav_goals
 import matn.shared.generated.resources.nav_library
-import matn.shared.generated.resources.nav_notes
+import matn.shared.generated.resources.nav_saved
 import matn.shared.generated.resources.nav_settings
 import matn.shared.generated.resources.note_editor_delete
 import matn.shared.generated.resources.note_editor_save
@@ -48,7 +48,7 @@ enum class A11yAction {
     MARK_CHAPTER_MEMORIZED, UNMARK_CHAPTER_MEMORIZED,
     INSTALL, INSTALL_CANCEL, REMOVE, REMOVE_ALL,
     SEARCH, SEARCH_CLEAR, BACK,
-    TAB_LIBRARY, TAB_GOALS, TAB_NOTES, TAB_SETTINGS,
+    TAB_LIBRARY, TAB_SAVED, TAB_SETTINGS, DAILY_GOAL,
     FONT_SIZE,
     CLOSE, RETRY, SKIP, CONTINUE,
 }
@@ -77,9 +77,9 @@ val A11yLabels: Map<A11yAction, StringResource> = mapOf(
     A11yAction.SEARCH_CLEAR to Res.string.search_clear,
     A11yAction.BACK to Res.string.back,
     A11yAction.TAB_LIBRARY to Res.string.nav_library,
-    A11yAction.TAB_GOALS to Res.string.nav_goals,
-    A11yAction.TAB_NOTES to Res.string.nav_notes,
+    A11yAction.TAB_SAVED to Res.string.nav_saved,
     A11yAction.TAB_SETTINGS to Res.string.nav_settings,
+    A11yAction.DAILY_GOAL to Res.string.goals_open,
     A11yAction.FONT_SIZE to Res.string.font_size,
     A11yAction.CLOSE to Res.string.a11y_close,
     A11yAction.RETRY to Res.string.a11y_retry,

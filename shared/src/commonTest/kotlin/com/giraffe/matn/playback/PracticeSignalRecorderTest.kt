@@ -67,6 +67,7 @@ class PracticeSignalRecorderTest {
         override suspend fun setChapterMemorized(chapterId: String, memorized: Boolean): Resource<Unit> =
             Resource.Success(Unit)
         override fun observeMemorizedVerseIds(matnId: String) = throw NotImplementedError()
+        override fun observeMemorized() = throw NotImplementedError()
         override fun observeMatnProgress(matnId: String): Flow<MatnProgress> = throw NotImplementedError()
         override fun observeLibraryProgress(): Flow<List<MatnProgress>> = throw NotImplementedError()
         override suspend fun recordPractice(verseId: String): Resource<Unit> {

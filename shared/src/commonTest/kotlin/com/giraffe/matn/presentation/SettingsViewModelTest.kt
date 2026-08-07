@@ -4,10 +4,12 @@ import com.giraffe.matn.core.Resource
 import com.giraffe.matn.core.usecase.FlowUseCase
 import com.giraffe.matn.core.usecase.UseCase
 import com.giraffe.matn.domain.model.MatnStorageEntry
+import com.giraffe.matn.domain.model.ReadingFontSize
 import com.giraffe.matn.domain.model.RemovalOutcome
 import com.giraffe.matn.domain.model.StorageUsage
 import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.domain.repository.AppearancePreferencesRepository
+import com.giraffe.matn.domain.repository.ReadingPreferencesRepository
 import com.giraffe.matn.domain.usecase.ObserveThemeModeUseCase
 import com.giraffe.matn.domain.usecase.SetThemeModeUseCase
 import com.giraffe.matn.permission.FakeNotificationPermission
@@ -16,6 +18,7 @@ import com.giraffe.matn.presentation.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -56,6 +59,7 @@ class SettingsViewModelTest {
         removeMatnContent: UseCase<String, RemovalOutcome> = FakeRemove { Resource.Success(RemovalOutcome.Reclaimed(0)) },
         removeAllContent: UseCase<Unit, List<RemovalOutcome>> = FakeRemoveAll { Resource.Success(emptyList()) },
         appearanceRepository: AppearancePreferencesRepository = FakeAppearancePreferencesRepository(),
+        readingPreferences: ReadingPreferencesRepository = FakeReadingPreferencesRepository(),
     ): SettingsViewModel = SettingsViewModel(
         observeStorageUsage = object : FlowUseCase<Unit, StorageUsage> {
             override fun invoke(params: Unit): Flow<StorageUsage> = usageFlow
@@ -65,7 +69,36 @@ class SettingsViewModelTest {
         observeThemeMode = ObserveThemeModeUseCase(appearanceRepository),
         setThemeMode = SetThemeModeUseCase(appearanceRepository),
         notificationPermission = FakeNotificationPermission(),
+        getFontSize = com.giraffe.matn.domain.usecase.GetFontSizeUseCase(readingPreferences),
+        setFontSize = com.giraffe.matn.domain.usecase.SetFontSizeUseCase(readingPreferences),
     )
+
+    /** In-memory [ReadingPreferencesRepository] — the font-size preference Settings now surfaces. */
+    private class FakeReadingPreferencesRepository(
+        initial: ReadingFontSize = ReadingFontSize.DEFAULT,
+    ) : ReadingPreferencesRepository {
+        private val state = MutableStateFlow(initial)
+        override fun observeFontSize(): Flow<ReadingFontSize> = state
+        override suspend fun setFontSize(size: ReadingFontSize): Resource<Unit> {
+            state.value = size
+            return Resource.Success(Unit)
+        }
+    }
+
+    @Test
+    fun `font size is observed into state and persisted on select`() = runTest {
+        val prefs = FakeReadingPreferencesRepository()
+        val vm = newViewModel(
+            usageFlow = MutableStateFlow(usageOf(listOf(big))),
+            readingPreferences = prefs,
+        )
+        assertEquals(ReadingFontSize.MEDIUM, vm.state.value.fontSize)
+
+        vm.onFontSizeSelected(ReadingFontSize.XLARGE)
+
+        assertEquals(ReadingFontSize.XLARGE, vm.state.value.fontSize)
+        assertEquals(ReadingFontSize.XLARGE, prefs.observeFontSize().first())
+    }
 
     @Test
     fun `loading clears once the first emission arrives and populates the breakdown`() = runTest {

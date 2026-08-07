@@ -108,17 +108,30 @@ Daily goals remain as in v2 (e.g., "practice 10 verses" or "listen 20 minutes"),
 
 # Navigation & App Shell
 
-A persistent bottom navigation bar with four tabs is the app's primary navigation surface,
+A persistent bottom navigation bar with **three** tabs is the app's primary navigation surface,
 present on every top-level screen:
 
-- **Library** — Home Screen (see above).
-- **Goals** — Memorization Progress & Daily Goals.
-- **Notes** — Bookmarks & Notes.
-- **Settings** — App preferences, storage management, onboarding-related permissions.
+- **Library** — the catalog, Continue Learning, the daily-goal ring, and an in-place search field.
+- **Saved** — bookmarks, notes and memorized verses in one list, filtered in place by a three-way
+  segmented control (All · Notes · Memorized).
+- **Settings** — app preferences, storage management, onboarding-related permissions.
 
-Tabs for features not yet built are shown but route to a simple "coming soon" placeholder rather
-than being hidden — the shell itself is stable chrome shared by every screen, independent of which
-feature phases have landed.
+Below the bar there is exactly one further route, `matn/{id}`, for reading and playback. It earns
+full-screen status because it owns a scroll position, a back-stack entry, and the deep link that
+Continue Learning and every search result resolve through.
+
+**The rule for what is a route** (Matn Design System §02): if a surface does not need its own
+back-stack entry, its own scroll position, or its own deep link, it is not a route. Everything else
+is a sheet, a dialog, a menu, or an inline region. Three former destinations were retired under this
+rule and none of them lost a capability:
+
+| Former route | Now |
+|---|---|
+| `search` | An inline field on Library; a live query swaps the grid for results. |
+| `goals` | A bottom sheet opened by tapping Library's daily-goal ring — the ring was already on Library, so the tab was a second copy of the control the student reaches for. |
+| `onboarding` | A dismissible overlay pager above the graph, re-openable from Settings. A screen the student sees once should not sit in the back-stack forever. |
+
+No tab routes to a placeholder; every destination in the bar is a real screen.
 
 ---
 

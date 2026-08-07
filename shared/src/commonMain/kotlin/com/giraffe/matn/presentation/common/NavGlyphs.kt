@@ -33,34 +33,35 @@ fun LibraryGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, 
     }
 }
 
+/**
+ * The Saved tab's four-pointed star (design system §05 — the `✦` in the bottom bar). One mark for
+ * bookmarks, notes and memorized verses together: the tab no longer stands for note-taking alone,
+ * so the old ruled-page glyph would have named only a third of what it opens.
+ */
 @Composable
-fun GoalsGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
+fun SavedGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
     Canvas(modifier.size(size).desc(contentDescription)) {
         val w = this.size.width
         val h = this.size.height
-        drawCircle(color, radius = w * 0.42f, center = Offset(w * 0.5f, h * 0.5f), style = Stroke(width = w * 0.08f))
-        drawCircle(color, radius = w * 0.22f, center = Offset(w * 0.5f, h * 0.5f), style = Stroke(width = w * 0.08f))
-        drawCircle(color, radius = w * 0.07f, center = Offset(w * 0.5f, h * 0.5f))
+        val cx = w * 0.5f
+        val cy = h * 0.5f
+        // Concave-sided star: each arm runs to the edge and is pulled back toward the centre by a
+        // quadratic control point, which is what gives the mark its point rather than a diamond.
+        val arm = w * 0.42f
+        val waist = w * 0.13f
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(cx, cy - arm)
+            quadraticTo(cx + waist, cy - waist, cx + arm, cy)
+            quadraticTo(cx + waist, cy + waist, cx, cy + arm)
+            quadraticTo(cx - waist, cy + waist, cx - arm, cy)
+            quadraticTo(cx - waist, cy - waist, cx, cy - arm)
+            close()
+        }
+        drawPath(path, color)
     }
 }
 
-@Composable
-fun NotesGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
-    Canvas(modifier.size(size).desc(contentDescription)) {
-        val w = this.size.width
-        val h = this.size.height
-        val stroke = Stroke(width = w * 0.08f)
-        drawRoundRect(color, topLeft = Offset(w * 0.18f, h * 0.14f), size = Size(w * 0.64f, h * 0.72f), cornerRadius = CornerRadius(w * 0.06f), style = stroke)
-        val lineX0 = w * 0.30f
-        val lineX1 = w * 0.70f
-        drawLine(color, Offset(lineX0, h * 0.38f), Offset(lineX1, h * 0.38f), strokeWidth = w * 0.06f)
-        drawLine(color, Offset(lineX0, h * 0.54f), Offset(lineX1, h * 0.54f), strokeWidth = w * 0.06f)
-        drawLine(color, Offset(lineX0, h * 0.70f), Offset(w * 0.55f, h * 0.70f), strokeWidth = w * 0.06f)
-    }
-}
-
-/** A magnifying-glass search affordance — the Home top-bar entry point into
- *  [com.giraffe.matn.presentation.search.SearchScreen] (US1). */
+/** A magnifying-glass search affordance — the leading icon of Library's in-place search field. */
 @Composable
 fun SearchGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
     Canvas(modifier.size(size).desc(contentDescription)) {
@@ -78,10 +79,9 @@ fun SearchGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, c
     }
 }
 
-/** A simple chevron back-affordance, shared by any screen with a dedicated top-bar back action
- *  (e.g. [com.giraffe.matn.presentation.search.SearchScreen]). Points toward the app's RTL start
- *  edge (visually the right side under [com.giraffe.matn.presentation.theme.MatnTheme]'s forced
- *  RTL layout direction), matching the "back" string resource's placement. */
+/** A simple chevron back-affordance, shared by any screen with a dedicated top-bar back action.
+ *  Points toward the layout's start edge, which follows the interface language rather than being
+ *  pinned. */
 @Composable
 fun BackGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = 22.dp, contentDescription: String? = null) {
     Canvas(modifier.size(size).desc(contentDescription)) {

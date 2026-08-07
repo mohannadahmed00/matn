@@ -2,6 +2,7 @@ package com.giraffe.matn.domain.repository
 
 import com.giraffe.matn.core.Resource
 import com.giraffe.matn.domain.model.MatnProgress
+import com.giraffe.matn.domain.model.MemorizedEntry
 import kotlinx.coroutines.flow.Flow
 
 interface ProgressRepository {
@@ -21,6 +22,13 @@ interface ProgressRepository {
 
     /** Reactive set of memorized verse ids for the matn; re-emits on any change. */
     fun observeMemorizedVerseIds(matnId: String): Flow<Set<String>>
+
+    /**
+     * Reactive library-wide memorized list with verse/matn context, newest first — the *Memorized*
+     * segment of the Saved tab. Mirrors [BookmarkRepository.observeAll]; rows whose matn has been
+     * removed are omitted (they still count toward progress, but have no text to show).
+     */
+    fun observeMemorized(): Flow<List<MemorizedEntry>>
 
     /** Reactive `(memorizedCount, totalCount)` for one matn from the single aggregate (D4). */
     fun observeMatnProgress(matnId: String): Flow<MatnProgress>
