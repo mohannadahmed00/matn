@@ -12,4 +12,15 @@
         <item quantity="many">%1$d بيتًا</item>
         <item quantity="other">%1$d بيت</item>
     </plurals>
+    <!-- Library header summary ("N downloaded · 36 MB"). Same reasoning as verses_count: "متن"
+         inflects across all six CLDR categories, so a flat "%1$d متن منزَّل" would be wrong for
+         every count but one. -->
+    <plurals name="downloaded_count">
+        <item quantity="zero">لا متون منزَّلة</item>
+        <item quantity="one">متن منزَّل</item>
+        <item quantity="two">متنان منزَّلان</item>
+        <item quantity="few">%1$d متون منزَّلة</item>
+        <item quantity="many">%1$d متنًا منزَّلًا</item>
+        <item quantity="other">%1$d متن منزَّل</item>
+    </plurals>
 </resources>

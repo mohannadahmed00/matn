@@ -64,8 +64,48 @@
 >    reminder scheduler in the app, so the control would be dead. Settings still owns the
 >    notification permission.
 >
+> ### Library screen — landed 2026-08-08
+>
+> The design's three Library frames (§05: *content present*, *empty + offline*, *loading*) are
+> implemented.
+>
+> - **Card** is a contained `surfaceContainerLow` card at 12dp with **no elevation** — depth is
+>   carried by containment, not shadow. The Arabic title sits over the cover behind a scrim; the
+>   design assumes flat-colour covers, but a published cover image can carry anything along its
+>   bottom edge, and a title legible against only some covers is not legible.
+> - **State line** replaces the old glyph badge: an uppercase status word carrying the state's own
+>   colour. `Downloaded` uses **success**, not `primary` — primary means "the thing you can act on",
+>   and a finished download is precisely what you no longer act on. The download size moved onto
+>   this line, since it is the cost of the action the line offers.
+> - **Header** carries "N downloaded · X MB", suppressed at zero (the nothing-downloaded notice
+>   already says it, with a next step). Arabic needs a `downloaded_count` plurals resource for the
+>   same reason `verses_count` exists — "متن" inflects across all six CLDR categories.
+> - **Filter chips** filter `HomeUiState.items` in place; the chip never re-queries, so switching it
+>   cannot fail, spin, or lose the grid. A chip that hides everything gets its own empty state whose
+>   only offered action is returning to *All* — the exit is the chip, not a download or a retry.
+> - **Loading** is a skeleton grid, not a centred spinner. Shimmer is 1200ms linear
+>   `surfaceContainer → surfaceContainerHigh`; under reduced motion it is a static
+>   `surfaceContainer` fill, which still does a skeleton's real job of holding the layout.
+>   `SkeletonBlock` is hidden from accessibility — a screen reader announcing four featureless
+>   boxes is worse than silence.
+> - **Empty + offline** explains the offline model instead of spinning, with the design's
+>   `warningContainer` (never `error`) connectivity chip: nothing has failed, and colouring a normal
+>   first-launch state as an error teaches the student to distrust it. The "what can I do offline?"
+>   question is answered inline rather than pushed to a route.
+>
+> Deviations recorded against the design's Library frames:
+>
+> 1. **No *Grammar* chip.** The design draws a third, category-based chip. No category or subject
+>    field exists anywhere in the domain — the authoring tool deliberately never added one (see
+>    Phase 11's design notes) — so the chip would filter on nothing. Omitted rather than faked.
+> 2. **The card keeps the author line and the memorization progress bar**, neither of which is in
+>    the design's card. The author is the only other identity string the catalog carries, and the
+>    progress bar is FR-006. Delivery state and memorization progress are deliberately separate
+>    rows: one is how much of the matn is on the device, the other how much is in the student's
+>    memory, and they are routinely different numbers.
+>
 > Still **not** implemented from the design: the Studio consolidation (4 destinations → 3), the
-> component library, the remaining screen designs, and the logo.
+> component library, the Details/Reader screens, and the logo.
 
 The **Stitch** project below is the historical reference for screen layout. Any model or
 developer implementing a screen MUST pull that screen's design from Stitch rather than inventing

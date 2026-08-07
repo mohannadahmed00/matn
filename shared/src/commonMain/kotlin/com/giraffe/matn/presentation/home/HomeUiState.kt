@@ -23,6 +23,15 @@ import com.giraffe.matn.domain.model.MatnSummary
  *    independently so it never gates [isLoading].
  *  * [syncState] / [isSyncing] (Phase 13, FR-006/FR-044) back the three empty-state cases below.
  */
+/**
+ * The library's in-place filter (Matn Design System §05 — the chip row above the grid).
+ *
+ * The design draws a third chip, *Grammar*. There is no category or subject field anywhere in the
+ * domain — the teacher's authoring tool deliberately never added one — so that chip would filter on
+ * nothing. It is omitted rather than faked.
+ */
+enum class LibraryFilter { ALL, ON_DEVICE }
+
 data class HomeUiState(
     val isLoading: Boolean = true,
     val items: List<MatnSummary> = emptyList(),
@@ -39,7 +48,43 @@ data class HomeUiState(
      * because an unfetchable cover must never degrade anything else.
      */
     val covers: Map<String, ByteArray> = emptyMap(),
+    /** Which chip is active above the grid. Presentation state, but it lives here so it survives
+     *  the ViewModel rather than the composition, and so [visibleItems] stays derived. */
+    val filter: LibraryFilter = LibraryFilter.ALL,
 ) {
+
+    /** The grid's contents under the active [filter]. */
+    val visibleItems: List<MatnSummary>
+        get() = when (filter) {
+            LibraryFilter.ALL -> items
+            LibraryFilter.ON_DEVICE -> items.filter { availability[it.matn.id] is ContentAvailability.Downloaded }
+        }
+
+    /** How many متون are on the device — the count in the header's "N downloaded · X" summary. */
+    val downloadedCount: Int
+        get() = availability.values.count { it is ContentAvailability.Downloaded }
+
+    /**
+     * Bytes those متون occupy. Measured occupancy, not declared size: the header is reporting what
+     * the device is actually giving up, which is the same number Settings' storage section shows.
+     */
+    val downloadedBytes: Long
+        get() = availability.values.sumOf { (it as? ContentAvailability.Downloaded)?.occupiedBytes ?: 0L }
+
+    /**
+     * Whether the header carries its download summary. Suppressed at zero: "0 downloaded · 0 B" is
+     * noise, and [showNothingDownloaded] already says that above the grid, in words that offer a
+     * next step.
+     */
+    val showDownloadSummary: Boolean get() = downloadedCount > 0
+
+    /**
+     * Whether the grid is currently filtered down to nothing. Distinct from an empty library: the
+     * content exists and the student's own chip is hiding it, so the way out is to change the chip,
+     * not to download or retry anything.
+     */
+    val showFilteredEmpty: Boolean
+        get() = !isLoading && items.isNotEmpty() && visibleItems.isEmpty()
     /**
      * FR-022: whether the Continue Learning entry's matn is downloaded, joining [continueLearning]
      * with [availability] — drives [com.giraffe.matn.presentation.common.ContinueLearningCard]'s

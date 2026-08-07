@@ -137,6 +137,14 @@ class HomeViewModel(
     fun onRefreshClicked() = refreshCatalog(force = true)
 
     /**
+     * The library's in-place chip filter. Purely a view onto [HomeUiState.items] — it never
+     * re-queries, so switching chips cannot fail, cannot spin, and cannot lose the grid.
+     */
+    fun onFilterSelected(filter: LibraryFilter) {
+        setState { it.copy(filter = filter) }
+    }
+
+    /**
      * Runs a sync without ever blocking the grid.
      *
      * A failure is deliberately swallowed here rather than routed to `error`: the repository leaves
