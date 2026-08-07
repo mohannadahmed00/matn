@@ -261,4 +261,49 @@ class HomeViewModelTest {
         // that would offer a resume that fails the playback gate (SC-007).
         assertFalse(vm.state.value.isContinueLearningContentInstalled)
     }
+
+    // ------------------------------------------------------------------ Library chip filter
+
+    /** The chip is a view onto what is already loaded: it must never re-query or re-enter loading. */
+    @Test
+    fun `selecting a filter narrows the grid without touching items or reloading`() = runTest {
+        val vm = homeViewModelWithAvailability(
+            libraryFlow = flowOf(
+                listOf(
+                    summary("m1", "الأجرومية", count = 4, total = 31_300),
+                    summary("m2", "متن الآجرومية مبوب", count = 5, total = 39_900),
+                ),
+            ),
+            availabilityFlow = flowOf(
+                mapOf(
+                    "m1" to ContentAvailability.Downloaded(20_000_000),
+                    "m2" to ContentAvailability.NotDownloaded(),
+                ),
+            ),
+        )
+
+        vm.onFilterSelected(com.giraffe.matn.presentation.home.LibraryFilter.ON_DEVICE)
+
+        val state = vm.state.value
+        assertEquals(listOf("m1"), state.visibleItems.map { it.matn.id })
+        // The source list is untouched — the chip filters, it does not fetch.
+        assertEquals(2, state.items.size)
+        assertFalse(state.isLoading)
+    }
+
+    @Test
+    fun `switching back to All restores the whole grid`() = runTest {
+        val vm = homeViewModelWithAvailability(
+            libraryFlow = flowOf(listOf(summary("m1", "الأجرومية", count = 4, total = 31_300))),
+            availabilityFlow = flowOf(mapOf("m1" to ContentAvailability.NotDownloaded())),
+        )
+
+        vm.onFilterSelected(com.giraffe.matn.presentation.home.LibraryFilter.ON_DEVICE)
+        assertTrue(vm.state.value.visibleItems.isEmpty())
+        assertTrue(vm.state.value.showFilteredEmpty)
+
+        vm.onFilterSelected(com.giraffe.matn.presentation.home.LibraryFilter.ALL)
+        assertEquals(1, vm.state.value.visibleItems.size)
+        assertFalse(vm.state.value.showFilteredEmpty)
+    }
 }

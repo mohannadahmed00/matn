@@ -114,6 +114,16 @@
     <string name="catalog_verse_search_scope">Verse search covers downloaded متون only</string>
     <string name="catalog_update_available">Update available</string>
     <string name="catalog_refresh">Refresh</string>
+    <string name="library_filter_all">All</string>
+    <string name="library_filter_on_device">On device</string>
+    <string name="library_filter_empty">Nothing on this device yet</string>
+    <string name="library_empty_title">Your library is empty</string>
+    <string name="library_empty_body">Nothing is bundled with Matn. Connect once to browse the catalog and download a matn — after that it reads with no connection at all, forever.</string>
+    <string name="library_offline_chip">No connection</string>
+    <string name="library_retry_connection">Retry connection</string>
+    <string name="library_offline_help_question">What can I do offline?</string>
+    <string name="library_offline_help_answer">Anything you have already downloaded: read it, play the recitation, repeat verses, take notes, and mark verses memorized. Only browsing the catalog and downloading a new matn need a connection.</string>
+    <string name="content_installing_percent">Installing %1$s</string>
     <string name="content_state_queued">Queued</string>
     <string name="confirm_removal_title">Remove %1$s?</string>
     <string name="confirm_removal_message_reclaimed">%1$s will be freed from storage immediately.</string>

@@ -114,6 +114,16 @@
     <string name="catalog_verse_search_scope">يشمل البحث في نص الأبيات المتون المنزَّلة فقط</string>
     <string name="catalog_update_available">يتوفر تحديث</string>
     <string name="catalog_refresh">تحديث</string>
+    <string name="library_filter_all">الكل</string>
+    <string name="library_filter_on_device">على الجهاز</string>
+    <string name="library_filter_empty">لا شيء على هذا الجهاز بعد</string>
+    <string name="library_empty_title">مكتبتك فارغة</string>
+    <string name="library_empty_body">لا يأتي التطبيق بأي متن جاهز. اتصل مرة واحدة لتصفّح القائمة وتنزيل متن، وبعدها يُقرأ بلا اتصال أبدًا.</string>
+    <string name="library_offline_chip">لا يوجد اتصال</string>
+    <string name="library_retry_connection">إعادة محاولة الاتصال</string>
+    <string name="library_offline_help_question">ماذا أستطيع دون اتصال؟</string>
+    <string name="library_offline_help_answer">كل ما نزّلته من قبل: القراءة، وتشغيل التلاوة، وتكرار الأبيات، وكتابة الملاحظات، وتمييز المحفوظ. الاتصال لازم فقط لتصفّح القائمة وتنزيل متن جديد.</string>
+    <string name="content_installing_percent">جارٍ التثبيت %1$s</string>
     <string name="content_state_queued">في قائمة الانتظار</string>
     <string name="confirm_removal_title">إزالة %1$s؟</string>
     <string name="confirm_removal_message_reclaimed">سيتم تحرير %1$s من مساحة التخزين فورًا.</string>
