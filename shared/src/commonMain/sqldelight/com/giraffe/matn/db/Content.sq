@@ -382,6 +382,24 @@ FROM memorization
 JOIN verse ON verse.id = memorization.verse_id
 WHERE verse.chapter_id = ?;
 
+-- Saved tab: the library-wide memorized list, shaped like `selectAllBookmarksWithContext` and
+-- `selectAllNotesWithContext` so the three Saved segments share one row type. Same INNER-JOIN
+-- orphan guard as those two (research D5): a memorization row whose matn has been removed keeps
+-- counting toward progress but has no verse text to show, so it is not listed here.
+selectAllMemorizedWithContext:
+SELECT
+    memorization.id AS id,
+    memorization.verse_id AS verse_id,
+    memorization.memorized_at AS memorized_at,
+    matn.id AS matn_id,
+    matn.title AS matn_title,
+    verse.display_number AS verse_number,
+    verse.arabic_text AS verse_text
+FROM memorization
+JOIN verse ON verse.id = memorization.verse_id
+JOIN matn ON matn.id = verse.matn_id
+ORDER BY memorization.memorized_at DESC, memorization.id DESC;
+
 -- Phase 7 (FR-006/FR-008, research D4): the ONE progress aggregate. LEFT JOINs keep a
 -- zero-verse matn present with total 0 / memorized 0 (no divide-by-zero downstream).
 selectAllMatnProgress:

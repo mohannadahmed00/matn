@@ -33,8 +33,39 @@
 >    meaningful — see `MotionTransition`. This matches `adaptive-motion-contract.md` §B2.1's
 >    "Fade only" wording, which the previous implementation did not.
 >
-> Still **not** implemented from the design: the navigation consolidation (student 7 routes →
-> 5, Studio 4 destinations → 3), the component library, the screen designs, and the logo.
+> ### Navigation consolidation — landed 2026-08-08 (student app only)
+>
+> The student app is down from **7 routes / 4 tabs to 4 routes / 3 tabs**, one better than the
+> design's own "5 or fewer" target because Details and Reader are still a single screen here (the
+> design splits them; see the deviation below). The tabs are **Library · Saved · Settings**.
+>
+> - **Search** is an inline field on Library. A non-blank query swaps the grid for results in
+>   place; the field is deliberately *not* autofocused, unlike the pushed screen it replaced —
+>   arriving at that screen was an explicit act, whereas opening Library is not, and stealing focus
+>   would raise the keyboard over the grid the student came to browse.
+> - **Goals** is a bottom sheet opened by tapping Library's daily-goal ring. The sheet keeps the
+>   per-matn progress list the old tab owned (FR-016) even though the design's sheet does not show
+>   it — retiring the route must not retire a capability.
+> - **Onboarding** is a dismissible overlay pager above the graph, re-opened from Settings.
+> - **Saved** absorbs Bookmarks, Notes and Memorized. The design's three segments (All · Notes ·
+>   Memorized) are implemented literally: bookmarks appear under *All* with a kind tag rather than
+>   getting a segment of their own. Swipe-toward-end removes a row with a 4s Undo snackbar; the
+>   removal is performed for real before Undo is offered, so the list is never showing a phantom row.
+>   New data: `selectAllMemorizedWithContext` / `ProgressRepository.observeMemorized()`, shaped like
+>   the existing bookmark and note context queries.
+>
+> Deviations recorded against the design's navigation section:
+>
+> 1. **Details and Reader remain one route.** The design lists them as two (`matn/{id}` and
+>    `matn/{id}/read?v={n}`). They are one screen in this codebase and splitting them is a
+>    reading-experience change, not a navigation one — it is tracked separately rather than smuggled
+>    into the consolidation.
+> 2. **The goal sheet has no reminder toggle.** The design draws "Remind me at 6:00 pm"; there is no
+>    reminder scheduler in the app, so the control would be dead. Settings still owns the
+>    notification permission.
+>
+> Still **not** implemented from the design: the Studio consolidation (4 destinations → 3), the
+> component library, the remaining screen designs, and the logo.
 
 The **Stitch** project below is the historical reference for screen layout. Any model or
 developer implementing a screen MUST pull that screen's design from Stitch rather than inventing
@@ -191,6 +222,10 @@ Screen IDs are stable; use them with the `list_screens` / `get_screen` MCP tools
    Goals tab got its real screen in Phase 7 (see issue 8 below); **the Settings tab got its real
    screen in Phase 8 (see issue 9 below)** — no tab routes to the shared "coming soon" placeholder
    any more, and `ComingSoonScreen.kt` has been deleted as dead code.
+
+   **Superseded 2026-08-08** by the design system's navigation consolidation: the bar is now
+   Library · Saved · Settings, Goals is a sheet, and Notes was absorbed into Saved. See the banner
+   at the top of this file.
 
 7. **Phase 6 (Search, Bookmarks & Notes) design questions — resolved 2026-07-24.** Three open
    questions in `specs/006-search-bookmarks-notes/contracts/ui-contract.md` were resolved by

@@ -1,5 +1,6 @@
 package com.giraffe.matn.presentation.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,20 +11,30 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -32,79 +43,127 @@ import com.giraffe.matn.domain.catalog.CatalogSyncState
 import com.giraffe.matn.domain.model.ContentAvailability
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
+import com.giraffe.matn.domain.model.SearchResult
 import com.giraffe.matn.domain.model.StructureKind
+import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.common.ContinueLearningCard
 import com.giraffe.matn.presentation.common.DailyGoalRing
 import com.giraffe.matn.presentation.common.MatnCard
+import com.giraffe.matn.presentation.common.RefreshGlyph
+import com.giraffe.matn.presentation.common.SearchGlyph
+import com.giraffe.matn.presentation.search.SearchPhase
+import com.giraffe.matn.presentation.search.SearchResultRow
+import com.giraffe.matn.presentation.search.SearchUiState
+import com.giraffe.matn.presentation.search.SearchViewModel
 import com.giraffe.matn.presentation.theme.LocalWindowWidthClass
+import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.MatnSpacing
-import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.theme.MatnTheme
 import matn.shared.generated.resources.Res
-import matn.shared.generated.resources.app_title
 import matn.shared.generated.resources.catalog_connect_to_browse
 import matn.shared.generated.resources.catalog_empty
 import matn.shared.generated.resources.catalog_nothing_downloaded
 import matn.shared.generated.resources.catalog_refresh
 import matn.shared.generated.resources.catalog_sync_failed
-import matn.shared.generated.resources.home_daily_goal_label
-import matn.shared.generated.resources.library_empty
+import matn.shared.generated.resources.goals_open
+import matn.shared.generated.resources.nav_library
+import matn.shared.generated.resources.search_clear
+import matn.shared.generated.resources.search_field_placeholder
+import matn.shared.generated.resources.search_no_results
 import matn.shared.generated.resources.search_open
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Home / library screen (US2) — **stateful** entry. Hoists the [HomeViewModel]'s state and
- * delegates rendering to the stateless [HomeContent], so the render layer stays a pure function
- * of [HomeUiState] (Principle II) and is previewable/screenshot-testable without a ViewModel.
+ * Library — tab 1 and the app's start destination (Matn Design System §05: "Catalog + Continue
+ * Learning + daily-goal ring + in-place search field"). **Stateful** entry: hoists both the
+ * [HomeViewModel]'s state and the [SearchViewModel]'s, and delegates rendering to the stateless
+ * [HomeContent] (Principle II).
  *
- * Phase 4: also collects the ViewModel's one-shot [HomeViewModel.navigation] events and forwards
- * them to [onOpenMatn], keeping navigation out of the ViewModel (Principle II).
+ * Search is not a route. It is a field on this screen that swaps the grid for results while the
+ * query is non-blank — it has no back-stack entry, no scroll position of its own, and no deep link,
+ * which is the design's test for what should not be a destination.
  */
 @Composable
-fun HomeScreen(viewModel: HomeViewModel, onOpenMatn: (String) -> Unit, onOpenSearch: () -> Unit = {}) {
+fun HomeScreen(
+    viewModel: HomeViewModel,
+    searchViewModel: SearchViewModel,
+    onOpenMatn: (String) -> Unit,
+    onOpenVerse: (matnId: String, verseId: String?) -> Unit,
+    onOpenDailyGoal: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val searchState by searchViewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) {
         viewModel.navigation.collect { matnId -> onOpenMatn(matnId) }
     }
     HomeContent(
         state = state,
+        searchState = searchState,
         onOpenMatn = onOpenMatn,
         onResume = viewModel::onResumeClicked,
         onDismiss = viewModel::onDismissClicked,
-        onOpenSearch = onOpenSearch,
         onRefresh = viewModel::onRefreshClicked,
+        onOpenDailyGoal = onOpenDailyGoal,
+        onQueryChange = searchViewModel::onQueryChange,
+        onClearQuery = searchViewModel::onClearQuery,
+        onResultClick = { result ->
+            // search-contract.md § 6: every result kind resolves through the matn route's optional
+            // focusVerseId; a chapter with no verses falls back to the plain matn route.
+            when (result) {
+                is SearchResult.VerseMatch -> onOpenVerse(result.ref.matnId, result.ref.verseId)
+                is SearchResult.ChapterMatch -> onOpenVerse(result.matnId, result.firstVerseId)
+                is SearchResult.MatnMatch -> onOpenMatn(result.matnId)
+            }
+        },
     )
 }
 
 /**
- * Stateless library grid, per the canonical Home/Library Stitch screen
- * (specs/010-design-system-adoption User Story 4): a top bar, the daily-goal progress ring, the
- * Continue Learning card (unchanged from Phase 4), and a 2-column [LazyVerticalGrid] of
- * [MatnCard]s **keyed by stable `matn.id`** (FR-011/SC-003). When the store is empty a centered
- * localized empty state is shown instead of the grid (FR-004/SC-008). RTL throughout (provided by
- * [MatnTheme]). No network (FR-018/SC-006).
+ * Stateless library: a header carrying the screen name and the daily-goal ring, an inline search
+ * field, and then either the search results or the catalog grid — the Continue Learning card and a
+ * 2-column [LazyVerticalGrid] of [MatnCard]s **keyed by stable `matn.id`** (FR-011/SC-003).
  *
- * **Deviation from the literal Stitch mockup**: the top bar's menu icon is not rendered — it has
- * no destination yet (no drawer), and per the same judgment call as `PlayerBar`'s omitted
- * audio-settings icon, a dead affordance is worse than omitting it. The search icon (Phase 6,
- * US1) IS wired now — it opens [com.giraffe.matn.presentation.search.SearchScreen].
+ * The ring is a tap target rather than a read-only indicator: it is the entry point to the daily
+ * goal sheet that replaced the Goals tab.
  */
 @Composable
 fun HomeContent(
     state: HomeUiState,
+    searchState: SearchUiState = SearchUiState(),
     onOpenMatn: (String) -> Unit,
     onResume: () -> Unit = {},
     onDismiss: () -> Unit = {},
-    onOpenSearch: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onOpenDailyGoal: () -> Unit = {},
+    onQueryChange: (String) -> Unit = {},
+    onClearQuery: () -> Unit = {},
+    onResultClick: (SearchResult) -> Unit = {},
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        HomeTopBar(onOpenSearch = onOpenSearch, onRefresh = onRefresh, isSyncing = state.isSyncing)
+        LibraryHeader(
+            dailyGoal = state.dailyGoal,
+            isSyncing = state.isSyncing,
+            onRefresh = onRefresh,
+            onOpenDailyGoal = onOpenDailyGoal,
+        )
+        InlineSearchField(
+            query = searchState.query,
+            onQueryChange = onQueryChange,
+            onClearQuery = onClearQuery,
+            modifier = Modifier.padding(
+                horizontal = MatnSpacing.marginMobile,
+                vertical = MatnSpacing.snug,
+            ),
+        )
         Box(modifier = Modifier.fillMaxSize()) {
             when {
-                state.isLoading -> CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
+                // A live query owns the body — the grid is not shown behind or below it.
+                searchState.query.isNotBlank() -> SearchResults(
+                    phase = searchState.phase,
+                    onResultClick = onResultClick,
                 )
+
+                state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
 
                 // Phase 13 (FR-044): three distinct empty states where there used to be one.
                 // A student who has never reached the catalog, a teacher who has published
@@ -132,82 +191,225 @@ fun HomeContent(
                     modifier = Modifier.align(Alignment.Center),
                 )
 
-                else -> {
-                val widthClass = LocalWindowWidthClass.current
-                LazyVerticalGrid(
-                    // T084 (US4, FR-027, SC-011): column count and margin follow available width,
-                    // not device type — a narrow split-screen pane gets the COMPACT layout.
-                    columns = GridCells.Fixed(MatnSpacing.libraryColumns(widthClass)),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(MatnSpacing.horizontalMargin(widthClass)),
-                    horizontalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
-                ) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        DailyGoalSection(state.dailyGoal, modifier = Modifier.padding(bottom = MatnSpacing.unit))
-                    }
-                    // FR-007: a failed refresh is a non-blocking notice ABOVE a still-usable
-                    // library, never an emptied one.
-                    if (state.showSyncFailedNotice) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            CatalogNotice(
-                                message = stringResource(Res.string.catalog_sync_failed),
-                                actionLabel = stringResource(Res.string.catalog_refresh),
-                                onAction = onRefresh,
-                                isBusy = state.isSyncing,
-                                modifier = Modifier.padding(bottom = MatnSpacing.unit),
-                            )
-                        }
-                    }
-                    // FR-044's third case: the catalog has متون but none are on the device. Said
-                    // once, above the grid, rather than repeated on every card.
-                    if (state.showNothingDownloaded) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Text(
-                                text = stringResource(Res.string.catalog_nothing_downloaded),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = MatnSpacing.unit),
-                            )
-                        }
-                    }
-                    state.continueLearning?.let { entry ->
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            // FR-015: nothing at all — no placeholder, no reserved space — when null.
-                            ContinueLearningCard(
-                                entry = entry,
-                                onResume = onResume,
-                                onDismiss = onDismiss,
-                                isContentInstalled = state.isContinueLearningContentInstalled,
-                                // Reinstalling happens from the matn's own details screen, where
-                                // the real install action lives (FR-022) — a resume that would
-                                // fail the playback gate is never offered here (SC-007).
-                                onReinstall = { onOpenMatn(entry.matnId) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = MatnSpacing.unit),
-                            )
-                        }
-                    }
-                    items(items = state.items, key = { it.matn.id }) { summary ->
-                        MatnCard(
-                            summary = summary,
-                            onClick = { onOpenMatn(summary.matn.id) },
-                            progressFraction = state.progressByMatn[summary.matn.id],
-                            availability = state.availability[summary.matn.id],
-                            declaredSizeBytes = summary.declaredSizeBytes,
-                            coverBytes = state.covers[summary.matn.id],
-                        )
-                    }
-                }
-                }
+                else -> CatalogGrid(
+                    state = state,
+                    onOpenMatn = onOpenMatn,
+                    onResume = onResume,
+                    onDismiss = onDismiss,
+                    onRefresh = onRefresh,
+                )
             }
         }
     }
 }
 
-/** The app-identity top bar — wordmark plus the US1 search entry point; see [HomeContent]'s
- *  KDoc for why the menu icon is still omitted. */
+/** Screen name plus the daily-goal ring, which doubles as the sheet's entry point. */
+@Composable
+private fun LibraryHeader(
+    dailyGoal: DailyGoalUiState,
+    isSyncing: Boolean,
+    onRefresh: () -> Unit,
+    onOpenDailyGoal: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val goalLabel = stringResource(Res.string.goals_open)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MatnSpacing.marginMobile)
+            .padding(top = MatnSpacing.snug),
+    ) {
+        Text(
+            text = stringResource(Res.string.nav_library),
+            style = MaterialTheme.typography.headlineSmall,
+            color = scheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        // FR-006's explicit refresh, reachable from a populated library too — the empty-state and
+        // sync-failure entry points below are unreachable once the grid has content, which would
+        // leave the 1-hour staleness window as the only path to a newly published matn.
+        IconButton(onClick = onRefresh, enabled = !isSyncing) {
+            RefreshGlyph(
+                color = if (isSyncing) scheme.onSurfaceVariant else scheme.onSurface,
+                contentDescription = stringResource(Res.string.catalog_refresh),
+            )
+        }
+        DailyGoalRing(
+            fraction = dailyGoal.fraction,
+            practiced = dailyGoal.practiced,
+            goal = dailyGoal.goal,
+            isComplete = dailyGoal.isComplete,
+            diameter = MatnSpacing.unit * 6,
+            modifier = Modifier
+                .clickable(onClickLabel = goalLabel, onClick = onOpenDailyGoal)
+                .semantics { contentDescription = goalLabel },
+        )
+    }
+}
+
+/**
+ * The in-place search field (design system: "Search · inline on Library"). Deliberately *not*
+ * autofocused: this is the library's own header, and stealing focus on every visit would raise the
+ * keyboard over the grid the student came to browse. The old pushed search screen autofocused
+ * because arriving there was already an explicit act.
+ */
+@Composable
+private fun InlineSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClearQuery: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier.fillMaxWidth(),
+        placeholder = {
+            Text(
+                text = stringResource(Res.string.search_field_placeholder),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        singleLine = true,
+        shape = MatnShapes.full,
+        leadingIcon = {
+            SearchGlyph(
+                color = scheme.onSurfaceVariant,
+                contentDescription = stringResource(Res.string.search_open),
+            )
+        },
+        trailingIcon = if (query.isNotEmpty()) {
+            {
+                val clearLabel = stringResource(Res.string.search_clear)
+                IconButton(
+                    onClick = onClearQuery,
+                    modifier = Modifier.semantics { contentDescription = clearLabel },
+                ) {
+                    Text("×", style = MaterialTheme.typography.titleLarge, color = scheme.onSurfaceVariant)
+                }
+            }
+        } else null,
+        colors = TextFieldDefaults.colors(
+            unfocusedContainerColor = scheme.surfaceContainerLow,
+            focusedContainerColor = scheme.surfaceContainerLow,
+            unfocusedIndicatorColor = Color.Transparent,
+            focusedIndicatorColor = Color.Transparent,
+        ),
+    )
+}
+
+/** The body while a query is live. `Searching` renders nothing rather than a spinner: the debounce
+ *  is 250ms, and a spinner that brief reads as a flicker. */
+@Composable
+private fun SearchResults(phase: SearchPhase, onResultClick: (SearchResult) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    when (phase) {
+        is SearchPhase.Idle, is SearchPhase.Searching -> Unit
+        is SearchPhase.NoResults -> Text(
+            text = stringResource(Res.string.search_no_results),
+            style = MaterialTheme.typography.bodyLarge,
+            color = scheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(MatnSpacing.gutter),
+        )
+
+        // Bounded to the reading measure and centred on wide windows (FR-028).
+        is SearchPhase.Results -> LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = MatnSpacing.readingMaxWidth),
+        ) {
+            items(items = phase.results, key = { it.resultKey() }) { result ->
+                SearchResultRow(result = result, onClick = { onResultClick(result) })
+                HorizontalDivider(color = scheme.outlineVariant)
+            }
+        }
+    }
+}
+
+private fun SearchResult.resultKey(): String = when (this) {
+    is SearchResult.VerseMatch -> "verse:${ref.verseId}"
+    is SearchResult.ChapterMatch -> "chapter:$chapterId"
+    is SearchResult.MatnMatch -> "matn:$matnId"
+}
+
+@Composable
+private fun CatalogGrid(
+    state: HomeUiState,
+    onOpenMatn: (String) -> Unit,
+    onResume: () -> Unit,
+    onDismiss: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    val widthClass = LocalWindowWidthClass.current
+    LazyVerticalGrid(
+        // T084 (US4, FR-027, SC-011): column count and margin follow available width, not device
+        // type — a narrow split-screen pane gets the COMPACT layout.
+        columns = GridCells.Fixed(MatnSpacing.libraryColumns(widthClass)),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = MatnSpacing.horizontalMargin(widthClass),
+            end = MatnSpacing.horizontalMargin(widthClass),
+            bottom = MatnSpacing.gutter,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(MatnSpacing.snug),
+        verticalArrangement = Arrangement.spacedBy(MatnSpacing.snug),
+    ) {
+        // FR-007: a failed refresh is a non-blocking notice ABOVE a still-usable library, never an
+        // emptied one.
+        if (state.showSyncFailedNotice) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                CatalogNotice(
+                    message = stringResource(Res.string.catalog_sync_failed),
+                    actionLabel = stringResource(Res.string.catalog_refresh),
+                    onAction = onRefresh,
+                    isBusy = state.isSyncing,
+                )
+            }
+        }
+        // FR-044's third case: the catalog has متون but none are on the device. Said once, above
+        // the grid, rather than repeated on every card.
+        if (state.showNothingDownloaded) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    text = stringResource(Res.string.catalog_nothing_downloaded),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        state.continueLearning?.let { entry ->
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                // FR-015: nothing at all — no placeholder, no reserved space — when null.
+                ContinueLearningCard(
+                    entry = entry,
+                    onResume = onResume,
+                    onDismiss = onDismiss,
+                    isContentInstalled = state.isContinueLearningContentInstalled,
+                    // Reinstalling happens from the matn's own details screen, where the real
+                    // install action lives (FR-022) — a resume that would fail the playback gate is
+                    // never offered here (SC-007).
+                    onReinstall = { onOpenMatn(entry.matnId) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        items(items = state.items, key = { it.matn.id }) { summary ->
+            MatnCard(
+                summary = summary,
+                onClick = { onOpenMatn(summary.matn.id) },
+                progressFraction = state.progressByMatn[summary.matn.id],
+                availability = state.availability[summary.matn.id],
+                declaredSizeBytes = summary.declaredSizeBytes,
+                coverBytes = state.covers[summary.matn.id],
+            )
+        }
+    }
+}
+
 /**
  * A centered catalog state — the full-screen form, used when there is no grid to show.
  *
@@ -215,11 +417,6 @@ fun HomeContent(
  * "the teacher has published nothing" differs from "we could not reach the catalog": one is a
  * situation to wait out, the other is a situation to retry, and offering a retry for the first
  * would be a dead affordance.
- *
- * **Stitch note (Constitution VIII)**: the design source has no screen for these three states —
- * they did not exist before Phase 13, when a network-less first launch became possible. This reuses
- * the existing centered empty-state pattern (previously `library_empty`) with token-routed
- * type/spacing rather than inventing a new layout.
  */
 @Composable
 private fun CatalogMessage(
@@ -276,82 +473,8 @@ private fun CatalogNotice(
     }
 }
 
-@Composable
-private fun HomeTopBar(onOpenSearch: () -> Unit = {}, onRefresh: () -> Unit = {}, isSyncing: Boolean = false) {
-    Surface(color = MaterialTheme.colorScheme.surface) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = MatnSpacing.marginMobile),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = stringResource(Res.string.app_title),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            androidx.compose.material3.IconButton(
-                onClick = onOpenSearch,
-                modifier = Modifier.align(Alignment.CenterEnd),
-            ) {
-                com.giraffe.matn.presentation.common.SearchGlyph(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    contentDescription = stringResource(Res.string.search_open),
-                )
-            }
-            // FR-006's explicit refresh, reachable from a populated library too — the empty-state
-            // and sync-failure entry points below are unreachable once the grid has content, which
-            // left the 1-hour staleness window as the only path to a newly published matn.
-            androidx.compose.material3.IconButton(
-                onClick = onRefresh,
-                enabled = !isSyncing,
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                com.giraffe.matn.presentation.common.RefreshGlyph(
-                    color = if (isSyncing) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    contentDescription = stringResource(Res.string.catalog_refresh),
-                )
-            }
-        }
-    }
-}
-
-/**
- * Home's daily-goal section (FR-009/FR-012): the shared [DailyGoalRing] plus its label, wired to
- * real practiced/goal tracking (specs/007).
- */
-@Composable
-private fun DailyGoalSection(state: DailyGoalUiState, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = MatnSpacing.unit)
-            .padding(top = MatnSpacing.unit),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        DailyGoalRing(
-            fraction = state.fraction,
-            practiced = state.practiced,
-            goal = state.goal,
-            isComplete = state.isComplete,
-            diameter = MatnSpacing.unit * 8,
-        )
-        Text(
-            text = stringResource(Res.string.home_daily_goal_label),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(start = MatnSpacing.unit * 2),
-        )
-    }
-}
-
 // ---------------------------------------------------------------------------------------------
-// Previews — every view/component in this file has one (light Material 3, RTL via MatnTheme).
+// Previews — every view/component in this file has one (light Material 3, direction from locale).
 // ---------------------------------------------------------------------------------------------
 
 private fun previewSummary(id: String, title: String, count: Int, total: Long) = MatnSummary(
@@ -367,20 +490,16 @@ private fun previewSummary(id: String, title: String, count: Int, total: Long) =
     totalDurationMs = total,
 )
 
+private val previewItems = listOf(
+    previewSummary("m1", "الأجرومية", 4, 31_300),
+    previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
+)
+
 @Preview
 @Composable
 private fun HomeContentPopulatedPreview() {
     MatnTheme {
-        HomeContent(
-            state = HomeUiState(
-                isLoading = false,
-                items = listOf(
-                    previewSummary("m1", "الأجرومية", 4, 31_300),
-                    previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
-                ),
-            ),
-            onOpenMatn = {},
-        )
+        HomeContent(state = HomeUiState(isLoading = false, items = previewItems), onOpenMatn = {})
     }
 }
 
@@ -392,19 +511,9 @@ private fun HomeContentPopulatedPreview() {
 private fun HomeContentWidePreview() {
     MatnTheme {
         androidx.compose.runtime.CompositionLocalProvider(
-            com.giraffe.matn.presentation.theme.LocalWindowWidthClass provides
-                com.giraffe.matn.presentation.theme.WindowWidthClass.EXPANDED,
+            LocalWindowWidthClass provides com.giraffe.matn.presentation.theme.WindowWidthClass.EXPANDED,
         ) {
-            HomeContent(
-                state = HomeUiState(
-                    isLoading = false,
-                    items = listOf(
-                        previewSummary("m1", "الأجرومية", 4, 31_300),
-                        previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
-                    ),
-                ),
-                onOpenMatn = {},
-            )
+            HomeContent(state = HomeUiState(isLoading = false, items = previewItems), onOpenMatn = {})
         }
     }
 }
@@ -414,16 +523,7 @@ private fun HomeContentWidePreview() {
 @Composable
 private fun HomeContentMaxScalePreview() {
     MatnTheme {
-        HomeContent(
-            state = HomeUiState(
-                isLoading = false,
-                items = listOf(
-                    previewSummary("m1", "الأجرومية", 4, 31_300),
-                    previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
-                ),
-            ),
-            onOpenMatn = {},
-        )
+        HomeContent(state = HomeUiState(isLoading = false, items = previewItems), onOpenMatn = {})
     }
 }
 
@@ -432,14 +532,46 @@ private fun HomeContentMaxScalePreview() {
 @Composable
 private fun HomeContentPopulatedDarkPreview() {
     MatnTheme(themeMode = ThemeMode.DARK) {
+        HomeContent(state = HomeUiState(isLoading = false, items = previewItems), onOpenMatn = {})
+    }
+}
+
+/** A live query swaps the grid for results, in place — the state that used to be its own route. */
+@Preview
+@Composable
+private fun HomeContentSearchResultsPreview() {
+    MatnTheme {
         HomeContent(
-            state = HomeUiState(
-                isLoading = false,
-                items = listOf(
-                    previewSummary("m1", "الأجرومية", 4, 31_300),
-                    previewSummary("m2", "متن الآجرومية مبوب", 5, 39_900),
+            state = HomeUiState(isLoading = false, items = previewItems),
+            searchState = SearchUiState(
+                query = "الكلام",
+                phase = SearchPhase.Results(
+                    listOf(
+                        SearchResult.MatnMatch(matnId = "m1", matnTitle = "الأجرومية"),
+                        SearchResult.VerseMatch(
+                            com.giraffe.matn.domain.model.AnnotatedVerseRef(
+                                matnId = "m1",
+                                matnTitle = "الأجرومية",
+                                verseId = "v1",
+                                verseNumber = 1,
+                                verseText = "الكَلامُ هُوَ اللَّفظُ المُرَكَّبُ المُفيدُ بِالوَضعِ",
+                            ),
+                        ),
+                    ),
                 ),
             ),
+            onOpenMatn = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun HomeContentSearchNoResultsPreview() {
+    MatnTheme {
+        HomeContent(
+            state = HomeUiState(isLoading = false, items = previewItems),
+            searchState = SearchUiState(query = "xyz", phase = SearchPhase.NoResults),
             onOpenMatn = {},
         )
     }
@@ -486,10 +618,7 @@ private fun HomeContentNothingDownloadedPreview() {
         HomeContent(
             state = HomeUiState(
                 isLoading = false,
-                items = listOf(
-                    previewSummary("m1", "الأجرومية", 4, 0),
-                    previewSummary("m2", "متن الآجرومية مبوب", 5, 0),
-                ),
+                items = previewItems,
                 availability = mapOf(
                     "m1" to ContentAvailability.NotDownloaded(),
                     "m2" to ContentAvailability.NotDownloaded(),
@@ -521,9 +650,7 @@ private fun HomeContentSyncFailedPreview() {
 @Preview
 @Composable
 private fun HomeContentLoadingPreview() {
-    MatnTheme {
-        HomeContent(state = HomeUiState(isLoading = true), onOpenMatn = {})
-    }
+    MatnTheme { HomeContent(state = HomeUiState(isLoading = true), onOpenMatn = {}) }
 }
 
 @Preview

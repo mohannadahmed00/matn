@@ -35,6 +35,7 @@ class MarkChapterMemorizedUseCaseTest {
         }
 
         override fun observeMemorizedVerseIds(matnId: String): Flow<Set<String>> = flowOf(memorizedVerseIds.toSet())
+        override fun observeMemorized() = flowOf(emptyList<com.giraffe.matn.domain.model.MemorizedEntry>())
         override fun observeMatnProgress(matnId: String): Flow<MatnProgress> = flowOf(MatnProgress(matnId, 0, 0))
         override fun observeLibraryProgress(): Flow<List<MatnProgress>> = flowOf(emptyList())
         override suspend fun recordPractice(verseId: String): Resource<Unit> = Resource.Success(Unit)

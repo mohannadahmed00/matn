@@ -102,6 +102,37 @@ class ProgressRepositoryTest {
         assertEquals(3, progress.totalCount)
     }
 
+    /** Saved tab, *Memorized* segment: newest first, with resolvable verse/matn context. */
+    @Test
+    fun observeMemorized_lists_entries_newest_first_with_context() = runTest {
+        val db = seededDb()
+        val repo = repo(db)
+
+        repo.setVerseMemorized("v1", true)
+        repo.setVerseMemorized("v3", true)
+
+        val entries = repo.observeMemorized().first()
+        // `clock` increments per call, so v3 is the newer row and must lead.
+        assertEquals(listOf("v3", "v1"), entries.map { it.ref.verseId })
+        val newest = entries.first()
+        assertEquals("m1", newest.ref.matnId)
+        assertEquals("متن", newest.ref.matnTitle)
+        assertEquals(3, newest.ref.verseNumber)
+        assertEquals("بيت ثلاثة", newest.ref.verseText)
+    }
+
+    /** Un-marking removes the row from the Saved list, unlike the daily practice count. */
+    @Test
+    fun observeMemorized_drops_unmarked_verses() = runTest {
+        val db = seededDb()
+        val repo = repo(db)
+
+        repo.setVerseMemorized("v1", true)
+        repo.setVerseMemorized("v1", false)
+
+        assertEquals(emptyList(), repo.observeMemorized().first())
+    }
+
     @Test
     fun un_mark_removes_indicator_and_resets_progress_but_keeps_daily_count() = runTest {
         val db = seededDb()

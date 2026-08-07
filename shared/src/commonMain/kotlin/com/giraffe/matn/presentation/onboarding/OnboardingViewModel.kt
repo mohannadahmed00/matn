@@ -23,6 +23,17 @@ class OnboardingViewModel(
 
     fun onSkip() = complete()
 
+    /**
+     * Rewinds to the first panel for a re-open from Settings (contract §2.3). Needed because
+     * onboarding is now an overlay above Library rather than a route: the ViewModel outlives a
+     * dismissal, so without this the re-opened overlay would still be holding `isCompleted = true`
+     * and would close itself on its first frame. Re-opening never clears the *persisted* completed
+     * flag — this is presentation state only.
+     */
+    fun onReopened() {
+        setState { OnboardingUiState() }
+    }
+
     fun onFinish() = complete()
 
     private fun complete() {

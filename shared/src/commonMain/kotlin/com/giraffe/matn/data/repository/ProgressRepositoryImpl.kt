@@ -5,8 +5,10 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.giraffe.matn.core.Resource
+import com.giraffe.matn.data.mapper.toMemorizedEntry
 import com.giraffe.matn.db.ContentDatabase
 import com.giraffe.matn.domain.model.MatnProgress
+import com.giraffe.matn.domain.model.MemorizedEntry
 import com.giraffe.matn.domain.repository.ProgressRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -75,6 +77,13 @@ class ProgressRepositoryImpl(
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { it.toSet() }
+
+    override fun observeMemorized(): Flow<List<MemorizedEntry>> =
+        db.contentQueries
+            .selectAllMemorizedWithContext()
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { rows -> rows.map { it.toMemorizedEntry() } }
 
     override fun observeMatnProgress(matnId: String): Flow<MatnProgress> =
         db.contentQueries

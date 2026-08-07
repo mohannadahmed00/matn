@@ -6,6 +6,7 @@ import com.giraffe.matn.db.Chapter as ChapterRow
 import com.giraffe.matn.db.Matn as MatnRow
 import com.giraffe.matn.db.Note as NoteRow
 import com.giraffe.matn.db.SelectAllBookmarksWithContext as BookmarkContextRow
+import com.giraffe.matn.db.SelectAllMemorizedWithContext as MemorizedContextRow
 import com.giraffe.matn.db.SelectAllNotesWithContext as NoteContextRow
 import com.giraffe.matn.db.SelectLibrarySummaries as LibrarySummaryRow
 import com.giraffe.matn.db.Verse as VerseRow
@@ -16,6 +17,7 @@ import com.giraffe.matn.domain.model.BookmarkEntry
 import com.giraffe.matn.domain.model.Chapter
 import com.giraffe.matn.domain.model.Matn
 import com.giraffe.matn.domain.model.MatnSummary
+import com.giraffe.matn.domain.model.MemorizedEntry
 import com.giraffe.matn.domain.model.Note
 import com.giraffe.matn.domain.model.NoteEntry
 import com.giraffe.matn.domain.model.StructureKind
@@ -116,6 +118,19 @@ internal fun NoteRow.toDomain(): Note = Note(id = id, verseId = verse_id, text =
 /** Same totality guarantee as [toBookmarkEntry] — see its KDoc. */
 internal fun NoteContextRow.toNoteEntry(): NoteEntry = NoteEntry(
     note = Note(id = id, verseId = verse_id, text = text, updatedAtMs = updated_at),
+    ref = AnnotatedVerseRef(
+        matnId = matn_id,
+        matnTitle = matn_title,
+        verseId = verse_id,
+        verseNumber = verse_number.toInt(),
+        verseText = verse_text,
+    ),
+)
+
+/** Same totality guarantee as [toBookmarkEntry] — see its KDoc. */
+internal fun MemorizedContextRow.toMemorizedEntry(): MemorizedEntry = MemorizedEntry(
+    id = id,
+    memorizedAtMs = memorized_at,
     ref = AnnotatedVerseRef(
         matnId = matn_id,
         matnTitle = matn_title,
