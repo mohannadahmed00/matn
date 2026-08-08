@@ -122,6 +122,12 @@
     <string name="library_offline_chip">لا يوجد اتصال</string>
     <string name="library_retry_connection">إعادة محاولة الاتصال</string>
     <string name="library_offline_help_question">ماذا أستطيع دون اتصال؟</string>
+    <string name="details_verses_section">الأبيات</string>
+    <string name="details_contents_shown">الفهرس ظاهر</string>
+    <string name="details_contents_hidden">الفهرس مخفي</string>
+    <string name="reader_verse_repeat_short">تكرار البيت %1$s</string>
+    <string name="reader_matn_repeat_short">تكرار المتن %1$s</string>
+    <string name="reader_mode_edit">تعديل</string>
     <string name="reader_no_verse">لم يعد هذا البيت في المتن. افتحه من الفهرس لمتابعة القراءة.</string>
     <string name="library_offline_help_answer">كل ما نزّلته من قبل: القراءة، وتشغيل التلاوة، وتكرار الأبيات، وكتابة الملاحظات، وتمييز المحفوظ. الاتصال لازم فقط لتصفّح القائمة وتنزيل متن جديد.</string>
     <string name="content_installing_percent">جارٍ التثبيت %1$s</string>

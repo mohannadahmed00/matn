@@ -150,9 +150,15 @@ fun ReadingCarousel(
 }
 
 /**
- * A muted, slightly scaled-down neighbor verse — or nothing, at a matn boundary. Sized as a
- * fraction of the active verse's [ReadingFontSize] (never a bare literal) so it shrinks/grows
- * alongside the user's font-size preference instead of drifting out of proportion at the extremes.
+ * A muted neighbour verse — or nothing, at a matn boundary.
+ *
+ * Matn Design System §05 (*Reader*): neighbours are `onSurface` at **38%**, one stop **down the
+ * reading size scale**, so the active verse wins on size, contrast *and* the 4dp rail — three
+ * signals, none of which carries the distinction alone.
+ *
+ * Stepping the real scale rather than multiplying by a fraction matters at the ends: at `SMALL`
+ * there is nothing below to step to, so the neighbour stays at `SMALL` and the contrast and rail do
+ * the work, instead of shrinking into something a student with a small-text preference cannot read.
  */
 @Composable
 private fun NeighborVerse(
@@ -164,18 +170,19 @@ private fun NeighborVerse(
 ) {
     if (verse == null) return
     val scheme = MaterialTheme.colorScheme
-    val neighborSize = fontSize.toSp() * 0.8f
+    val neighborSize = fontSize.oneStopDown().toSp()
     Box(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = verse.arabicText,
             fontFamily = verseFont,
             fontSize = neighborSize,
             lineHeight = neighborSize * 1.6f,
-            color = scheme.onSurfaceVariant,
+            // 38% of onSurface, not onSurfaceVariant dimmed further: the neighbour is the same
+            // kind of content as the active verse, just not the one being worked on, so it stays
+            // on the same colour role and only loses weight.
+            color = scheme.onSurface.copy(alpha = 0.38f),
             textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer(alpha = 0.3f, scaleX = 0.95f, scaleY = 0.95f),
+            modifier = Modifier.fillMaxWidth(),
         )
         val neighborAnnotation = annotations[verse.id]
         Row(modifier = Modifier.align(Alignment.TopEnd)) {

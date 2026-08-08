@@ -1,5 +1,6 @@
 package com.giraffe.matn.presentation.reader
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,14 +20,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.giraffe.matn.core.AppError
+import com.giraffe.matn.domain.model.PlaybackMode
 import com.giraffe.matn.domain.model.ReadingFontSize
+import com.giraffe.matn.domain.model.RepeatCount
 import com.giraffe.matn.domain.model.ThemeMode
 import com.giraffe.matn.presentation.common.BackGlyph
+import com.giraffe.matn.presentation.common.autoIsolated
+import com.giraffe.matn.presentation.common.ltrIsolated
 import com.giraffe.matn.presentation.details.VerseRow
 import com.giraffe.matn.presentation.notes.NoteEditorSheet
 import com.giraffe.matn.presentation.player.PlayerBar
@@ -35,10 +44,18 @@ import com.giraffe.matn.presentation.player.RepetitionSetupHost
 import com.giraffe.matn.presentation.player.windowVersesForCarousel
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
+import com.giraffe.matn.presentation.theme.verseFontFamily
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.back
 import matn.shared.generated.resources.error_matn_not_found
 import matn.shared.generated.resources.error_storage
+import matn.shared.generated.resources.font_size
+import matn.shared.generated.resources.mode_ab_loop
+import matn.shared.generated.resources.mode_memorization
+import matn.shared.generated.resources.mode_normal
+import matn.shared.generated.resources.reader_matn_repeat_short
+import matn.shared.generated.resources.reader_mode_edit
+import matn.shared.generated.resources.reader_verse_repeat_short
 import matn.shared.generated.resources.reader_no_verse
 import org.jetbrains.compose.resources.stringResource
 
@@ -111,6 +128,8 @@ fun ReaderContent(
                 ReaderTopBar(
                     title = state.matnTitle,
                     subtitle = state.chapterTitle,
+                    fontSize = state.fontSize,
+                    onFontSizeChanged = onFontSizeChanged,
                     onBack = onBack,
                 )
                 // remember: windowVersesForCarousel scans `verses` — this screen's single bundled
@@ -140,6 +159,10 @@ fun ReaderContent(
                     }
                 }
                 if (playerBar != null) {
+                    ModeStrip(
+                        playerBar = playerBar,
+                        onEdit = { repetitionSheetOpen = true },
+                    )
                     PlayerBar(
                         viewModel = playerBar,
                         onRepeatSettingsClicked = { repetitionSheetOpen = true },
@@ -186,13 +209,17 @@ fun ReaderContent(
  * 300-verse matn — and it is simply absent for a SIMPLE matn rather than reserving empty space.
  */
 @Composable
-private fun ReaderTopBar(title: String, subtitle: String?, onBack: () -> Unit) {
+private fun ReaderTopBar(
+    title: String,
+    subtitle: String?,
+    fontSize: ReadingFontSize,
+    onFontSizeChanged: (ReadingFontSize) -> Unit,
+    onBack: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(end = MatnSpacing.snug),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         IconButton(onClick = onBack) {
             BackGlyph(color = scheme.onSurface, contentDescription = stringResource(Res.string.back))
@@ -215,7 +242,97 @@ private fun ReaderTopBar(title: String, subtitle: String?, onBack: () -> Unit) {
                 )
             }
         }
+        // The design puts the "أ" size control in the reader's top bar, and only there among the
+        // reading surfaces: this is where a size that is wrong is actually felt, so it is where
+        // changing it costs nothing. Settings still owns the same preference for anyone who goes
+        // looking for it — both write the same use case, so they cannot disagree.
+        ReaderFontSizeControl(fontSize = fontSize, onFontSizeChanged = onFontSizeChanged)
     }
+}
+
+/**
+ * Cycles the reading size one stop per tap, wrapping at the top. A cycling control rather than a
+ * menu because there are four stops and the result is visible behind the tap — reading the change
+ * is faster than reading a list of options.
+ */
+@Composable
+private fun ReaderFontSizeControl(fontSize: ReadingFontSize, onFontSizeChanged: (ReadingFontSize) -> Unit) {
+    val label = stringResource(Res.string.font_size)
+    IconButton(
+        onClick = {
+            val next = ReadingFontSize.entries[(fontSize.ordinal + 1) % ReadingFontSize.entries.size]
+            onFontSizeChanged(next)
+        },
+        modifier = Modifier.semantics {
+            contentDescription = label
+            stateDescription = fontSize.name
+        },
+    ) {
+        Text(
+            text = "أ",
+            fontFamily = verseFontFamily(),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * The repetition summary the design puts directly above the transport: what mode is running and how
+ * far through its counts, plus one way in to change it.
+ *
+ * It exists because the transport alone cannot say *why* a verse is repeating. A student mid-drill
+ * seeing the same verse a fourth time needs to know that is the setting working, not the player
+ * stuck — that reassurance is the whole job of this strip.
+ */
+@Composable
+private fun ModeStrip(playerBar: PlayerBarViewModel, onEdit: () -> Unit) {
+    val barState by playerBar.state.collectAsStateWithLifecycle()
+    if (!barState.visible) return
+    val scheme = MaterialTheme.colorScheme
+    val mode = stringResource(
+        when (barState.mode) {
+            PlaybackMode.NORMAL -> Res.string.mode_normal
+            PlaybackMode.MEMORIZATION -> Res.string.mode_memorization
+            PlaybackMode.A_B_LOOP -> Res.string.mode_ab_loop
+        },
+    )
+    // Isolated as a whole (BidiText.kt § Composites): three counts separated by neutral "·" would
+    // otherwise be reordered against each other by the paragraph direction.
+    val summary = autoIsolated(
+        mode +
+            " · " + stringResource(Res.string.reader_verse_repeat_short, ltrIsolated(repeatLabel(barState.verseRepeatTarget))) +
+            " · " + stringResource(Res.string.reader_matn_repeat_short, ltrIsolated(repeatLabel(barState.matnRepeatTarget))),
+    )
+    Surface(color = scheme.surfaceContainerLow) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onEdit)
+                .padding(horizontal = MatnSpacing.marginMobile, vertical = MatnSpacing.unit),
+        ) {
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(Res.string.reader_mode_edit),
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.primary,
+            )
+        }
+    }
+}
+
+/** `∞` for an unbounded repeat, the count otherwise — the strip has room for one glyph, not a word. */
+private fun repeatLabel(count: RepeatCount): String = when (count) {
+    is RepeatCount.Unlimited -> "∞"
+    is RepeatCount.Finite -> count.value.toString()
 }
 
 @Composable
