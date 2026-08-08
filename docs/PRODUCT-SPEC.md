@@ -116,9 +116,13 @@ present on every top-level screen:
   segmented control (All · Notes · Memorized).
 - **Settings** — app preferences, storage management, onboarding-related permissions.
 
-Below the bar there is exactly one further route, `matn/{id}`, for reading and playback. It earns
-full-screen status because it owns a scroll position, a back-stack entry, and the deep link that
-Continue Learning and every search result resolve through.
+Below the bar there are two further routes:
+
+- **Details** (`matn/{id}`) — cover, metadata, contents, verse list, download control. Deep-linked
+  from search results and from undownloaded catalog cards.
+- **Reader** (`matn/{id}/read?v={n}`) — the immersive three-verse focus and the player bar. It earns
+  full-screen status because it owns a scroll position, a back-stack entry, and the deep link
+  Continue Learning resolves through.
 
 **The rule for what is a route** (Matn Design System §02): if a surface does not need its own
 back-stack entry, its own scroll position, or its own deep link, it is not a route. Everything else
