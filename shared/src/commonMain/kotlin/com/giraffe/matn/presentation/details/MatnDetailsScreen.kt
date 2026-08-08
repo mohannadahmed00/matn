@@ -25,7 +25,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,10 +64,24 @@ import com.giraffe.matn.presentation.theme.LocalWindowWidthClass
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
 import com.giraffe.matn.presentation.theme.toSp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
+import com.giraffe.matn.domain.model.DeliveryProgress
+import com.giraffe.matn.presentation.common.InstallProgressIndicator
+import com.giraffe.matn.presentation.common.ltrIsolated
+import com.giraffe.matn.presentation.theme.MatnShapes
 import com.giraffe.matn.presentation.theme.verseFontFamily
 import kotlinx.coroutines.launch
 import matn.shared.generated.resources.Res
 import matn.shared.generated.resources.back
+import matn.shared.generated.resources.content_action_cancel
+import matn.shared.generated.resources.content_installing_percent
+import matn.shared.generated.resources.details_contents_hidden
+import matn.shared.generated.resources.details_contents_shown
+import matn.shared.generated.resources.details_verses_section
+import matn.shared.generated.resources.toc_header
 import matn.shared.generated.resources.content_error_cancelled
 import matn.shared.generated.resources.content_error_insufficient_storage
 import matn.shared.generated.resources.content_error_no_connectivity
@@ -262,10 +278,24 @@ private fun VerseList(
     // T089 (US4, FR-026): header + verse-list horizontal padding follows available width.
     val horizontalMargin = MatnSpacing.horizontalMargin(LocalWindowWidthClass.current)
 
-    // Header occupies item index 0; the TOC panel (when shown) occupies index 1; verses start
-    // after that. SC-004 scroll target uses these offsets.
-    val tocIndex = if (state.showTableOfContents && state.chapters.isNotEmpty()) 1 else -1
-    val firstVerseIndex = if (tocIndex >= 0) tocIndex + 1 else 1
+    // Contents is collapsed on arrival; see VersesSectionHeader for why. rememberSaveable so a
+    // rotation does not close a table the student just opened (FR-030).
+    var contentsExpanded by rememberSaveable { mutableStateOf(false) }
+    val hasContents = state.showTableOfContents && state.chapters.isNotEmpty()
+
+    // Header is item 0 and the section rule is item 1; the TOC panel (when expanded) is item 2;
+    // verses start after that. SC-004's scroll target uses these offsets.
+    val tocIndex = if (hasContents && contentsExpanded) 2 else -1
+    val firstVerseIndex = if (tocIndex >= 0) tocIndex + 1 else 2
+
+    // FR-021: with nothing downloaded there is nothing to play. The rows still render — the student
+    // is entitled to see what they would be getting — but their play controls are inert.
+    //
+    // Deviation from the design frame: it enables each row's control as that verse's file lands,
+    // "in file order". ContentAvailability is atomic by construction (research D7: no partial state,
+    // no per-verse presence tracking), so per-verse enablement has no source of truth to read and
+    // would have to be faked from byte progress. Every row enables together on completion instead.
+    val isPlayable = state.availability is ContentAvailability.Downloaded
 
     // US1 FR-003: precomputed once per actual change to chapters/verses/memorized-set, instead of
     // TableOfContents' isChapterMemorized callback re-filtering `verses` per chapter on every
@@ -319,6 +349,16 @@ private fun VerseList(
                 )
             }
         }
+        // The design's "Verses ......... Contents ⌄" divider line. It is also the section heading
+        // for everything below it, which is why it renders even for a matn with no chapters — the
+        // toggle is simply absent there rather than the whole row disappearing.
+        item(key = "verses-header") {
+            VersesSectionHeader(
+                hasContents = hasContents,
+                contentsExpanded = contentsExpanded,
+                onToggleContents = { contentsExpanded = !contentsExpanded },
+            )
+        }
         if (tocIndex >= 0) {
             item(key = "toc") {
                 TableOfContents(
@@ -342,13 +382,60 @@ private fun VerseList(
                 row = row,
                 fontSize = fontSize,
                 verseFont = verseFont,
-                isActive = row.id == state.activeVerseId,
-                inLoopRange = row.id in state.loopRangeVerseIds,
-                isLoopStart = row.id == state.loopRange?.startVerseId,
-                isLoopEnd = row.id == state.loopRange?.endVerseId,
+                isPlayable = isPlayable,
                 onPlayClicked = { onVersePlayClicked(row.id) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+    }
+}
+
+/**
+ * The section rule between the header and the verse list, carrying the Contents toggle.
+ *
+ * Contents collapses rather than pushing the verses down the screen. A 40-chapter matn's table of
+ * contents is longer than the first screenful of the thing it indexes, which inverts what the page
+ * is for — so it opens on request, and its state is remembered across rotation but not across
+ * visits, because arriving at a matn is a reading act, not a navigating one.
+ */
+@Composable
+private fun VersesSectionHeader(
+    hasContents: Boolean,
+    contentsExpanded: Boolean,
+    onToggleContents: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(vertical = MatnSpacing.snug),
+    ) {
+        Text(
+            text = stringResource(Res.string.details_verses_section),
+            style = MaterialTheme.typography.titleSmall,
+            color = scheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        if (hasContents) {
+            val label = stringResource(Res.string.toc_header)
+            val expandedState = stringResource(
+                if (contentsExpanded) Res.string.details_contents_shown else Res.string.details_contents_hidden,
+            )
+            TextButton(
+                onClick = onToggleContents,
+                // stateDescription rather than the `expanded` property: this Material3 version has
+                // no expanded semantics, and a screen reader still needs to hear which way the
+                // toggle currently sits before deciding whether to activate it.
+                modifier = Modifier.semantics {
+                    contentDescription = label
+                    stateDescription = expandedState
+                },
+            ) {
+                Text(
+                    text = label + if (contentsExpanded) "  ⌃" else "  ⌄",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = scheme.primary,
+                )
+            }
         }
     }
 }
@@ -368,101 +455,170 @@ private fun Frontispiece(
     onRemoveRequested: () -> Unit = {},
     coverBytes: ByteArray? = null,
 ) {
+    val scheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = MatnSpacing.unit, bottom = MatnSpacing.gutter - MatnSpacing.unit),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(top = MatnSpacing.unit, bottom = MatnSpacing.cozy),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            FontSizeChooser(fontSize = fontSize, onFontSizeChanged = onFontSizeChanged)
-            Spacer(modifier = Modifier.weight(1f))
-            // design-notes.md T049: layers the install/cancel action onto the header's existing
-            // Play affordance slot. Installed (or the starter, which is always Installed) keeps
-            // the Play button unchanged; otherwise the install/cancel action takes its place —
-            // there is nothing to play yet (FR-011).
-            if (availability is ContentAvailability.Downloaded) {
-                IconButton(onClick = onGlobalPlayClicked) {
-                    PlayGlyph(
-                        color = MaterialTheme.colorScheme.primary,
-                        size = 22.dp,
-                        contentDescription = stringResource(Res.string.player_play),
-                    )
-                }
-            } else if (availability != null) {
-                ContentActionButton(
-                    availability = availability,
-
-                    onInstall = onInstall,
-                    onCancel = onCancelInstall,
-                    onRemove = onRemoveRequested,
+        // Cover beside the metadata, not above it: the design's Details frame leads with a compact
+        // identity block so the download control and the verse list are both reachable without
+        // scrolling, which is what the student came here to do.
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.width(96.dp).aspectRatio(0.78f)) {
+                CoverImage(
+                    coverImageRef = header.coverImageRef,
+                    modifier = Modifier.fillMaxSize(),
+                    imageBytes = coverBytes,
                 )
             }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = MatnSpacing.cozy),
+            ) {
+                Text(
+                    text = header.title,
+                    fontFamily = verseFontFamily(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = scheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = header.author,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = MatnSpacing.hairline),
+                )
+                // Isolated as a whole (BidiText.kt § Composites) — see MatnCard for the same pairing.
+                val totals = com.giraffe.matn.presentation.common.autoIsolated(
+                    pluralStringResource(Res.plurals.verses_count, header.verseCount, header.verseCount) +
+                        " · " + formatDuration(header.totalDurationMs),
+                )
+                Text(
+                    text = totals,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.outline,
+                    modifier = Modifier.padding(top = MatnSpacing.unit),
+                )
+                if (declaredSizeBytes > 0L) {
+                    Text(
+                        text = formatBytes(declaredSizeBytes),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.outline,
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = MatnSpacing.unit),
+                ) {
+                    // design-notes.md T049: the install/cancel action layers onto the header's
+                    // existing Play slot. Downloaded keeps Play; otherwise there is nothing to play
+                    // yet (FR-011) and the delivery action takes its place.
+                    if (availability is ContentAvailability.Downloaded) {
+                        IconButton(onClick = onGlobalPlayClicked) {
+                            PlayGlyph(
+                                color = scheme.primary,
+                                size = 22.dp,
+                                contentDescription = stringResource(Res.string.player_play),
+                            )
+                        }
+                    } else if (availability != null) {
+                        ContentActionButton(
+                            availability = availability,
+                            onInstall = onInstall,
+                            onCancel = onCancelInstall,
+                            onRemove = onRemoveRequested,
+                        )
+                    }
+                }
+            }
+        }
+        if (availability is ContentAvailability.Downloading) {
+            DownloadPanel(
+                progress = availability.progress,
+                onCancel = onCancelInstall,
+                modifier = Modifier.padding(top = MatnSpacing.cozy),
+            )
         }
         if (installError is DeliveryError.DeliveryFailed) {
             Text(
                 text = installErrorMessage(installError.failure),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit / 2),
+                color = scheme.error,
+                modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit),
             )
         }
-        if (availability is ContentAvailability.NotDownloaded && declaredSizeBytes > 0L) {
-            Text(
-                text = formatBytes(declaredSizeBytes),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = MatnSpacing.unit / 2),
-            )
-        }
-        CoverImage(
-            coverImageRef = header.coverImageRef,
-            modifier = Modifier
-                .width(120.dp)
-                .aspectRatio(0.75f),
-            imageBytes = coverBytes,
-        )
-        Text(
-            text = header.title,
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = MatnSpacing.unit * 2),
-        )
-        Text(
-            text = header.author,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = MatnSpacing.unit / 2),
-        )
-        GoldRule(modifier = Modifier.padding(vertical = MatnSpacing.unit * 2))
         if (header.description.isNotBlank()) {
             Text(
                 text = header.description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = MatnSpacing.cozy),
             )
         }
-        // Isolated as a whole (BidiText.kt § Composites) — see MatnCard for the same pairing.
-        val totals = com.giraffe.matn.presentation.common.autoIsolated(
-            pluralStringResource(Res.plurals.verses_count, header.verseCount, header.verseCount) +
-                "  ·  " + formatDuration(header.totalDurationMs),
-        )
-        Text(
-            text = totals,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = MatnSpacing.unit + 4.dp),
-        )
         MatnProgressBar(
             fraction = header.progressFraction,
             label = stringResource(Res.string.matn_progress_label),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = MatnSpacing.gutter, vertical = MatnSpacing.unit),
+                .padding(top = MatnSpacing.cozy),
         )
+        GoldRule(modifier = Modifier.padding(top = MatnSpacing.cozy))
+    }
+}
+
+/**
+ * The in-flight download, stated in the two units that answer different questions: a percentage for
+ * "how much longer", and transferred-of-total bytes for "is it actually moving".
+ *
+ * **Deviation from the design frame:** it offers Cancel but no Pause. There is no pause in the
+ * delivery domain — `CancelInstallUseCase` is the only interruption there is — and a Pause button
+ * that silently cancelled would be worse than none.
+ */
+@Composable
+private fun DownloadPanel(
+    progress: DeliveryProgress,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val percent = (progress.fraction * 100).toInt()
+    Surface(shape = MatnShapes.lg, color = scheme.surfaceContainerLow, modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(MatnSpacing.cozy)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(Res.string.content_installing_percent, ltrIsolated("$percent%")),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = scheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                // Isolated as a whole: "transferred / total" is a pair whose order carries meaning.
+                Text(
+                    text = ltrIsolated(
+                        formatBytes(progress.bytesTransferred) + " / " + formatBytes(progress.totalBytes),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
+            InstallProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().padding(top = MatnSpacing.unit),
+            )
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.padding(top = MatnSpacing.hairline),
+            ) {
+                Text(
+                    text = stringResource(Res.string.content_action_cancel),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
     }
 }
 
@@ -583,35 +739,18 @@ private fun VerseRowItem(
     row: VerseRow,
     fontSize: TextUnit,
     verseFont: FontFamily,
-    isActive: Boolean = false,
-    inLoopRange: Boolean = false,
-    isLoopStart: Boolean = false,
-    isLoopEnd: Boolean = false,
+    isPlayable: Boolean = true,
     onPlayClicked: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
-    val rowBackground = when {
-        isActive -> scheme.secondaryContainer.copy(alpha = 0.4f)
-        inLoopRange -> scheme.secondary.copy(alpha = 0.10f)
-        else -> androidx.compose.ui.graphics.Color.Transparent
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(rowBackground)
-            .clickable(onClick = onPlayClicked)
+            .clickable(enabled = isPlayable, onClick = onPlayClicked)
             .padding(vertical = MatnSpacing.unit * 2),
         verticalAlignment = Alignment.Top,
     ) {
-        VerseRosette(
-            number = row.displayNumber,
-            isActive = isActive,
-            boundaryMark = when {
-                isLoopStart -> "A"
-                isLoopEnd -> "B"
-                else -> null
-            },
-        )
+        VerseRosette(number = row.displayNumber)
         Spacer(modifier = Modifier.width(MatnSpacing.unit + 6.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -638,9 +777,12 @@ private fun VerseRowItem(
         // own `Modifier.clickable` above stays a plain clickable: it already carries an accessible
         // name via Compose's default semantics merging of its Text children (the verse number and
         // Arabic text), so it needs no separate label (contract §3 / accessibility-contract.md).
-        IconActionButton(action = A11yAction.PLAY, onClick = onPlayClicked) { color ->
+        // Inert until the matn is on the device, and visibly so: an outline-coloured glyph that
+        // does nothing reads as "not yet", where a primary-coloured one that does nothing reads as
+        // broken.
+        IconActionButton(action = A11yAction.PLAY, enabled = isPlayable, onClick = onPlayClicked) { color ->
             PlayGlyph(
-                color = if (isActive) MaterialTheme.colorScheme.primary else color,
+                color = if (isPlayable) color else MaterialTheme.colorScheme.outline,
                 size = 18.dp,
             )
         }
@@ -771,25 +913,26 @@ private fun VerseRowItemPreview() {
     }
 }
 
+/** Not yet downloaded: the row still shows what the student would be getting, but its play
+ *  control is outline-coloured and inert rather than absent. */
 @Preview
 @Composable
-private fun VerseRowItemInLoopRangePreview() {
+private fun VerseRowItemNotPlayablePreview() {
     MatnTheme {
         VerseRowItem(
             row = previewVerses[1],
             fontSize = 22.sp,
             verseFont = FontFamily.Default,
-            inLoopRange = true,
-            isLoopStart = true,
+            isPlayable = false,
         )
     }
 }
 
 @Preview
 @Composable
-private fun VerseRosetteBoundaryMarkPreview() {
+private fun VerseRosettePreviewLarge() {
     MatnTheme {
-        Box(modifier = Modifier.padding(MatnSpacing.gutter)) { VerseRosette(number = 5, boundaryMark = "A") }
+        Box(modifier = Modifier.padding(MatnSpacing.gutter)) { VerseRosette(number = 5) }
     }
 }
 

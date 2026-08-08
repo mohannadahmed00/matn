@@ -122,6 +122,12 @@
     <string name="library_offline_chip">No connection</string>
     <string name="library_retry_connection">Retry connection</string>
     <string name="library_offline_help_question">What can I do offline?</string>
+    <string name="details_verses_section">Verses</string>
+    <string name="details_contents_shown">Contents shown</string>
+    <string name="details_contents_hidden">Contents hidden</string>
+    <string name="reader_verse_repeat_short">Vr %1$s</string>
+    <string name="reader_matn_repeat_short">Wr %1$s</string>
+    <string name="reader_mode_edit">Edit</string>
     <string name="reader_no_verse">This verse is no longer in the matn. Open it from the contents to keep reading.</string>
     <string name="library_offline_help_answer">Anything you have already downloaded: read it, play the recitation, repeat verses, take notes, and mark verses memorized. Only browsing the catalog and downloading a new matn need a connection.</string>
     <string name="content_installing_percent">Installing %1$s</string>

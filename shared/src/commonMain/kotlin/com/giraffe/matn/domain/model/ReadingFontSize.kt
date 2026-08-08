@@ -11,6 +11,14 @@ enum class ReadingFontSize {
     LARGE,
     XLARGE;
 
+    /**
+     * The next stop down the scale, or this one at the bottom. Used by the reader's neighbour
+     * verses (Matn Design System §05), which sit one stop below the active verse. Clamping rather
+     * than wrapping is the point: a student who chose [SMALL] has already said what they can read,
+     * and shrinking below it would put the neighbours out of reach entirely.
+     */
+    fun oneStopDown(): ReadingFontSize = entries.getOrElse(ordinal - 1) { this }
+
     companion object {
         val DEFAULT: ReadingFontSize = MEDIUM
 

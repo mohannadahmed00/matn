@@ -130,9 +130,36 @@
 >   result instead of centring a carousel. A student who searched asked to *find* the verse, not to
 >   start reciting it.
 >
-> Still **not** implemented from the design: the Details and Reader *frames* (the download panel
-> with per-verse enablement, the collapsible Contents, the neighbour-verse dimming and mode strip),
-> the Studio consolidation (4 destinations → 3), the component library, and the logo.
+> ### Details & Reader frames — landed 2026-08-08
+>
+> - **Details** leads with a compact identity block (cover beside title/author/totals/size) instead
+>   of a centred frontispiece, so the download control and the verse list are both reachable
+>   without scrolling. A `DownloadPanel` states the transfer in two units — a percentage for "how
+>   much longer", transferred-of-total bytes for "is it actually moving". Contents collapses behind
+>   a toggle: a 40-chapter table is longer than the first screenful of the thing it indexes.
+> - **Reader** gains the design's mode strip above the transport (mode · Vr · Wr, tap to edit) and
+>   the "أ" size control in its top bar. The strip exists because the transport alone cannot say
+>   *why* a verse is repeating — a student seeing the same verse a fourth time needs to know that
+>   is the setting working, not the player stuck.
+> - **Neighbour verses** now match the spec exactly: `onSurface` at 38%, one stop **down the real
+>   reading scale** rather than a 0.8 multiplier. Stepping the scale clamps at `SMALL`, where a
+>   multiplier would have shrunk neighbours below what a small-text preference can read.
+>
+> Deviations recorded against the two frames:
+>
+> 1. **No Pause on the download panel.** The design draws Pause and Cancel. There is no pause in
+>    the delivery domain — `CancelInstallUseCase` is the only interruption — and a Pause that
+>    silently cancelled would be worse than none.
+> 2. **Verse play controls enable together, not "in file order".** The design has each row's
+>    control crossfade to enabled as that verse's file lands. `ContentAvailability` is atomic by
+>    construction (research D7: no partial state, no per-verse presence tracking), so per-verse
+>    enablement has no source of truth and would have to be faked from byte progress. Rows stay
+>    inert and outline-coloured during the transfer, then all enable on completion.
+> 3. **No "≡" contents affordance in the reader top bar.** The design's `studentSheets` lists a
+>    table-of-contents sheet; Details owns the only contents surface for now.
+>
+> Still **not** implemented from the design: the Settings frame (expandable rows, live font
+> preview), the Studio consolidation (4 destinations → 3), the component library, and the logo.
 
 The **Stitch** project below is the historical reference for screen layout. Any model or
 developer implementing a screen MUST pull that screen's design from Stitch rather than inventing
