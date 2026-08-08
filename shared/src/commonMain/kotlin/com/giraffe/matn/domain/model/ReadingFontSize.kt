@@ -9,7 +9,14 @@ enum class ReadingFontSize {
     SMALL,
     MEDIUM,
     LARGE,
-    XLARGE;
+    XLARGE,
+
+    /**
+     * Stop 5 of the design system's Arabic scale (§03): 38sp on an 87sp line, roughly one verse per
+     * screen. Deliberately last and never the default — it trades how much of the matn you can see
+     * for how well you can see it, which is the right trade only when it is asked for.
+     */
+    ACCESSIBLE;
 
     /**
      * The next stop down the scale, or this one at the bottom. Used by the reader's neighbour

@@ -60,7 +60,30 @@ import com.giraffe.matn.presentation.common.ltrIsolated
 import com.giraffe.matn.presentation.theme.MatnMotion
 import com.giraffe.matn.presentation.theme.MatnSpacing
 import com.giraffe.matn.presentation.theme.MatnTheme
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import com.giraffe.matn.presentation.common.autoIsolated
+import com.giraffe.matn.presentation.theme.LocalReduceMotion
+import com.giraffe.matn.presentation.theme.MatnShapes
+import com.giraffe.matn.presentation.theme.lineHeightSp
+import com.giraffe.matn.presentation.theme.toSp
+import com.giraffe.matn.presentation.theme.verseFontFamily
+import matn.shared.generated.resources.font_accessible
+import matn.shared.generated.resources.settings_row_collapsed
+import matn.shared.generated.resources.settings_row_expanded
+import org.jetbrains.compose.resources.pluralStringResource
 import matn.shared.generated.resources.Res
+import matn.shared.generated.resources.downloaded_count
 import matn.shared.generated.resources.a11y_retry
 import matn.shared.generated.resources.content_action_remove
 import matn.shared.generated.resources.font_large
@@ -232,77 +255,69 @@ fun SettingsContent(
             ),
             verticalArrangement = Arrangement.spacedBy(MatnSpacing.unit + 4.dp),
         ) {
-            item(key = "appearance") {
-                SettingsGroup(title = stringResource(Res.string.settings_appearance)) {
-                    SettingChoiceRow(
+            // Matn Design System §05 (*Settings · expandable rows, no sub-routes*): one list, each
+            // row stating its current value and expanding its control in place. The group headers
+            // went with the groups — across five rows they cost more vertical space than they saved
+            // in scanning, and the value on each row already says what that row controls.
+            item(key = "settings-rows") {
+                SettingsGroup(title = null) {
+                    ExpandableSettingRow(
                         icon = MatnIcons.Palette,
                         title = stringResource(Res.string.settings_theme_label),
+                        value = stringResource(themeModeLabel(state.themeMode)),
                     ) {
-                        ThemeSegmentedControl(
-                            selected = state.themeMode,
-                            onSelected = onThemeModeSelected,
-                        )
+                        ThemeSegmentedControl(selected = state.themeMode, onSelected = onThemeModeSelected)
                     }
                     GroupDivider()
-                    SettingChoiceRow(
+                    ExpandableSettingRow(
                         icon = MatnIcons.FormatSize,
                         title = stringResource(Res.string.settings_font_size_label),
+                        value = stringResource(fontSizeLabel(state.fontSize)),
                     ) {
-                        FontSizeSegmentedControl(
-                            selected = state.fontSize,
-                            onSelected = onFontSizeSelected,
-                        )
+                        FontSizeSegmentedControl(selected = state.fontSize, onSelected = onFontSizeSelected)
+                        VersePreview(fontSize = state.fontSize)
                     }
-                }
-            }
-
-            item(key = "notifications") {
-                SettingsGroup(title = stringResource(Res.string.settings_group_notifications)) {
+                    GroupDivider()
                     NotificationRow(
                         status = state.notificationStatus,
                         onOpenSettings = onOpenNotificationSettings,
                         onRetry = onRetryNotificationPermission,
                     )
-                }
-            }
-
-            item(key = "storage") {
-                SettingsGroup(title = stringResource(Res.string.settings_group_storage)) {
-                    StorageMeter(
-                        usedBytes = state.totalUsedBytes,
-                        freeBytes = state.freeSpaceBytes,
-                    )
-                    if (state.isOnDemandEmpty) {
-                        GroupDivider()
-                        StorageZeroState()
-                    } else {
-                        GroupDivider()
-                        state.entries.forEachIndexed { index, entry ->
-                            if (index > 0) GroupDivider()
-                            StorageEntryRow(entry = entry, onRemove = { onRemoveMatn(entry.matnId) })
-                        }
-                        GroupDivider()
-                        // Demoted from a full-width filled button: still reachable, no longer the
-                        // loudest thing on the screen.
-                        TextButton(
-                            onClick = onRemoveAll,
-                            modifier = Modifier.padding(
-                                horizontal = MatnSpacing.unit,
-                                vertical = MatnSpacing.unit / 2,
-                            ),
-                        ) {
-                            Text(
-                                text = stringResource(Res.string.settings_remove_all),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.error,
-                            )
+                    GroupDivider()
+                    ExpandableSettingRow(
+                        icon = MatnIcons.Storage,
+                        title = stringResource(Res.string.settings_group_storage),
+                        // Isolated as a whole: a count and a size either side of a neutral "·".
+                        value = autoIsolated(
+                            pluralStringResource(
+                                Res.plurals.downloaded_count,
+                                state.entries.size,
+                                state.entries.size,
+                            ) + " · " + formatBytes(state.totalUsedBytes),
+                        ),
+                    ) {
+                        StorageMeter(
+                            usedBytes = state.totalUsedBytes,
+                            freeBytes = state.freeSpaceBytes,
+                        )
+                        if (state.isOnDemandEmpty) {
+                            StorageZeroState()
+                        } else {
+                            state.entries.forEach { entry ->
+                                StorageEntryRow(entry = entry, onRemove = { onRemoveMatn(entry.matnId) })
+                            }
+                            // Demoted from a full-width filled button: still reachable, no longer
+                            // the loudest thing on the screen.
+                            TextButton(onClick = onRemoveAll) {
+                                Text(
+                                    text = stringResource(Res.string.settings_remove_all),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     }
-                }
-            }
-
-            item(key = "about") {
-                SettingsGroup(title = stringResource(Res.string.settings_group_about)) {
+                    GroupDivider()
                     SettingRow(
                         icon = MatnIcons.Replay,
                         title = stringResource(Res.string.onboarding_reopen),
@@ -341,27 +356,124 @@ fun SettingsContent(
 // --------------------------------------------------------------------------- Building blocks
 
 /**
+ * A settings row that states its current value and opens its own control underneath (Matn Design
+ * System §05 — "Sub-pages are expandable rows, not pushed screens").
+ *
+ * The value on the collapsed row is the point of the pattern: it means the common case — checking
+ * what a setting is currently on — costs a glance instead of a navigation, and the control only
+ * appears for the rarer case of changing it. A pushed sub-screen inverts that cost.
+ *
+ * Expansion is local, unsaved state. It describes where the student is looking right now, not
+ * anything about them, so it should not survive leaving the screen.
+ */
+@Composable
+private fun ExpandableSettingRow(
+    icon: ImageVector,
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    var expanded by rememberSaveable(title) { mutableStateOf(false) }
+    val stateLabel = stringResource(
+        if (expanded) Res.string.settings_row_expanded else Res.string.settings_row_collapsed,
+    )
+    Column(modifier = modifier.fillMaxWidth()) {
+        SettingRow(
+            icon = icon,
+            title = title,
+            onClick = { expanded = !expanded },
+            modifier = Modifier.semantics { stateDescription = stateLabel },
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        // Reduced motion drops the expand/collapse animation but never the disclosure itself —
+        // the control still appears, it just does not travel (adaptive-motion-contract.md §B2.1).
+        AnimatedVisibility(
+            visible = expanded,
+            enter = if (LocalReduceMotion.current) fadeIn(tween(0)) else expandVertically() + fadeIn(),
+            exit = if (LocalReduceMotion.current) fadeOut(tween(0)) else shrinkVertically() + fadeOut(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = MatnSpacing.unit * 2,
+                        end = MatnSpacing.unit * 2,
+                        bottom = MatnSpacing.snug,
+                    ),
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+/**
+ * A real verse, fully diacriticized, at the size currently selected — the design's "live preview".
+ *
+ * It is not decoration. Fully-vocalised Arabic is the hardest thing this app renders: تَشْكِيل
+ * stacks above and below the baseline, and whether a size is comfortable depends entirely on
+ * whether that stack stays legible. A lorem-ipsum sample or a bare أ would let a student pick a
+ * size that fails on the only text they will actually read.
+ *
+ * The sample is a literal rather than a string resource: it is Arabic *content*, identical in both
+ * locales, so translating it is meaningless and duplicating it into `values-en/` would invite
+ * someone to try.
+ */
+@Composable
+private fun VersePreview(fontSize: ReadingFontSize, modifier: Modifier = Modifier) {
+    Surface(
+        shape = MatnShapes.lg,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = MatnSpacing.snug),
+    ) {
+        Text(
+            text = VersePreviewSample,
+            fontFamily = verseFontFamily(),
+            fontSize = fontSize.toSp(),
+            lineHeight = fontSize.lineHeightSp(),
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(MatnSpacing.cozy),
+        )
+    }
+}
+
+/** The opening line of al-Ājurrūmiyya — short, and carries every diacritic class that matters. */
+private const val VersePreviewSample = "الكَلامُ هُوَ اللَّفْظُ المُرَكَّبُ المُفِيدُ بِالوَضْعِ"
+
+/**
  * One titled group of settings, rendered as an M3 card. The title sits *outside* the card, in the
  * label style — the M3 settings idiom — so the card holds only interactive rows.
  */
 @Composable
 private fun SettingsGroup(
-    title: String,
+    title: String?,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(
-                start = MatnSpacing.unit + 4.dp,
-                end = MatnSpacing.unit + 4.dp,
-                bottom = MatnSpacing.unit,
-                top = MatnSpacing.unit,
-            ),
-        )
+        if (title != null) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(
+                    start = MatnSpacing.unit + 4.dp,
+                    end = MatnSpacing.unit + 4.dp,
+                    bottom = MatnSpacing.unit,
+                    top = MatnSpacing.unit,
+                ),
+            )
+        }
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -708,6 +820,7 @@ private fun fontSizeLabel(size: ReadingFontSize): StringResource = when (size) {
     ReadingFontSize.MEDIUM -> Res.string.font_medium
     ReadingFontSize.LARGE -> Res.string.font_large
     ReadingFontSize.XLARGE -> Res.string.font_xlarge
+    ReadingFontSize.ACCESSIBLE -> Res.string.font_accessible
 }
 
 // --------------------------------------------------------------------------- Previews

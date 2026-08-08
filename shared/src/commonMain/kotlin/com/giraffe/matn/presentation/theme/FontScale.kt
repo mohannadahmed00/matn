@@ -5,10 +5,9 @@ import androidx.compose.ui.unit.sp
 import com.giraffe.matn.domain.model.ReadingFontSize
 
 /**
- * The Arabic verse scale (Matn Design System §03 — Arabic type). Five stops were specified; the four
- * here are stops 1–4, matching the persisted [ReadingFontSize] values. Stop 5 ("Accessible",
- * 38sp/87sp, one verse per screen) needs a new enum constant and a settings-slider step, so it is
- * deliberately not smuggled in here.
+ * The Arabic verse scale (Matn Design System §03 — Arabic type). All five specified stops, matching the
+ * persisted [ReadingFontSize] values. Stop 5 ("Accessible", 38sp/87sp) fits roughly one verse per
+ * screen and is reachable from the Settings font row.
  *
  * ## Line height is per-stop, never a multiplier
  *
@@ -25,6 +24,7 @@ fun ReadingFontSize.toSp(): TextUnit = when (this) {
     ReadingFontSize.MEDIUM -> 24.sp
     ReadingFontSize.LARGE -> 28.sp
     ReadingFontSize.XLARGE -> 32.sp
+    ReadingFontSize.ACCESSIBLE -> 38.sp
 }
 
 /**
@@ -36,4 +36,5 @@ fun ReadingFontSize.lineHeightSp(): TextUnit = when (this) {
     ReadingFontSize.MEDIUM -> 53.sp
     ReadingFontSize.LARGE -> 62.sp
     ReadingFontSize.XLARGE -> 72.sp
+    ReadingFontSize.ACCESSIBLE -> 87.sp
 }

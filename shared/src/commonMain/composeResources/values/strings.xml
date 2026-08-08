@@ -189,4 +189,7 @@
     <string name="a11y_state_installed">مُنزَّل</string>
     <string name="a11y_state_installing">قيد التنزيل</string>
     <string name="a11y_state_not_installed">غير مُنزَّل</string>
+    <string name="settings_row_expanded">مفتوح</string>
+    <string name="settings_row_collapsed">مغلق</string>
+    <string name="font_accessible">مُيسَّر</string>
 </resources>
