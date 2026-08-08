@@ -64,6 +64,8 @@ import com.giraffe.matn.presentation.home.HomeViewModel
 import com.giraffe.matn.presentation.onboarding.OnboardingScreen
 import com.giraffe.matn.presentation.onboarding.OnboardingViewModel
 import com.giraffe.matn.presentation.player.PlayerBarViewModel
+import com.giraffe.matn.presentation.reader.ReaderScreen
+import com.giraffe.matn.presentation.reader.ReaderViewModel
 import com.giraffe.matn.presentation.saved.SavedScreen
 import com.giraffe.matn.presentation.saved.SavedViewModel
 import com.giraffe.matn.presentation.search.SearchViewModel
@@ -243,6 +245,9 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                         onOpenVerse = { matnId, verseId ->
                             navController.navigate(Routes.matnDetails(matnId, verseId))
                         },
+                        onResumeReading = { matnId ->
+                            navController.navigate(Routes.reader(matnId, autoplay = false))
+                        },
                         onOpenDailyGoal = { showGoalSheet = true },
                     )
 
@@ -278,13 +283,7 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                             observeVerses = koin.get<ObserveVersesUseCase>(),
                             getFontSize = koin.get<GetFontSizeUseCase>(),
                             setFontSize = koin.get<SetFontSizeUseCase>(),
-                            playbackController = koin.get<PlaybackController>(),
                             focusVerseId = focusVerseId,
-                            observeVerseAnnotations = koin.get<ObserveVerseAnnotationsUseCase>(),
-                            toggleBookmark = koin.get<ToggleBookmarkUseCase>(),
-                            getNote = koin.get<GetNoteUseCase>(),
-                            saveNote = koin.get<SaveNoteUseCase>(),
-                            deleteNote = koin.get<DeleteNoteUseCase>(),
                             observeMatnProgress = koin.get<com.giraffe.matn.domain.usecase.ObserveMatnProgressUseCase>(),
                             observeVerseMemorization = koin.get<com.giraffe.matn.domain.usecase.ObserveVerseMemorizationUseCase>(),
                             toggleVerseMemorized = koin.get<ToggleVerseMemorizedUseCase>(),
@@ -296,10 +295,59 @@ fun MatnNavHost(navController: NavHostController = rememberNavController()) {
                             loadCachedCover = koin.get<com.giraffe.matn.data.cover.CoverImageCache>()::cached,
                         )
                     }
+                    MatnDetailsScreen(
+                        viewModel = viewModel,
+                        onOpenReader = { verseId ->
+                            navController.navigate(Routes.reader(matnId, verseId, autoplay = true))
+                        },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(
+                    route = Routes.READER,
+                    arguments = listOf(
+                        navArgument(Routes.VERSE_ID_ARG) {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument(Routes.AUTOPLAY_ARG) {
+                            type = NavType.StringType
+                            defaultValue = "false"
+                        },
+                    ),
+                ) { entry ->
+                    val matnId = entry.arguments?.read { getString(Routes.MATN_ID_ARG) } ?: ""
+                    val verseId = (entry.arguments?.read { getString(Routes.VERSE_ID_ARG) } ?: "")
+                        .ifBlank { null }
+                    val autoplay = (entry.arguments?.read { getString(Routes.AUTOPLAY_ARG) } ?: "") == "true"
+                    val koin = MatnKoinHolder.koin
+                    val viewModel: ReaderViewModel = viewModel {
+                        ReaderViewModel(
+                            matnId = matnId,
+                            requestedVerseId = verseId,
+                            autoplay = autoplay,
+                            getMatnDetails = koin.get<GetMatnDetailsUseCase>(),
+                            observeVerses = koin.get<ObserveVersesUseCase>(),
+                            getFontSize = koin.get<GetFontSizeUseCase>(),
+                            setFontSize = koin.get<SetFontSizeUseCase>(),
+                            playbackController = koin.get<PlaybackController>(),
+                            observeVerseAnnotations = koin.get<ObserveVerseAnnotationsUseCase>(),
+                            toggleBookmark = koin.get<ToggleBookmarkUseCase>(),
+                            getNote = koin.get<GetNoteUseCase>(),
+                            saveNote = koin.get<SaveNoteUseCase>(),
+                            deleteNote = koin.get<DeleteNoteUseCase>(),
+                            observeVerseMemorization = koin.get<com.giraffe.matn.domain.usecase.ObserveVerseMemorizationUseCase>(),
+                            toggleVerseMemorized = koin.get<ToggleVerseMemorizedUseCase>(),
+                        )
+                    }
                     val playerBar: PlayerBarViewModel = viewModel {
                         PlayerBarViewModel(koin.get<PlaybackController>())
                     }
-                    MatnDetailsScreen(viewModel = viewModel, playerBar = playerBar)
+                    ReaderScreen(
+                        viewModel = viewModel,
+                        playerBar = playerBar,
+                        onBack = { navController.popBackStack() },
+                    )
                 }
                 composable(Routes.SAVED) {
                     val koin = MatnKoinHolder.koin
@@ -384,10 +432,23 @@ private fun MatnBottomNavigationBar(currentRoute: String?, onTabSelected: (Navig
 object Routes {
     const val MATN_ID_ARG = "matnId"
     const val FOCUS_VERSE_ID_ARG = "focusVerseId"
+    const val VERSE_ID_ARG = "v"
+    const val AUTOPLAY_ARG = "autoplay"
     const val HOME = "home"
     const val MATN_DETAILS = "matn/{$MATN_ID_ARG}?$FOCUS_VERSE_ID_ARG={$FOCUS_VERSE_ID_ARG}"
+    const val READER = "matn/{$MATN_ID_ARG}/read?$VERSE_ID_ARG={$VERSE_ID_ARG}&$AUTOPLAY_ARG={$AUTOPLAY_ARG}"
     const val SAVED = "saved"
     const val SETTINGS = "settings"
+
     fun matnDetails(matnId: String, focusVerseId: String? = null): String =
         if (focusVerseId != null) "matn/$matnId?$FOCUS_VERSE_ID_ARG=$focusVerseId" else "matn/$matnId"
+
+    /**
+     * The reader. [verseId] says where to open; [autoplay] says whether to start a session on
+     * arrival — Details' play controls pass `true` so a tap is one gesture, while Continue Learning
+     * has already started the session itself and passes `false` so the reader adopts it rather than
+     * restarting it from the top.
+     */
+    fun reader(matnId: String, verseId: String? = null, autoplay: Boolean = false): String =
+        "matn/$matnId/read?$VERSE_ID_ARG=${verseId.orEmpty()}&$AUTOPLAY_ARG=$autoplay"
 }

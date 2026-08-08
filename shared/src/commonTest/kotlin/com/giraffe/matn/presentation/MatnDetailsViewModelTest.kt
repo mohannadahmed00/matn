@@ -181,12 +181,6 @@ class MatnDetailsViewModelTest {
             observeVerses = FakeFlowUseCase { flow { } },
             getFontSize = FakeFlowUseCase { flowOf(ReadingFontSize.MEDIUM) },
             setFontSize = FakeUseCase { Resource.Success(Unit) },
-            playbackController = idlePlaybackController(),
-            observeVerseAnnotations = FakeFlowUseCase { flowOf(emptyMap()) },
-            toggleBookmark = FakeUseCase { Resource.Success(true) },
-            getNote = FakeUseCase { Resource.Success(null) },
-            saveNote = FakeUseCase { Resource.Success(Note("n", "v", "t", 0L)) },
-            deleteNote = FakeUseCase { Resource.Success(Unit) },
         )
         assertEquals(AppError.NotFound, vm.state.value.error)
         assertEquals(false, vm.state.value.isLoading)
@@ -201,12 +195,6 @@ class MatnDetailsViewModelTest {
             observeVerses = FakeFlowUseCase { flow { } },
             getFontSize = FakeFlowUseCase { flowOf(ReadingFontSize.MEDIUM) },
             setFontSize = FakeUseCase { Resource.Success(Unit) },
-            playbackController = idlePlaybackController(),
-            observeVerseAnnotations = FakeFlowUseCase { flowOf(emptyMap()) },
-            toggleBookmark = FakeUseCase { Resource.Success(true) },
-            getNote = FakeUseCase { Resource.Success(null) },
-            saveNote = FakeUseCase { Resource.Success(Note("n", "v", "t", 0L)) },
-            deleteNote = FakeUseCase { Resource.Success(Unit) },
         )
         assertTrue(vm.state.value.error is AppError.Storage)
     }
@@ -237,74 +225,6 @@ class MatnDetailsViewModelTest {
     }
 
     @Test
-    fun `activeVerseId from PlaybackController flows into MatnDetailsUiState`() = runTest {
-        val track = com.giraffe.matn.domain.model.AudioTrack("v1", 1, "uri1", 5_000)
-        val queue = com.giraffe.matn.domain.model.PlaybackQueue(simpleMatn.id, listOf(track), 0)
-        val engine = FakeAudioEngine()
-        val buildQueue = object : com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase(
-            verseRepository = object : com.giraffe.matn.domain.repository.VerseRepository {
-                override fun observeVerses(matnId: String): Flow<List<Verse>> = flowOf(simpleVerses)
-                override suspend fun getVersesByChapter(chapterId: String): Resource<List<Verse>> =
-                    Resource.Success(emptyList())
-                override suspend fun getVerse(id: String): Resource<Verse?> = Resource.Success(null)
-            },
-            audioRepository = object : com.giraffe.matn.domain.repository.AudioAssetRepository {
-                override suspend fun getAudioForVerse(
-                    verseId: String,
-                    reciterId: String,
-                ): Resource<com.giraffe.matn.domain.model.AudioAsset?> = Resource.Success(null)
-                override suspend fun getAudioForMatn(
-                    matnId: String,
-                    reciterId: String,
-                ): Resource<List<com.giraffe.matn.domain.model.AudioAsset>> = Resource.Success(emptyList())
-            },
-            audioSourceResolver = object : com.giraffe.matn.domain.audio.AudioSourceResolver {
-                override suspend fun resolve(matnId: String, fileRef: String): String = "uri1"
-            },
-        ) {
-            override suspend fun invoke(
-                params: com.giraffe.matn.domain.usecase.BuildPlaybackQueueUseCase.Params,
-            ): Resource<com.giraffe.matn.domain.model.PlaybackQueue> =
-                Resource.Success(queue.copy(startIndex = 0))
-        }
-        val controller = com.giraffe.matn.playback.PlaybackController(
-            engine = engine,
-            buildQueue = buildQueue,
-            wakeLock = FakeWakeLock(),
-            // playFromStart() below launches startInfoPolling()'s infinite delay-loop. Parent under
-            // backgroundScope's Job (exempt from runTest's idle-drain) but dispatch on our own
-            // UnconfinedTestDispatcher, so engine.emit(...) below is still processed synchronously
-            // (see PlaybackControllerTest.newController for the full explanation).
-            scope = CoroutineScope(
-                SupervisorJob(backgroundScope.coroutineContext[Job]) + UnconfinedTestDispatcher(),
-            ),
-        )
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            controller = controller,
-        )
-        controller.playFromStart(simpleMatn.id)
-        engine.emit(com.giraffe.matn.domain.audio.AudioEngineEvent.Ready)
-
-        assertEquals("v1", controller.state.value.activeVerseId)
-        assertEquals("v1", vm.state.value.activeVerseId)
-        assertTrue(vm.state.value.isPlaying)
-    }
-
-    @Test
-    fun `focusVerseId honored as initial carousel focus when verse exists`() = runTest {
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            focusVerseId = "v2",
-        )
-        assertEquals("v2", vm.state.value.focusVerseId)
-        assertNull(vm.state.value.activeVerseId)
-        assertEquals(false, vm.state.value.isPlaying)
-    }
-
-    @Test
     fun `unknown focusVerseId is gracefully ignored`() = runTest {
         val vm = newViewModel(
             matnDetails = MatnDetails(simpleMatn, emptyList(), false),
@@ -314,132 +234,12 @@ class MatnDetailsViewModelTest {
         assertNull(vm.state.value.focusVerseId)
     }
 
-    @Test
-    fun `focusVerseId never starts playback`() = runTest {
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            focusVerseId = "v1",
-        )
-        assertEquals(false, vm.state.value.isPlaying)
-        assertNull(vm.state.value.activeVerseId)
-    }
-
-    @Test
-    fun `annotations map flows into state`() = runTest {
-        val annotationsState = MutableStateFlow<Map<String, com.giraffe.matn.domain.model.VerseAnnotations>>(emptyMap())
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            annotationsFlow = annotationsState,
-        )
-        assertEquals(emptyMap(), vm.state.value.annotations)
-        val updated = mapOf("v1" to com.giraffe.matn.domain.model.VerseAnnotations("v1", isBookmarked = true, hasNote = false))
-        annotationsState.value = updated
-        assertEquals(updated, vm.state.value.annotations)
-    }
-
-    @Test
-    fun `onToggleBookmark invokes the use case`() = runTest {
-        var toggledVerseId: String? = null
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            toggleBookmark = FakeUseCase { id -> toggledVerseId = id; Resource.Success(true) },
-        )
-        vm.onToggleBookmark("v1")
-        assertEquals("v1", toggledVerseId)
-        // Playback state is untouched by toggling a bookmark.
-        assertEquals(false, vm.state.value.isPlaying)
-        assertNull(vm.state.value.activeVerseId)
-    }
-
-    @Test
-    fun `onOpenNoteEditor prefills initialText via GetNoteUseCase`() = runTest {
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            getNote = FakeUseCase { Resource.Success(Note("n1", "v1", "Ù†Øµ Ù…Ø­ÙÙˆØ¸", 500L)) },
-        )
-        vm.onOpenNoteEditor("v1")
-        val editor = vm.state.value.noteEditor
-        assertNotNull(editor)
-        assertEquals("v1", editor.verseId)
-        assertEquals("Ù†Øµ Ù…Ø­ÙÙˆØ¸", editor.initialText)
-        assertEquals(simpleMatn.title, editor.verseRef.matnTitle)
-    }
-
-    @Test
-    fun `onSaveNote persists and closes the editor`() = runTest {
-        var savedParams: SaveNoteParams? = null
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            getNote = FakeUseCase { Resource.Success(null) },
-            saveNote = FakeUseCase { params -> savedParams = params; Resource.Success(Note("n1", params.verseId, params.text, 1L)) },
-        )
-        vm.onOpenNoteEditor("v1")
-        vm.onSaveNote("Ù…Ù„Ø§Ø­Ø¸Ø© Ø¬Ø¯ÙŠØ¯Ø©")
-        assertEquals("v1", savedParams?.verseId)
-        assertEquals("Ù…Ù„Ø§Ø­Ø¸Ø© Ø¬Ø¯ÙŠØ¯Ø©", savedParams?.text)
-        assertNull(vm.state.value.noteEditor)
-    }
-
-    @Test
-    fun `onSaveNote with blank text surfaces an error and keeps the sheet open`() = runTest {
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            getNote = FakeUseCase { Resource.Success(null) },
-            saveNote = FakeUseCase { Resource.Failure(com.giraffe.matn.domain.error.NoteError.EmptyNote) },
-        )
-        vm.onOpenNoteEditor("v1")
-        vm.onSaveNote("   ")
-        val editor = vm.state.value.noteEditor
-        assertNotNull(editor)
-        assertTrue(editor.saveError)
-    }
-
-    @Test
-    fun `onDeleteNote clears the editor`() = runTest {
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            getNote = FakeUseCase { Resource.Success(Note("n1", "v1", "Ù†Øµ", 1L)) },
-            deleteNote = FakeUseCase { Resource.Success(Unit) },
-        )
-        vm.onOpenNoteEditor("v1")
-        vm.onDeleteNote()
-        assertNull(vm.state.value.noteEditor)
-    }
-
-    @Test
-    fun `onDismissNoteEditor discards without persisting`() = runTest {
-        var saveInvoked = false
-        val vm = newViewModel(
-            matnDetails = MatnDetails(simpleMatn, emptyList(), false),
-            verses = simpleVerses,
-            getNote = FakeUseCase { Resource.Success(null) },
-            saveNote = FakeUseCase { saveInvoked = true; Resource.Success(Note("n", "v", "t", 0L)) },
-        )
-        vm.onOpenNoteEditor("v1")
-        vm.onDismissNoteEditor()
-        assertNull(vm.state.value.noteEditor)
-        assertTrue(!saveInvoked)
-    }
-
     private fun newViewModel(
         matnDetails: MatnDetails,
         verses: List<Verse>,
         fontFlow: Flow<ReadingFontSize> = flowOf(ReadingFontSize.MEDIUM),
         setFont: UseCase<ReadingFontSize, Unit> = FakeUseCase { Resource.Success(Unit) },
-        controller: PlaybackController = idlePlaybackController(),
         focusVerseId: String? = null,
-        annotationsFlow: Flow<Map<String, com.giraffe.matn.domain.model.VerseAnnotations>> = flowOf(emptyMap()),
-        toggleBookmark: UseCase<String, Boolean> = FakeUseCase { Resource.Success(true) },
-        getNote: UseCase<String, Note?> = FakeUseCase { Resource.Success(null) },
-        saveNote: UseCase<SaveNoteParams, Note> = FakeUseCase { params -> Resource.Success(Note("n", params.verseId, params.text, 0L)) },
-        deleteNote: UseCase<String, Unit> = FakeUseCase { Resource.Success(Unit) },
         progressFlow: Flow<MatnProgress>? = null,
         memorizationFlow: Flow<Set<String>>? = null,
         toggleVerseMemorized: UseCase<ToggleVerseMemorizedUseCase.Params, Unit>? = null,
@@ -456,13 +256,7 @@ class MatnDetailsViewModelTest {
             observeVerses = FakeFlowUseCase<String, List<Verse>> { versesState },
             getFontSize = FakeFlowUseCase { fontFlow },
             setFontSize = setFont,
-            playbackController = controller,
             focusVerseId = focusVerseId,
-            observeVerseAnnotations = FakeFlowUseCase { annotationsFlow },
-            toggleBookmark = toggleBookmark,
-            getNote = getNote,
-            saveNote = saveNote,
-            deleteNote = deleteNote,
             observeMatnProgress = progressFlow?.let { flow -> FakeFlowUseCase { flow } },
             observeVerseMemorization = memorizationFlow?.let { flow -> FakeFlowUseCase { flow } },
             toggleVerseMemorized = toggleVerseMemorized,

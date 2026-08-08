@@ -104,8 +104,35 @@
 >    rows: one is how much of the matn is on the device, the other how much is in the student's
 >    memory, and they are routinely different numbers.
 >
-> Still **not** implemented from the design: the Studio consolidation (4 destinations → 3), the
-> component library, the Details/Reader screens, and the logo.
+> ### Details / Reader split — landed 2026-08-08
+>
+> The student app is now at the design's **5 routes / 3 tabs**. `matn/{id}/read?v={n}` is a real
+> route with `ReaderScreen` / `ReaderViewModel` behind it, and `MatnDetailsScreen` keeps only the
+> browse surface.
+>
+> The reader used to be a *mode* of the details screen, switched on by `activeVerseId != null`.
+> That is why it could not own a back-stack entry: entering it was a side effect of playback
+> starting, so when playback stopped there was no state to return to — the screen simply became a
+> different screen underneath the student, and Continue Learning had nowhere to deep-link.
+>
+> - **`?v=` decides where an idle reader opens; a live session always wins.** `focusedVerseId` is
+>   `activeVerseId ?: requestedVerseId`, so the arrival order of the details load and the playback
+>   flow cannot decide which verse is centred. A `?v=` that is not in the matn resolves to `null`
+>   rather than focusing nothing-in-particular.
+> - **`autoplay` is honoured once**, guarded by its own flag rather than by "is anything playing":
+>   Details' play controls pass `true` so a tap is one gesture, Continue Learning passes `false`
+>   because it has already started the session and the reader should adopt it. Without the guard a
+>   later unrelated emission would restart playback the student had just paused.
+> - **Transport stays with `PlayerBarViewModel`.** `ReaderViewModel` deliberately has no
+>   play/pause/next/seek: both are hosted on the same route, and two objects driving one controller
+>   is how a pause ends up fighting a resume.
+> - **`focusVerseId` on Details changed meaning** — it now scrolls the browse list to a search
+>   result instead of centring a carousel. A student who searched asked to *find* the verse, not to
+>   start reciting it.
+>
+> Still **not** implemented from the design: the Details and Reader *frames* (the download panel
+> with per-verse enablement, the collapsible Contents, the neighbour-verse dimming and mode strip),
+> the Studio consolidation (4 destinations → 3), the component library, and the logo.
 
 The **Stitch** project below is the historical reference for screen layout. Any model or
 developer implementing a screen MUST pull that screen's design from Stitch rather than inventing

@@ -65,6 +65,7 @@ import com.giraffe.matn.presentation.theme.toSp
 import com.giraffe.matn.presentation.theme.verseFontFamily
 import kotlinx.coroutines.launch
 import matn.shared.generated.resources.Res
+import matn.shared.generated.resources.back
 import matn.shared.generated.resources.content_error_cancelled
 import matn.shared.generated.resources.content_error_insufficient_storage
 import matn.shared.generated.resources.content_error_no_connectivity
@@ -87,29 +88,25 @@ import org.jetbrains.compose.resources.stringResource
  * [MatnDetailsUiState] (Principle II) and is previewable without a live ViewModel.
  */
 @Composable
-fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel) {
+fun MatnDetailsScreen(
+    viewModel: MatnDetailsViewModel,
+    /** Opens the reader on a specific verse. `null` means "from the start" (the header action). */
+    onOpenReader: (verseId: String?) -> Unit,
+    onBack: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     MatnDetailsContent(
         state = state,
+        onBack = onBack,
         onFontSizeChanged = viewModel::onFontSizeChanged,
-        onVersePlayClicked = viewModel::onVersePlayClicked,
-        onGlobalPlayClicked = viewModel::onGlobalPlayClicked,
-        onSetLoopStart = viewModel::onSetLoopStart,
-        onSetLoopEnd = viewModel::onSetLoopEnd,
-        onClearLoop = viewModel::onClearLoop,
-        onToggleBookmark = viewModel::onToggleBookmark,
-        onOpenNoteEditor = viewModel::onOpenNoteEditor,
-        onSaveNote = viewModel::onSaveNote,
-        onDeleteNote = viewModel::onDeleteNote,
-        onDismissNoteEditor = viewModel::onDismissNoteEditor,
-        onToggleMemorized = viewModel::onToggleMemorized,
+        onVersePlayClicked = { verseId -> onOpenReader(verseId) },
+        onGlobalPlayClicked = { onOpenReader(null) },
         onMarkChapterMemorized = viewModel::onMarkChapterMemorized,
         onInstall = viewModel::onInstall,
         onCancelInstall = viewModel::onCancelInstall,
         onRemoveRequested = viewModel::onRemoveRequested,
         onConfirmRemoval = viewModel::onConfirmRemoval,
         onDismissRemoval = viewModel::onDismissRemoval,
-        playerBar = playerBar,
     )
 }
 
@@ -126,36 +123,21 @@ fun MatnDetailsScreen(viewModel: MatnDetailsViewModel, playerBar: com.giraffe.ma
 @Composable
 fun MatnDetailsContent(
     state: MatnDetailsUiState,
+    onBack: () -> Unit = {},
     onFontSizeChanged: (ReadingFontSize) -> Unit = {},
     onVersePlayClicked: (String) -> Unit = {},
     onGlobalPlayClicked: () -> Unit = {},
-    onSetLoopStart: (String) -> Unit = {},
-    onSetLoopEnd: (String) -> Unit = {},
-    onClearLoop: () -> Unit = {},
-    onToggleBookmark: (String) -> Unit = {},
-    onOpenNoteEditor: (String) -> Unit = {},
-    onSaveNote: (String) -> Unit = {},
-    onDeleteNote: () -> Unit = {},
-    onDismissNoteEditor: () -> Unit = {},
-    onToggleMemorized: (String) -> Unit = {},
     onMarkChapterMemorized: (String, Boolean) -> Unit = { _, _ -> },
     onInstall: () -> Unit = {},
     onCancelInstall: () -> Unit = {},
     onRemoveRequested: () -> Unit = {},
     onConfirmRemoval: () -> Unit = {},
     onDismissRemoval: () -> Unit = {},
-    playerBar: com.giraffe.matn.presentation.player.PlayerBarViewModel? = null,
 ) {
-    // specs/010-design-system-adoption User Story 2: the repetition-setup sheet's open/closed
-    // flag is local UI state (Principle II precedent: GoldScrub's drag state in PlayerBar.kt is
-    // the same kind of ephemeral, non-persisted interaction state) — nothing is written to a
-    // ViewModel until the sheet's own "start" action fires.
-    // T090 (US4, FR-030): rememberSaveable so rotation doesn't silently close an open sheet.
-    var repetitionSheetOpen by rememberSaveable { mutableStateOf(false) }
     // Phase 8 (FR-011, SC-007): a play tap against a not-installed matn opens the install prompt
-    // instead of silently failing — the per-verse play button is the one play affordance this
-    // screen renders that PlaybackController.startSession's gate (T041) cannot pre-empt visibly,
-    // since nothing currently surfaces PlaybackState.notice to the user.
+    // instead of silently failing. It is caught here rather than in the reader because the reader
+    // is where the student expects to be *listening* — bouncing them into it only to refuse is a
+    // worse answer than never leaving this screen.
     var installPromptOpen by rememberSaveable { mutableStateOf(false) }
     // FR-021: playback is gated on the content actually being present. Phase 13 removed the
     // `isStarter ||` disjunct — no matn is permanently playable any more (FR-040).
@@ -184,67 +166,19 @@ fun MatnDetailsContent(
             )
 
             else -> Column(modifier = Modifier.fillMaxSize()) {
-                // specs/010-design-system-adoption User Story 1: while a verse is actively being
-                // read/listened to, the focused 3-verse carousel replaces the scrollable browse
-                // list. With no active verse (session not started / stopped) the browse list —
-                // header, table of contents, full verse list — is unchanged (User Story 4).
-                // Phase 6 (research.md D5): a route-supplied focusVerseId centers the carousel on
-                // that verse when no playback session is active yet — real playback
-                // (activeVerseId non-null) always takes precedence.
-                val carouselActiveVerseId = state.activeVerseId ?: state.focusVerseId
-                // remember: windowVersesForCarousel does an indexOfFirst scan over `verses` — this
-                // screen's single bundled UiState recomposes on unrelated changes (a bookmark
-                // toggle, an install-progress tick), so without this it re-scans on every one of
-                // those instead of only when the three actual inputs change (perf review).
-                val carouselState = remember(state.verses, carouselActiveVerseId) {
-                    com.giraffe.matn.presentation.player.windowVersesForCarousel(
-                        verses = state.verses,
-                        activeVerseId = carouselActiveVerseId,
-                    )
-                }
-                if (carouselState != null) {
-                    com.giraffe.matn.presentation.player.ReadingCarousel(
-                        state = carouselState,
-                        fontSize = state.fontSize,
-                        annotations = state.annotations,
-                        memorizedVerseIds = state.memorizedVerseIds,
-                        onToggleBookmark = onToggleBookmark,
-                        onOpenNoteEditor = onOpenNoteEditor,
-                        onToggleMemorized = onToggleMemorized,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    VerseList(
-                        state = state,
-                        onFontSizeChanged = onFontSizeChanged,
-                        onVersePlayClicked = guardedVersePlayClicked,
-                        onGlobalPlayClicked = guardedGlobalPlayClicked,
-                        onMarkChapterMemorized = onMarkChapterMemorized,
-                        onInstall = onInstall,
-                        onCancelInstall = onCancelInstall,
-                        onRemoveRequested = onRemoveRequested,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (playerBar != null) {
-                    com.giraffe.matn.presentation.player.PlayerBar(
-                        viewModel = playerBar,
-                        onRepeatSettingsClicked = { repetitionSheetOpen = true },
-                    )
-                }
+                DetailsTopBar(title = state.header?.title.orEmpty(), onBack = onBack)
+                VerseList(
+                    state = state,
+                    onFontSizeChanged = onFontSizeChanged,
+                    onVersePlayClicked = guardedVersePlayClicked,
+                    onGlobalPlayClicked = guardedGlobalPlayClicked,
+                    onMarkChapterMemorized = onMarkChapterMemorized,
+                    onInstall = onInstall,
+                    onCancelInstall = onCancelInstall,
+                    onRemoveRequested = onRemoveRequested,
+                    modifier = Modifier.weight(1f),
+                )
             }
-        }
-        if (playerBar != null) {
-            com.giraffe.matn.presentation.player.RepetitionSetupHost(
-                visible = repetitionSheetOpen,
-                onDismiss = { repetitionSheetOpen = false },
-                verses = state.verses,
-                playerBar = playerBar,
-                onSetLoopStart = onSetLoopStart,
-                onSetLoopEnd = onSetLoopEnd,
-                onClearLoop = onClearLoop,
-                onStartPlayback = onGlobalPlayClicked,
-            )
         }
         if (state.pendingRemovalConfirmation && state.header != null) {
             val occupiedBytes = (state.availability as? ContentAvailability.Downloaded)?.occupiedBytes
@@ -273,25 +207,37 @@ fun MatnDetailsContent(
                 onDismiss = { installPromptOpen = false },
             )
         }
-        val noteEditor = state.noteEditor
-        if (noteEditor != null) {
-            // Local draft state, seeded from the prefill once GetNoteUseCase resolves — same
-            // idiom as RepetitionSetupHost's draft (Principle II: nothing here is a ViewModel
-            // call until the user explicitly saves/deletes). T091 (US4, FR-030): rememberSaveable
-            // so typed-but-unsaved note text survives a rotation instead of vanishing.
-            var draft by rememberSaveable(noteEditor.verseId, noteEditor.initialText) {
-                mutableStateOf(noteEditor.initialText.orEmpty())
-            }
-            com.giraffe.matn.presentation.notes.NoteEditorSheet(
-                verseRef = noteEditor.verseRef,
-                initialText = noteEditor.initialText,
-                draft = draft,
-                onDraftChange = { draft = it },
-                onSave = { onSaveNote(draft) },
-                onDelete = onDeleteNote,
-                onDismiss = onDismissNoteEditor,
+    }
+}
+
+/**
+ * The details route's own back affordance. Details is a pushed surface with no bottom bar, and the
+ * matn's title is the one piece of identity that must stay visible while the frontispiece scrolls
+ * away underneath it.
+ */
+@Composable
+private fun DetailsTopBar(title: String, onBack: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = MatnSpacing.snug),
+    ) {
+        androidx.compose.material3.IconButton(onClick = onBack) {
+            com.giraffe.matn.presentation.common.BackGlyph(
+                color = scheme.onSurface,
+                contentDescription = stringResource(Res.string.back),
             )
         }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = scheme.onSurface,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -334,13 +280,15 @@ private fun VerseList(
         }
     }
 
-    // FR-009/SC-003: auto-scroll the active verse into view when it changes.
-    LaunchedEffect(state.activeVerseId) {
-        val id = state.activeVerseId ?: return@LaunchedEffect
+    // Phase 6 (research D5), now the route's only use for focusVerseId: a search result deep-links
+    // here, so the verse it matched is scrolled into view. It used to centre the carousel instead;
+    // with the reader on its own route, landing on the browse list at the right verse is what a
+    // search result should do — the student asked to *find* it, not to start reciting it.
+    LaunchedEffect(state.focusVerseId, verses) {
+        val id = state.focusVerseId ?: return@LaunchedEffect
         val verseOffset = verses.indexOfFirst { it.id == id }
         if (verseOffset >= 0) {
-            val target = firstVerseIndex + verseOffset
-            listState.animateScrollToItem(target)
+            listState.animateScrollToItem(firstVerseIndex + verseOffset)
         }
     }
 

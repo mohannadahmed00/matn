@@ -115,12 +115,15 @@ fun HomeScreen(
     searchViewModel: SearchViewModel,
     onOpenMatn: (String) -> Unit,
     onOpenVerse: (matnId: String, verseId: String?) -> Unit,
+    /** Continue Learning: the session is already running by the time this fires, so it goes
+     *  straight to the reader rather than through the details screen. */
+    onResumeReading: (matnId: String) -> Unit,
     onOpenDailyGoal: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val searchState by searchViewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) {
-        viewModel.navigation.collect { matnId -> onOpenMatn(matnId) }
+        viewModel.navigation.collect { matnId -> onResumeReading(matnId) }
     }
     HomeContent(
         state = state,
