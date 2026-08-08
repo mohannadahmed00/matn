@@ -158,8 +158,37 @@
 > 3. **No "≡" contents affordance in the reader top bar.** The design's `studentSheets` lists a
 >    table-of-contents sheet; Details owns the only contents surface for now.
 >
-> Still **not** implemented from the design: the Settings frame (expandable rows, live font
-> preview), the Studio consolidation (4 destinations → 3), the component library, and the logo.
+> ### Settings frame — landed 2026-08-08
+>
+> Four titled card groups become one list of **expandable rows** (§05: "Sub-pages are expandable
+> rows, not pushed screens"). Each row states its current value while collapsed, so the common
+> case — checking what a setting is on — costs a glance rather than a navigation, and the control
+> appears only for the rarer case of changing it. The group headers went with the groups: across
+> five rows they cost more vertical space than they saved in scanning.
+>
+> The font row carries the design's **live preview** — a real, fully-diacriticized verse at the
+> selected size. Not decoration: تَشْكِيل stacks above and below the baseline, and whether a size is
+> comfortable depends entirely on whether that stack stays legible, so a bare glyph or a lorem
+> sample would let a student pick a size that fails on the only text they will actually read.
+>
+> **Stop 5 of the Arabic scale is now wired** — `ReadingFontSize.ACCESSIBLE` at 38sp/87sp — closing
+> the gap this file recorded when the token set landed. It is deliberately last and never the
+> default: it trades how much of the matn you can see for how well you can see it.
+>
+> Deviations recorded against the Settings frame:
+>
+> 1. **No interface-language row.** The design offers an in-app العربية / English override that
+>    sets layout direction. Direction already follows the device locale (see the bilingual-layout
+>    note above), and an in-app override needs a persisted preference plus a resource-locale
+>    override — a feature, not a frame. Omitted rather than faked with a control that only redraws.
+> 2. **No Auto-scroll or Keep-screen-awake rows.** Both are drawn as switches; neither preference
+>    exists. The wake lock is unconditional during playback, so the switch would control nothing.
+> 3. **Storage expands in place rather than opening a sheet.** That row's kicker says "opens storage
+>    sheet", but the frame's own headline is "expandable rows, no sub-routes", and every other row
+>    on the screen expands. One interaction model beats matching one kicker.
+>
+> Still **not** implemented from the design: the Studio consolidation (4 destinations → 3), the
+> component library, and the logo.
 
 The **Stitch** project below is the historical reference for screen layout. Any model or
 developer implementing a screen MUST pull that screen's design from Stitch rather than inventing

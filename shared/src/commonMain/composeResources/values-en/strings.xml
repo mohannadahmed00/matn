@@ -189,4 +189,7 @@
     <string name="a11y_state_installed">Installed</string>
     <string name="a11y_state_installing">Installing</string>
     <string name="a11y_state_not_installed">Not installed</string>
+    <string name="settings_row_expanded">Expanded</string>
+    <string name="settings_row_collapsed">Collapsed</string>
+    <string name="font_accessible">Accessible</string>
 </resources>
